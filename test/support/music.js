@@ -8,6 +8,7 @@ const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const { testAudio } = require('./paths');
+const { onCleanup } = require('./cleanup');
 
 const run = promisify(execFile);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -148,7 +149,7 @@ async function orderedQueue() {
   if (!saved) {
     const [shuffle, repeat] = (await osa('tell application "Music" to return (shuffle enabled as string) & "," & (song repeat as string)')).split(',');
     saved = { shuffle, repeat };
-    process.on('exit', () => {
+    onCleanup(() => {
       try {
         require('node:child_process').execFileSync('osascript', ['-e',
           `tell application "Music" to set shuffle enabled to ${saved.shuffle}`, '-e',

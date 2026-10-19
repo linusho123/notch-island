@@ -37,10 +37,14 @@ struct IslandView: View {
   @ObservedObject var model: IslandModel
   static let openSize = CGSize(width: 460, height: 190)
 
+  private var radius: CGFloat {
+    model.isOpen ? NotchGeometry.openBottomRadius : NotchGeometry.closedBottomRadius
+  }
+
   var body: some View {
     ZStack(alignment: .top) {
       UnevenRoundedRectangle(
-        bottomLeadingRadius: model.isOpen ? 22 : 10, bottomTrailingRadius: model.isOpen ? 22 : 10
+        bottomLeadingRadius: radius, bottomTrailingRadius: radius
       )
       .fill(Color.black)
       if model.isOpen {

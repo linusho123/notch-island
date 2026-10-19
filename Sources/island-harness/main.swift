@@ -354,7 +354,7 @@ func luminance(_ image: CGImage, crop: CGRect) -> (max: Double, mean: Double) {
 /// `screencapture` and with ScreenCaptureKit, and report how bright each
 /// capture is there. A window kept out of captures over the backdrop leaves
 /// it white; one that is captured darkens it.
-func captureCheck(_ rect: CGRect) -> Never {
+func captureCheck(_ rect: CGRect, islandPid: Int) -> Never {
   let app = NSApplication.shared
   app.setActivationPolicy(.accessory)
   let appKitRect = CGRect(
@@ -366,8 +366,35 @@ func captureCheck(_ rect: CGRect) -> Never {
   backdrop.level = .floating
   backdrop.ignoresMouseEvents = true
   backdrop.orderFrontRegardless()
+  // Any window that is neither ours nor the island's and sits above the
+  // backdrop over the rect darkens a capture without the island being in it
+  // (a menu-bar app's popover, say). Name them, so the verdict can tell an
+  // environment problem from a D110 failure.
+  let backdropNumber = backdrop.windowNumber
+  func foreignWindows() -> [[String: Any]] {
+    let list =
+      (CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]])
+      ?? []
+    var found: [[String: Any]] = []
+    for info in list {  // front to back
+      let number = info[kCGWindowNumber as String] as? Int ?? 0
+      if number == backdropNumber { break }
+      let pid = info[kCGWindowOwnerPID as String] as? Int ?? 0
+      let alpha = info[kCGWindowAlpha as String] as? Double ?? 1
+      guard pid != islandPid, pid != Int(getpid()), alpha > 0.01,
+        let b = info[kCGWindowBounds as String] as? NSDictionary,
+        let r = CGRect(dictionaryRepresentation: b), r.intersects(rect)
+      else { continue }
+      found.append([
+        "owner": info[kCGWindowOwnerName as String] as? String ?? "", "pid": pid,
+        "layer": info[kCGWindowLayer as String] as? Int ?? 0, "frame": rectJSON(r),
+      ])
+    }
+    return found
+  }
   DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
     var result: [String: Any] = [:]
+    let foreignBefore = foreignWindows()
     let file = NSTemporaryDirectory() + "island-harness-\(getpid()).png"
     let shot = Process()
     shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
@@ -407,6 +434,7 @@ func captureCheck(_ rect: CGRect) -> Never {
       } catch {
         result["screenCaptureKitError"] = "\(error)"
       }
+      result["foreignWindows"] = foreignBefore + foreignWindows()
       emit(result)
       exit(0)
     }
@@ -594,7 +622,8 @@ case "sweep":
   }
   emit(["samples": samples])
 case "capture-check":
-  captureCheck(CGRect(x: num(1), y: num(2), width: num(3), height: num(4)))
+  captureCheck(
+    CGRect(x: num(1), y: num(2), width: num(3), height: num(4)), islandPid: Int(num(5)))
 case "make-movie":
   makeMovie(path: arg(1), seconds: Int(num(2)))
   emit(["ok": true])

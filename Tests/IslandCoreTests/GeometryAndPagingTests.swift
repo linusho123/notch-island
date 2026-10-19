@@ -96,3 +96,32 @@ struct PageScrollerTests {
     #expect(p.page == .music)
   }
 }
+
+/// risk-2: the pointer is on the island only where the shape is drawn, not in
+/// the transparent corners of the panel's rectangle.
+struct ShapeHitTests {
+  let open = CGRect(x: 625, y: 917, width: 460, height: 190)  // AppKit: origin bottom-left
+
+  @Test func theMiddleAndTheTopEdgeAreOnTheShape() {
+    #expect(NotchGeometry.shapeContains(CGPoint(x: 855, y: 1000), in: open, bottomRadius: 22))
+    #expect(NotchGeometry.shapeContains(CGPoint(x: 855, y: 1107.5), in: open, bottomRadius: 22))
+  }
+
+  @Test func theTransparentBottomCornersAreOff() {
+    #expect(!NotchGeometry.shapeContains(CGPoint(x: 625.5, y: 917.5), in: open, bottomRadius: 22))
+    #expect(!NotchGeometry.shapeContains(CGPoint(x: 1084.5, y: 917.5), in: open, bottomRadius: 22))
+  }
+
+  @Test func insideTheRoundingStaysOn() {
+    // 10 pt in from each edge of the corner, well inside the 22 pt arc.
+    #expect(NotchGeometry.shapeContains(CGPoint(x: 640, y: 932), in: open, bottomRadius: 22))
+    #expect(NotchGeometry.shapeContains(CGPoint(x: 1070, y: 932), in: open, bottomRadius: 22))
+    // Straight along the bottom edge, away from the corners.
+    #expect(NotchGeometry.shapeContains(CGPoint(x: 855, y: 917.5), in: open, bottomRadius: 22))
+  }
+
+  @Test func outsideTheRectIsOff() {
+    #expect(!NotchGeometry.shapeContains(CGPoint(x: 600, y: 1000), in: open, bottomRadius: 22))
+    #expect(!NotchGeometry.shapeContains(CGPoint(x: 855, y: 900), in: open, bottomRadius: 22))
+  }
+}

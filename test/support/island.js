@@ -7,6 +7,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 const procs = require('./procs');
+const { onCleanup } = require('./cleanup');
 const harness = require('./harness');
 const { scratch } = require('./sandbox');
 const { testBinary } = require('./paths');
@@ -41,7 +42,7 @@ let cleanupArmed = false;
 function armLoginCleanup() {
   if (cleanupArmed) return;
   cleanupArmed = true;
-  process.on('exit', () => {
+  onCleanup(() => {
     spawnSync(testBinary, ['--test-unregister-login-and-exit'], { timeout: 20000, stdio: 'ignore' });
   });
 }

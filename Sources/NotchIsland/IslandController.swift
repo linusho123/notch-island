@@ -132,8 +132,9 @@ final class IslandController: NSObject, NSMenuDelegate {
   private func pointerInside() -> (CGPoint, Bool) {
     let p = Self.pointerLocation()
     guard let rect = shapeRect else { return (p, false) }
-    let hit = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height + 1)
-    return (p, hit.contains(p))
+    let radius =
+      machine.state == .open ? NotchGeometry.openBottomRadius : NotchGeometry.closedBottomRadius
+    return (p, NotchGeometry.shapeContains(p, in: rect, bottomRadius: radius))
   }
 
   /// Where the pointer is now, in AppKit's coordinates, asked of the event

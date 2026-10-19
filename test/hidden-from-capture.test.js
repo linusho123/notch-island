@@ -10,6 +10,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const harness = require('./support/harness');
 const island = require('./support/island');
+const { captureVerdict } = require('./support/capture');
 
 test('D110: the open island is kept out of screen captures on this Mac', async (t) => {
   const defers = [];
@@ -24,15 +25,13 @@ test('D110: the open island is kept out of screen captures on this Mac', async (
   const p = view.panel;
   const rect = { x: p.x + 30, y: p.y + 50, w: p.w - 60, h: p.h - 70 };
 
-  const shots = await harness.h('capture-check', rect.x, rect.y, rect.w, rect.h);
+  const shots = await harness.h('capture-check', rect.x, rect.y, rect.w, rect.h, pid);
   const after = await island.look(pid);
   assert.ok(after.open, 'the island closed during the captures, so they proved nothing');
   const listed = (await harness.cgwindows()).filter((w) => w.pid === pid);
   assert.ok(listed.some((w) => w.frame.h > 100), 'the window server does not list the open island on screen');
 
-  assert.ok(shots.screencapture, 'screencapture took no shot (Screen Recording permission?)');
-  assert.ok(shots.screenCaptureKit, `ScreenCaptureKit took no capture: ${shots.screenCaptureKitError}`);
-  // The island draws black over a white backdrop; a capture that holds it is dark there.
-  assert.ok(shots.screencapture.mean > 0.9, `screencapture shows the island (mean ${shots.screencapture.mean.toFixed(2)})`);
-  assert.ok(shots.screenCaptureKit.mean > 0.9, `ScreenCaptureKit shows the island (mean ${shots.screenCaptureKit.mean.toFixed(2)})`);
+  // A foreign window over the rect is an environment problem, not D110 false.
+  const verdict = captureVerdict(shots);
+  assert.ok(verdict.ok, verdict.message);
 });

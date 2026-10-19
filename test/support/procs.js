@@ -4,6 +4,7 @@
 // re-checking that the pid still names the process it started (so a reused
 // pid can never be hit).
 const { spawn, execFileSync } = require('node:child_process');
+const { onCleanup } = require('./cleanup');
 
 const spawned = new Map(); // pid -> handle
 
@@ -54,7 +55,7 @@ async function stop(handle) {
 }
 
 // Last resort if the test process itself is torn down mid-scenario.
-process.on('exit', () => {
+onCleanup(() => {
   for (const h of spawned.values()) {
     if (isOurs(h)) { try { process.kill(h.pid, 'SIGKILL'); } catch { /* gone */ } }
   }

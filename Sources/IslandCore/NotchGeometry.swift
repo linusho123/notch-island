@@ -43,4 +43,32 @@ public enum NotchGeometry {
     x = min(max(x, screen.minX), screen.maxX - size.width)
     return CGRect(x: x, y: screen.maxY - size.height, width: size.width, height: size.height)
   }
+
+  /// The drawn shape's bottom corner radii: the closed island's and the open
+  /// panel's. The view draws with these and the pointer test follows them.
+  public static let closedBottomRadius: CGFloat = 10
+  public static let openBottomRadius: CGFloat = 22
+
+  /// Whether `p` (AppKit coordinates, origin bottom-left) is on the drawn
+  /// shape: `rect` with its bottom corners rounded by `bottomRadius`. The top
+  /// edge counts, one point past it too: the pointer pushed against the top of
+  /// the screen is on the notch.
+  public static func shapeContains(_ p: CGPoint, in rect: CGRect, bottomRadius r: CGFloat) -> Bool {
+    let hit = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height + 1)
+    guard hit.contains(p) else { return false }
+    let radius = min(r, rect.width / 2, rect.height)
+    let cy = rect.minY + radius
+    guard p.y < cy else { return true }
+    let cx: CGFloat
+    if p.x < rect.minX + radius {
+      cx = rect.minX + radius
+    } else if p.x > rect.maxX - radius {
+      cx = rect.maxX - radius
+    } else {
+      return true
+    }
+    let dx = p.x - cx
+    let dy = p.y - cy
+    return dx * dx + dy * dy <= radius * radius
+  }
 }
