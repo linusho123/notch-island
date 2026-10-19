@@ -48,17 +48,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     music.start()
   }
 
-  /// The rest and grace times (D51, D52) are tuned on the machine: the
-  /// defaults `restSeconds` and `graceSeconds` override them.
+  /// The rest and grace times (D51, D52) are tuned on the machine (BUILD-PLAN
+  /// Q3): in a debug or test build only, the defaults `restSeconds` and
+  /// `graceSeconds` override them. The installed app has no such switch.
   private static var timing: IslandTiming {
     var timing = IslandTiming.standard
-    let defaults = UserDefaults.standard
-    if defaults.object(forKey: "restSeconds") != nil {
-      timing.rest = defaults.double(forKey: "restSeconds")
-    }
-    if defaults.object(forKey: "graceSeconds") != nil {
-      timing.grace = defaults.double(forKey: "graceSeconds")
-    }
+    #if DEBUG || ISLAND_TEST_INPUT
+      let defaults = UserDefaults.standard
+      if defaults.object(forKey: "restSeconds") != nil {
+        timing.rest = defaults.double(forKey: "restSeconds")
+      }
+      if defaults.object(forKey: "graceSeconds") != nil {
+        timing.grace = defaults.double(forKey: "graceSeconds")
+      }
+    #endif
     return timing
   }
 

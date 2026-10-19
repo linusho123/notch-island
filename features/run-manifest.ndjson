@@ -20,7 +20,7 @@
 {"file":"music-panel.feature","title":"A pause Apple Music ignores leaves the pause button showing","status":"passed"}
 {"file":"music-panel.feature","title":"A seek Apple Music ignores leaves the progress dot where playback really is","status":"passed"}
 {"file":"music-panel.feature","title":"After Quit, the next login starts the island again","status":"passed"}
-{"file":"music-panel.feature","title":"An island opened by a click closes as after a hover","status":"failed"}
+{"file":"music-panel.feature","title":"An island opened by a click closes as after a hover","status":"passed"}
 {"file":"music-panel.feature","title":"Back at 0:00 into Wonderwall plays \"Don't Look Back in Anger\" from the start [5]","status":"passed"}
 {"file":"music-panel.feature","title":"Back at 0:02 into Wonderwall plays \"Don't Look Back in Anger\" from the start [4]","status":"passed"}
 {"file":"music-panel.feature","title":"Back at 0:03 into Wonderwall plays \"Don't Look Back in Anger\" from the start [3]","status":"passed"}
@@ -56,7 +56,7 @@
 {"file":"music-panel.feature","title":"With an external mouse, the visionary clicks the notch with the mouse as with the trackpad [2]","status":"passed"}
 {"file":"music-panel.feature","title":"With an external mouse, the visionary rests the mouse pointer on the notch for about 0.3 seconds as with the trackpad [1]","status":"passed"}
 {"file":"music-panel.feature","title":"With an external mouse, the visionary turns the mouse wheel down on the island as with the trackpad [3]","status":"passed"}
-{"file":"music-panel.feature","title":"With nothing playing, the music page offers the last song paused and ready","status":"failed"}
+{"file":"music-panel.feature","title":"With nothing playing, the music page offers the last song paused and ready","status":"passed"}
 {"file":"music-sources.feature","title":"A Bluetooth speaker dropping mid-song pops nothing out","status":"unbound"}
 {"file":"music-sources.feature","title":"A YouTube lecture playing with sound counts as a song","status":"unbound"}
 {"file":"music-sources.feature","title":"A YouTube video started while Wonderwall plays takes the card, with a flip control","status":"unbound"}

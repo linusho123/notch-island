@@ -223,7 +223,10 @@ module.exports = (reg) => {
     await playing(w, 'Wonderwall', 30);
     await plainNotch(w);
     const c = await harness.notchCenter();
-    await harness.arriveAndClick(pid, c.x, c.y, 50);
+    const n = await notch();
+    const r = await harness.arriveAndClick(pid, c.x, c.y, 250);
+    const first = r.samples.find((s) => island.parse(s.windows, n).open);
+    assert.ok(first && first.t - r.clickedAt < 200, 'the click did not open the island');
     await openOnMusicPage(w);
   });
 
@@ -399,9 +402,14 @@ module.exports = (reg) => {
     const b = center(wifi.frame);
     const n = await notch();
     assert.ok(a.x < n.x && b.x > n.x + n.w, 'the Help menu and the Wi-Fi icon are not either side of the notch');
-    const list = await harness.sweep(w.island.pid, a, b, 40, 12, 800);
+    // An unhurried sweep, about a second end to end: the pointer is over the
+    // notch for a good part of the rest time, never still on it.
+    const list = await harness.sweep(w.island.pid, a, b, 80, 15, 800);
     w.sweep = list.map((s) => ({ t: s.t, pointer: s.pointer, view: island.parse(s.windows, n) }));
     w.sweepNotch = n;
+    const over = w.sweep.filter((s) => s.pointer && s.pointer.x >= n.x && s.pointer.x <= n.x + n.w);
+    assert.ok(over.length > 1 && over[over.length - 1].t - over[0].t >= 200,
+      'the sweep crossed the notch too fast to show anything');
   });
 
   reg.define(/^the visionary clicks the notch the moment the pointer reaches it$/, async (w) => {

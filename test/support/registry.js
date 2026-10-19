@@ -7,9 +7,28 @@ const { promisify } = require('node:util');
 
 const run = promisify(execFile);
 
+/**
+ * The registry's own dump. `sfltool dumpbtm` now and then hangs for a minute
+ * or more while the registry daemon is busy (seen right after a login item is
+ * added); a hung dump is asked again rather than read as an answer.
+ */
+async function dump() {
+  let last;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const { stdout } = await run('sfltool', ['dumpbtm'], { encoding: 'utf8', maxBuffer: 32 << 20, timeout: 30000 });
+      return stdout;
+    } catch (e) {
+      last = e;
+      if (!e.killed) throw e;
+    }
+  }
+  throw new Error(`sfltool dumpbtm hung three times: ${last.message}`);
+}
+
 /** The login items macOS keeps for this user. */
 async function items() {
-  const { stdout } = await run('sfltool', ['dumpbtm'], { encoding: 'utf8', maxBuffer: 32 << 20, timeout: 60000 });
+  const stdout = await dump();
   const uid = os.userInfo().uid;
   const sections = stdout.split(/^\s*Records for UID /m);
   const mine = sections.find((s) => s.startsWith(`${uid} `));
