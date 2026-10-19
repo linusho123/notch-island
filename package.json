@@ -1,9 +1,15 @@
 {
   "name": "notch-island",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
-  "description": "Turns the MacBook Air camera notch into a live module (scope interview in progress)",
+  "description": "Turns the MacBook Air camera notch into a live module: a music panel and a shelf",
   "license": "UNLICENSED",
+  "scripts": {
+    "build:app": "sh scripts/build-app.sh",
+    "test": "npm run build:app && node --test --test-concurrency=1 \"test/**/*.test.js\"",
+    "lint": "swift format lint --strict --recursive Sources Tests && npm run scope",
+    "scope": "node scripts/lint-features.js && node scripts/scope-check.js features/*.feature"
+  },
   "devDependencies": {
     "@bingh/docketry": "^0.1.0",
     "gherkin-node-test": "^0.11.0"
