@@ -1,0 +1,11 @@
+{
+  "name": "notch-island",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Turns the MacBook Air camera notch into a live module (scope interview in progress)",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@bingh/docketry": "^0.1.0",
+    "gherkin-node-test": "^0.11.0"
+  }
+}

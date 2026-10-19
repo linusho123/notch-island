@@ -1,0 +1,90 @@
+# Out of scope
+
+What was declined, deferred, or assumed during the scoping interview for
+notch-island, and the options the visionary turned down, so a later reader
+finds a decision here instead of an open question. Each entry ends with the
+docket ids that ruled it and the date it was ratified.
+
+## Declined
+
+- **other-island-uses.** Of the other uses suggested for the island, only the quick-access shelf joins music. No live countdowns (timers, next meeting, download progress), no device status (charging, AirPods, volume, Focus, camera or mic in use), and no incoming alerts (calls, messages, a reminder going off): they are not part of the vision. A speaker dropping shows no notice, and a reminder never goes off on its own. Guarded by: "A Bluetooth speaker dropping mid-song pops nothing out", "A note and an open reminder stay on the shelf, quietly, for a week" (D1, D73 amended by D120, D57, 2026-10-19)
+- **screenshot-preview-survival.** macOS's floating screenshot thumbnail in the bottom-right corner is not required to keep appearing once screenshots land on the shelf; offered in the must-survive inventory and left unselected. (D71, 2026-10-18)
+- **checklist-unselected.** Reliability beyond what is already ruled, availability, security and privacy, upkeep burden, diagnosability and compliance were left unselected at the checklist triage and not probed. Privacy while sharing the screen came in separately, through the domain question. (D75, 2026-10-18)
+- **usability-extras.** No keyboard shortcut to open the island, no simpler motion under Reduce Motion, and no styling for a dark or light menu bar; offered in the usability probe and left unselected. (D77, 2026-10-18)
+- **removal-leftovers.** What is left behind when the island is removed is not worth ruling. (D81, 2026-10-18)
+- **common-extras.** No settings reached from the island, no volume slider on the music page, and no love or like button. Quitting is no longer declined: the adversarial pass gave the island a right-click Quit, since starting at every login with no way out would trap it, and the visionary confirmed that partial reversal. Guarded by: "Right-clicking the notch offers only Quit" (D85, D86, 2026-10-18)
+
+## Deferred
+
+- **install-and-update.** How the island is installed and updated, for me and for others, is not ruled now; any way of getting it onto my own Mac will do until then, since sharing is a maybe and no behaviour depends on it. Reopens when I decide to share the island with other people. (D82, 2026-10-18)
+
+## Named assumptions
+
+- **external-monitor-extended.** When I add an external monitor it is an extended display, never mirrored, and it has no notch; the scope treats it as an extra screen without a notch beside the built-in one. Reopens if I start mirroring onto an external display, or use one that has a notch — the reopening condition confirmed at the scope-fence readback. (D15, 2026-10-18)
+- **lid-never-closed.** I never close the lid while working on the external monitor, so no behaviour is ruled for a closed lid. Reopens if I start working with the lid closed on an external monitor alone. (D17, 2026-10-18)
+- **hide-from-capture.** macOS still lets an app keep its own windows out of screen shares and recordings on this Mac's version, and keeping the island working for me while nothing of it appears in a share or recording is buildable only under that assumption; reports disagree on macOS 15 and later, unverified here. Reopens when the build finds macOS no longer lets an app keep its windows out of shares or recordings, and the sharing question then returns to me. (D110, 2026-10-19)
+
+## Out of reach by construction
+
+Nothing in this interview was ruled out of reach by construction: every
+case that came up was either ruled, declined, deferred, or rests on a named
+assumption above.
+
+## Roads not taken
+
+- **Chrome tracking deferred (reversed).** How the island learns what a Chrome tab is playing was first held for the technology-preferences step; it is no longer deferred, since I answered "make it so" there and it is the build agent's choice, recorded in DESIGN.md. (D6 reversed by D97, 2026-10-18)
+- **Reminders.** A timed reminder that pops the island out when due; a quiet marker on the closed island while a reminder is open. A reminder sits on the shelf until checked off and never draws attention, keeping incoming alerts declined. (D2, 2026-10-18)
+- **Players for downloaded files.** IINA and Music only, QuickTime never followed; any app that reports it is playing media. The file counts whichever of IINA, QuickTime Player or Music plays it, and my default apps stay as they are. (D5, 2026-10-18)
+- **External monitor.** An island drawn on both screens; one island that follows the screen I am working on. The island lives only at the built-in notch, accepting that a pop-out can go unseen while I look at the other screen. (D16, 2026-10-18)
+- **Lid closed.** No island at all while the lid is closed; a drawn island on the external monitor only while the lid is closed. I never work that way, so nothing is ruled. (D17, 2026-10-18)
+- **Shape of the new-song notice.** Down always, the pop-out opening downward too; sideways always, title and buttons all inside the menu bar strip; click-through wings that fold when a menu under them is clicked; clicking the wings opens the island; dropping below the notch whenever the left has no room; no notice when the left has no room; moving into the right gap beside a playing indicator, as first ruled; a small card below the notch when the left has no room; skipping the notice whenever the title cannot fit; the indicator inside the left wing after the title. The right of the notch is left to the status bar I am adding there, and on the left the indicator would cost title letters. A single wing left of the notch that never covers a menu or status icon: the title shrinks first, then the art shows alone, and when even the art does not fit nothing pops. (D67 amended by D114, D113, 2026-10-19)
+- **Back.** Back always goes to the previous song; back passes through to the playing app's own behaviour; a click at `0:03` restarting the song, within meaning before `0:03`. Back restarts the song, and goes to the previous one at three seconds in or earlier, `0:03` itself included. (D45 amended by D112, 2026-10-19)
+- **What the panel shows.** Just the song (art, title, artist, buttons); song and progress without a source line. The panel also carries a source line and a progress bar, so a file with no art or artist still reads. (D24, 2026-10-18)
+- **Progress bar.** Display only. Dragging the dot or clicking the bar seeks. (D25, 2026-10-18)
+- **Source line.** A label only; the speaker part opening a sound-output switch while the app part brings the app forward. Clicking the source line or the art brings the playing app, or the exact Chrome tab, to the front. (D26, 2026-10-18)
+- **Music and shelf in one panel.** Music on top with a sideways-scrolling shelf row below; side by side in a wider panel (picked, then replaced by my own reframe); two tabs at the top. One panel the size of the music panel, music first, a simple scroll away from the shelf. (D29, 2026-10-18)
+- **Moving between pages.** A two-finger sideways swipe with page dots; either motion. Scrolling down reaches the shelf and up returns, with a small bar showing which page is up. (D30, 2026-10-18)
+- **Nothing playing.** Opening straight on the shelf when there is no song; an empty music page reading "Nothing playing" with greyed buttons. The last song shows paused and ready, and play starts it again. (D31, 2026-10-18)
+- **Where a parked file lives.** The file moving onto the shelf until dragged somewhere; the shelf keeping its own copy. The file stays where it is and the shelf only points to it. (D36, 2026-10-18)
+- **Turning a note into a reminder.** Separate + note and + reminder buttons; a typed prefix such as a dash. A small box beside the note turns it into a reminder, and the pencil turns it back. (D39, 2026-10-18)
+- **Checking off a reminder.** Shown struck through for a moment so a misclick can be undone; staying checked until removed by hand. A checked-off reminder leaves the shelf at once. (D40, 2026-10-18)
+- **Removing a shelf item.** The x on hover alone; dragging off alone; dragging off onto spots that accept nothing, such as the menu bar; the x on hover with no drag removal. The x plus a remove area that appears only while an item is dragged, since nearly nothing on a Mac is empty space and a guessed drop either loses an item or does something unasked. (D66, 2026-10-18)
+- **Rapid skipping.** The wings folding and popping again for each song; nothing popping until a song has played for a moment. The wings stay out and the title changes, with no flicker. (D44, 2026-10-18)
+- **Skip with nothing next.** Skip greyed out; skip ending the song and showing it paused and ready. The click goes to the playing app, and the island shows what that app does. (D46, 2026-10-18)
+- **Back with nothing before.** Back always restarting the current song. The click goes to the playing app. (D47, 2026-10-18)
+- **Two sources at once.** Following whichever started most recently; pausing the source already playing so only one plays. Both are shown, switchable, with the mirror flip I added. (D48, 2026-10-18)
+- **Three or more sources.** The flip only swapping the two most recently started; a picker list; keeping every source a face whatever it costs. Each flip shows the next source in turn among the sources the island can see separately, with a `2 of 3` style count matching the faces shown, so IINA may have no face and the count read `2 of 2`. (D49 amended by D111, 2026-10-19)
+- **What counts in Chrome.** Anything playing in a followed source; the named sites only with nothing muted or soundless ever counting; only watch-page and playlist videos, muted or not; every YouTube video counting, as first ruled. Only youtube.com and soundcloud.com, and only while playing sound. (D88, 2026-10-18)
+- **Opening on hover.** Opening on any contact; resting about seven tenths of a second. A short rest opens it, a sweep across on the way to another icon opens nothing. (D51, 2026-10-18)
+- **Closing when the pointer leaves.** A short grace that also applies during drags; closing the instant the pointer leaves. A half-second grace, and never closing while a drag is under way. (D52, 2026-10-18)
+- **Fullscreen.** Wings popping the same as always; the island fully off in fullscreen. No wing in fullscreen, so a movie is never interrupted, while hovering still opens the panel. (D53 amended by D125, 2026-10-19)
+- **A burst of screenshots.** No limit, newest first, the page scrolling inside itself; a fixed number kept with the oldest pushed off; a stack holding at most thirty, the next capture starting a new one. Screenshots taken close together collapse into one stack, and a stack has no maximum, thirty being a stress case and not a cap. (D89 amended by D118, 2026-10-19)
+- **Recordings in a burst.** Recordings never stacking with screenshots; recordings stacking only with other recordings. A recording inside a bug-documenting burst belongs to the same drag. (D89 amended by D118, 2026-10-19)
+- **A shelf that fills up.** No limit, newest first, scrolling inside the page; a fixed cap that refuses a new item until something is cleared. Parked files and screenshots age out on their own. (D57, 2026-10-18)
+- **How long items stay.** Seven days; thirty days; overnight, clearing everything parked before today when a new day starts. Every parked file or screenshot gets a full day. (D57, 2026-10-18)
+- **A parked file moved or trashed.** The item staying greyed out and marked missing until cleared by hand; leaving silently whenever it is not where it was parked from. A moved file follows its new place; a trashed one leaves. (D58, 2026-10-18)
+- **Restarts.** Only notes and reminders surviving; nothing surviving. Everything comes back, and parked files keep their clock. (D59, 2026-10-18)
+- **Starting.** I launch it myself and it is gone after a restart; a start-at-login switch, on unless turned off. It is running at the notch by itself at every login. (D60, 2026-10-18)
+- **Long notes.** A long note kept whole and shown as its first line with an ellipsis; one line only, with pasted text cut to its first line. Notes stop at a short cap. (D62, 2026-10-18)
+- **Editing notes.** Notes that cannot be edited, only removed and rewritten. A note's text is corrected in place. (D63, 2026-10-18)
+- **What lands on the shelf by itself.** Dragging screenshots in by hand; both automatic screenshots and drag-in; recordings and clipboard shots; regular screenshots only; everything, other tools included. Regular screenshots and screen recordings that save a file land by themselves; a clipboard shot is already in the clipboard and would be the one shelf item with no file behind it. (D64, 2026-10-18)
+- **What can be dropped on the notch.** New downloads landing by themselves; a shelf holding only screenshots, notes and reminders; files and folders only; dropped text becoming a note cut at the cap. Files, several files, folders and links park; dropped text is refused, since losing text unannounced is worse than refusing it. (D65, 2026-10-18)
+- **Quitting a source.** The quit source's last song still showing paused while another plays; its face leaving but play never reopening a closed app or tab; a reopened app playing from the start; the reopened app deciding. The newest remaining source shows, and when none is left play reopens the last one and resumes it where it left off, whatever the source. (D72 amended by D117, 2026-10-19)
+- **Speaker disconnect.** The wings popping briefly with a disconnect notice, which would reopen the device status declined in other-island-uses; naming `MacBook speakers` once right after the drop until the song changes, as first ruled. Nothing pops out; the speaker part of the source line simply goes, since the built-in speaker is never named. (D73 amended by D120, 2026-10-19)
+- **Clicking the closed notch.** A click toggling play and pause; clicking doing nothing special. A click opens the island at once. (D74, 2026-10-18)
+- **How fast the wings come out.** Within half a second; within three seconds. Within a second of the new song starting, on every followed source. (D78, 2026-10-18)
+- **Removing the island.** Removal taking everything; notes and reminders exported to a text file on removal. Not worth ruling. (D81, 2026-10-18)
+- **Installing and updating.** A download dragged into Applications that updates itself after asking; the same download updated by hand. Not ruled until I decide to share it. (D82, 2026-10-18)
+- **Sharing or recording the screen.** Quiet for everyone, with no wings and no shelf page; the island doing nothing at all until the share or recording ends, as first ruled, kept as best effort; a manual pause switch beside Quit. An app has no supported way to tell the screen is being shared, so the island keeps working for me while nothing of it appears in what the share or recording captures. (D83 amended by D108, 2026-10-19)
+- **Quitting the island.** Accepting Force Quit in Activity Monitor; a right-click Quit that also stops it starting at login. A right-click menu with the single item Quit, and the island back at the next login. (D86, 2026-10-18)
+- **The very first hover.** This one case opening on the shelf page; showing what Apple Music last played before the island existed. The music page reads `Nothing played yet`, keeping music first from day one. (D90, 2026-10-18)
+- **Weight of the new-song notice.** Lowering N2 to weight three; reopening the external-monitor ruling for the new-song notice only. N2 keeps weight four, and the external-monitor loss stays an accepted trade-off in service of N5. (D91, 2026-10-18)
+- **Dragging a capture out.** Leaving the shelf once dropped, accepted or not; staying until removed by hand; staying and clearing after a while. It leaves only when something actually accepted the drop. (D92, 2026-10-18)
+- **Dragging a note out.** The note dropping as text and leaving the shelf; notes and reminders that cannot be dragged. Its text drops in and it stays, since notes and reminders stay until I remove them. (D93, 2026-10-18)
+- **A parked file dropped on the Desktop.** It staying on the shelf and following the move to the Desktop. One rule: an item leaves when something accepts the drop, the Desktop included. (D116, 2026-10-19)
+- **Source-line labels.** App, site and speaker always, as `Chrome · YouTube · JBL Flip 5`; the site instead of Chrome with the speaker always shown. The site for Chrome sources and the app otherwise, with the speaker only when it is not the built-in one. (D119, 2026-10-19)
+- **The flip count.** The count showing only from three sources. Whenever the card has a flip control it shows a count, from `1 of 2`. (D121, 2026-10-19)
+- **Unmuting a preview.** Unmuting pops the wing like a new song. The preview joins the flip card and no wing pops, since seeing a new song without doing anything does not cover unmuting, which is doing something. (D122, 2026-10-19)
+- **Editing a note past the cap.** The cap applying only when a note is first written. Typing stops at the cap when editing too. (D123, 2026-10-19)
+- **When the app ignores a click.** The island showing the app's real state plus a small shake; leaving it to the build. The island always shows the app's real state and never its own guess, with no shake or message. (D124, 2026-10-19)
+- **A companion Chrome extension.** Ruling out any browser extension; leaving it as the build agent's own call. The island may rely on a small companion Chrome extension, installed once by me, to follow youtube.com and soundcloud.com tabs. (D126, 2026-10-19)
