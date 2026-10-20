@@ -66,16 +66,37 @@ const realDriver = {
     osaSync(...lines);
   },
   quit: () => { osaSync('tell application "Music" to quit'); },
+  /** Bounded wait (10 s) until the Music process has really gone. */
+  waitExited: () => {
+    const end = Date.now() + 10000;
+    while (Date.now() < end) {
+      try { execFileSync('pgrep', ['-x', 'Music']); } catch { return; } // pgrep exits 1: none left
+      execFileSync('sleep', ['0.1']);
+    }
+    throw new Error('Music did not exit within 10 s of being quit');
+  },
 };
 
 const keeper = createKeeper({ driver: realDriver, file: path.join(os.tmpdir(), 'notch-island-music-state.json') });
 let keeperArmed = false;
-/** Before Music is first touched: remember how the visionary had it, and put it back on exit or a signal. */
+let keeperError = null;
+/**
+ * Before Music is first touched: remember how the visionary had it, and put it
+ * back on exit or a signal. If that fails, nothing is armed and every later
+ * Music command fails with the same error, so none can relaunch Music
+ * unprotected.
+ */
 function keepMusic() {
+  if (keeperError) throw keeperError;
   if (keeperArmed) return;
+  try {
+    keeper.save();
+  } catch (e) {
+    keeperError = new Error(`could not save Music's state, so Music is left alone: ${e.message}`);
+    throw keeperError;
+  }
   keeperArmed = true;
   onCleanup(() => { try { keeper.restore(); } catch { /* Music gone */ } });
-  keeper.save();
 }
 
 async function osa(script) {

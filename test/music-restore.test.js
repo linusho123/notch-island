@@ -24,8 +24,17 @@ function fakeMusic(initial) {
       m.log.push(['apply', s.state, s.track, s.position]);
       m.shuffle = s.shuffle; m.repeat = s.repeat; m.state = s.state; m.track = s.track; m.position = s.position;
     },
-    quit: () => { m.log.push(['quit']); m.running = false; },
+    quit: () => { m.log.push(['quit']); m.running = false; m.shuttingDown = Boolean(initial.slowQuit); },
+    // Real Music takes a moment to exit; reads meanwhile fail with -609.
+    waitExited: () => { m.shuttingDown = false; },
   };
+  if (initial.slowQuit) {
+    const read = driver.snapshot;
+    driver.snapshot = () => {
+      if (m.shuttingDown) throw new Error('Music got an error: Connection is invalid. (-609)');
+      return read();
+    };
+  }
   return { m, driver };
 }
 
@@ -98,4 +107,26 @@ test('a normal restore removes the state file', () => {
   assert.ok(fs.existsSync(file));
   keeper.restore();
   assert.ok(!fs.existsSync(file));
+});
+
+test('SIGKILL left a state file: the next keepMusic succeeds although Music quits slowly, and ends as saved', () => {
+  const file = tmpFile();
+  const { m, driver } = fakeMusic({ running: false, shuffle: 'true', repeat: 'all', slowQuit: true });
+  createKeeper({ driver, file }).save();
+  m.shuffle = 'false'; m.state = 'playing'; m.track = 'TEST1'; // the run is killed here
+  const next = createKeeper({ driver, file });
+  next.save(); // sweep (quits Music, waits for it) then saves afresh
+  assert.equal(m.running, true);
+  next.restore();
+  assert.equal(m.running, false, 'Music was left running');
+  assert.equal(m.shuffle, 'true');
+  assert.ok(!fs.existsSync(file));
+});
+
+test('a save that throws leaves nothing armed: the error is rethrown at every later save', () => {
+  const { driver } = fakeMusic({ running: true });
+  driver.snapshot = () => { throw new Error('-609'); };
+  const keeper = createKeeper({ driver, file: tmpFile() });
+  assert.throws(() => keeper.save(), /-609/);
+  assert.throws(() => keeper.save(), /-609/);
 });

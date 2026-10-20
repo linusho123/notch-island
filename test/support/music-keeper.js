@@ -27,7 +27,15 @@ function createKeeper({ driver, file }) {
     if (saved) return;
     const wasRunning = driver.isRunning();
     // Reading the state starts Music if it was quit; wasRunning is already known.
-    saved = { wasRunning, ...driver.snapshot() };
+    let snap;
+    try {
+      snap = driver.snapshot();
+    } catch (e) {
+      // Reading started Music if it was quit: do not leave it running.
+      if (!wasRunning) { try { driver.quit(); driver.waitExited(); } catch { /* best effort */ } }
+      throw e;
+    }
+    saved = { wasRunning, ...snap };
     persist();
   }
 
@@ -40,6 +48,8 @@ function createKeeper({ driver, file }) {
       else {
         driver.apply({ ...s, state: 'stopped', track: null, position: 0 });
         driver.quit();
+        // Music takes a moment to exit; no read may come before it has.
+        driver.waitExited();
       }
     } finally {
       fs.rmSync(file, { force: true });
