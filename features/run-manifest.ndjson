@@ -1,0 +1,203 @@
+{"run-manifest":1}
+{"file":"around-the-clock.feature","title":"A screen recording that has just ended still lands on the shelf","status":"unbound"}
+{"file":"around-the-clock.feature","title":"Clicking Chrome's Help menu, the nearest menu left of the notch beside the closed island works as today [1]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"Clicking the Wi-Fi icon beside the closed island works as today [3]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"Clicking the leftmost status icon right of the notch beside the closed island works as today [4]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"Clicking the right-hand edge of Chrome's Help menu beside the closed island works as today [2]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"Logging in after a restart following a crash has the island working with nobody opening it [2]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"Logging in after a restart for an update has the island working with nobody opening it [1]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"Logging in after logging out has the island working with nobody opening it [3]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"Over a closed minute of Wonderwall, the island's CPU stays at or under 3% [1]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"Over a closed minute of Wonderwall, the island's Energy Impact stays at or under 5 [2]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"When the share ends, the island works as before","status":"unbound"}
+{"file":"around-the-clock.feature","title":"While recording the screen, the visionary still has the island and the capture shows none of it: the visionary clicks the notch [3]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"While sharing the screen in Meet, the visionary still has the island and the capture shows none of it: the visionary rests the pointer on the notch for 2 seconds [2]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"While sharing the screen in Zoom, the visionary still has the island and the capture shows none of it: \"Champagne Supernova\" starts in Apple Music [1]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"While sharing the screen in Zoom, the visionary still has the island and the capture shows none of it: the visionary drags \"tax-return.pdf\" onto the notch and lets go [4]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"With the music page over \"Wonderwall\" on screen while sharing the screen in Meet, what the Meet viewers see holds none of it [2]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"With the shelf page, holding the note \"✎ idea: notch app shows lyrics\" on screen while sharing the screen in Zoom, what the Zoom viewers see holds none of it [1]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"With the wing left of the notch for \"Champagne Supernova\" on screen while recording the screen, the played-back recording holds none of it [3]","status":"unbound"}
+{"file":"music-panel.feature","title":"A pause Apple Music ignores leaves the pause button showing","status":"passed"}
+{"file":"music-panel.feature","title":"A seek Apple Music ignores leaves the progress dot where playback really is","status":"passed"}
+{"file":"music-panel.feature","title":"After Quit, the next login starts the island again","status":"passed"}
+{"file":"music-panel.feature","title":"An island opened by a click closes as after a hover","status":"passed"}
+{"file":"music-panel.feature","title":"Back at 0:00 into Wonderwall plays \"Don't Look Back in Anger\" from the start [5]","status":"passed"}
+{"file":"music-panel.feature","title":"Back at 0:02 into Wonderwall plays \"Don't Look Back in Anger\" from the start [4]","status":"passed"}
+{"file":"music-panel.feature","title":"Back at 0:03 into Wonderwall plays \"Don't Look Back in Anger\" from the start [3]","status":"passed"}
+{"file":"music-panel.feature","title":"Back at 0:04 into Wonderwall plays \"Wonderwall\" from the start [2]","status":"passed"}
+{"file":"music-panel.feature","title":"Back at 1:40 into Wonderwall plays \"Wonderwall\" from the start [1]","status":"passed"}
+{"file":"music-panel.feature","title":"Before any song has ever played, the music page reads Nothing played yet","status":"passed"}
+{"file":"music-panel.feature","title":"Clicking the closed notch opens the island at once","status":"passed"}
+{"file":"music-panel.feature","title":"Clicking the cover art brings Chrome showing that youtube.com tab, not the Gmail tab to the front [2]","status":"unbound"}
+{"file":"music-panel.feature","title":"Clicking the source line brings Chrome showing that soundcloud.com tab, not the Gmail tab to the front [3]","status":"unbound"}
+{"file":"music-panel.feature","title":"Clicking the source line brings the Apple Music window to the front [1]","status":"passed"}
+{"file":"music-panel.feature","title":"Dragging the parked \"tax-return.pdf\" far from the island keeps it open until let go [2]","status":"unbound"}
+{"file":"music-panel.feature","title":"Dragging the progress dot far from the island keeps it open until let go [1]","status":"unbound"}
+{"file":"music-panel.feature","title":"In fullscreen, resting on the notch still opens the panel","status":"passed"}
+{"file":"music-panel.feature","title":"Moving the progress dot by clicking the bar to 1:45:00 jumps the concert file there [2]","status":"unbound"}
+{"file":"music-panel.feature","title":"Moving the progress dot by clicking the bar's start to 0:00:00 jumps the concert file there [4]","status":"unbound"}
+{"file":"music-panel.feature","title":"Moving the progress dot by dragging the dot back to 0:30:00 jumps the concert file there [3]","status":"unbound"}
+{"file":"music-panel.feature","title":"Moving the progress dot by dragging the dot to 1:45:00 jumps the concert file there [1]","status":"unbound"}
+{"file":"music-panel.feature","title":"Pause stops the music and becomes play","status":"passed"}
+{"file":"music-panel.feature","title":"Picking Quit stops the island","status":"passed"}
+{"file":"music-panel.feature","title":"Play on the last song starts it again","status":"passed"}
+{"file":"music-panel.feature","title":"Play resumes from the same spot","status":"passed"}
+{"file":"music-panel.feature","title":"Resting the pointer on the notch for 2 seconds opens the island [2]","status":"passed"}
+{"file":"music-panel.feature","title":"Resting the pointer on the notch for about 0.15 seconds opens the island [1]","status":"passed"}
+{"file":"music-panel.feature","title":"Resting the pointer on the notch opens the music panel","status":"passed"}
+{"file":"music-panel.feature","title":"Right-clicking the notch offers only Quit","status":"passed"}
+{"file":"music-panel.feature","title":"Scrolling down reaches the shelf when no song has played since the island was installed [2]","status":"passed"}
+{"file":"music-panel.feature","title":"Scrolling down reaches the shelf when the last song played was \"Wonderwall\" [1]","status":"passed"}
+{"file":"music-panel.feature","title":"Skip plays the next song in the queue","status":"passed"}
+{"file":"music-panel.feature","title":"Sweeping across the notch without resting opens nothing","status":"passed"}
+{"file":"music-panel.feature","title":"The panel shows a downloaded file with no cover art and no artist","status":"unbound"}
+{"file":"music-panel.feature","title":"The pointer leaving the open island for 0.2 seconds and back onto it [1]","status":"passed"}
+{"file":"music-panel.feature","title":"The pointer leaving the open island for 2 seconds [2]","status":"passed"}
+{"file":"music-panel.feature","title":"With an external mouse, the visionary clicks the notch with the mouse as with the trackpad [2]","status":"passed"}
+{"file":"music-panel.feature","title":"With an external mouse, the visionary rests the mouse pointer on the notch for about 0.15 seconds as with the trackpad [1]","status":"passed"}
+{"file":"music-panel.feature","title":"With an external mouse, the visionary turns the mouse wheel down on the island as with the trackpad [3]","status":"passed"}
+{"file":"music-panel.feature","title":"With nothing playing, the music page offers the last song paused and ready","status":"passed"}
+{"file":"music-sources.feature","title":"A Bluetooth speaker dropping mid-song pops nothing out","status":"unbound"}
+{"file":"music-sources.feature","title":"A YouTube lecture playing with sound counts as a song","status":"unbound"}
+{"file":"music-sources.feature","title":"A YouTube video started while Wonderwall plays takes the card, with a flip control","status":"unbound"}
+{"file":"music-sources.feature","title":"A muted YouTube preview counts from the moment it is unmuted","status":"unbound"}
+{"file":"music-sources.feature","title":"A song from Apple Music shows on the music page [1]","status":"unbound"}
+{"file":"music-sources.feature","title":"A song from IINA shows on the music page [4]","status":"unbound"}
+{"file":"music-sources.feature","title":"A song from IINA shows on the music page [5]","status":"unbound"}
+{"file":"music-sources.feature","title":"A song from Music shows on the music page [7]","status":"unbound"}
+{"file":"music-sources.feature","title":"A song from Music shows on the music page [8]","status":"unbound"}
+{"file":"music-sources.feature","title":"A song from QuickTime Player shows on the music page [6]","status":"unbound"}
+{"file":"music-sources.feature","title":"A song from a soundcloud.com tab in Chrome shows on the music page [3]","status":"unbound"}
+{"file":"music-sources.feature","title":"A song from a youtube.com tab in Chrome shows on the music page [2]","status":"unbound"}
+{"file":"music-sources.feature","title":"After the speaker drops, the source line names the app alone","status":"unbound"}
+{"file":"music-sources.feature","title":"Flipping 1 times through three sources shows the IINA file as 2 of 3 [1]","status":"unbound"}
+{"file":"music-sources.feature","title":"Flipping 1 times while IINA has no face shows the Apple Music song as 2 of 2 [1]","status":"unbound"}
+{"file":"music-sources.feature","title":"Flipping 2 times through three sources shows the Apple Music song as 3 of 3 [2]","status":"unbound"}
+{"file":"music-sources.feature","title":"Flipping 2 times while IINA has no face shows the YouTube video as 1 of 2 [2]","status":"unbound"}
+{"file":"music-sources.feature","title":"Flipping 3 times through three sources shows the YouTube video as 1 of 3 [3]","status":"unbound"}
+{"file":"music-sources.feature","title":"Flipping 3 times while IINA has no face shows the Apple Music song as 2 of 2 [3]","status":"unbound"}
+{"file":"music-sources.feature","title":"Flipping 4 times through three sources shows the IINA file as 2 of 3 [4]","status":"unbound"}
+{"file":"music-sources.feature","title":"Flipping the card turns it like a mirror to the other source","status":"unbound"}
+{"file":"music-sources.feature","title":"In Chrome, a muted autoplay clip on a news site stays off the island [2]","status":"unbound"}
+{"file":"music-sources.feature","title":"In Chrome, a muted hover preview on the YouTube home feed, left muted stays off the island [1]","status":"unbound"}
+{"file":"music-sources.feature","title":"In Chrome, an autoplay clip with sound on a news site stays off the island [3]","status":"unbound"}
+{"file":"music-sources.feature","title":"Music playing out through a Bluetooth speaker still counts","status":"unbound"}
+{"file":"music-sources.feature","title":"Play after the visionary closed the youtube.com tab resumes \"Lecture 4: Fourier Series\" at 12:34 [2]","status":"unbound"}
+{"file":"music-sources.feature","title":"Play after the visionary quit Apple Music resumes \"Wonderwall\" at 2:10 [1]","status":"unbound"}
+{"file":"music-sources.feature","title":"Play after the visionary quit IINA resumes the file \"rehearsal.mkv\" at 0:42:10 [3]","status":"unbound"}
+{"file":"music-sources.feature","title":"Quitting the only source leaves its last song paused and ready","status":"unbound"}
+{"file":"music-sources.feature","title":"The flipped card's buttons control the other source","status":"unbound"}
+{"file":"music-sources.feature","title":"The keyboard's play or pause key still works and the island follows [1]","status":"unbound"}
+{"file":"music-sources.feature","title":"The keyboard's skip key still works and the island follows [2]","status":"unbound"}
+{"file":"music-sources.feature","title":"The source line reads Apple Music [1]","status":"unbound"}
+{"file":"music-sources.feature","title":"The source line reads Apple Music · JBL Flip 5 [2]","status":"unbound"}
+{"file":"music-sources.feature","title":"The source line reads IINA [6]","status":"unbound"}
+{"file":"music-sources.feature","title":"The source line reads Music [8]","status":"unbound"}
+{"file":"music-sources.feature","title":"The source line reads QuickTime Player [7]","status":"unbound"}
+{"file":"music-sources.feature","title":"The source line reads SoundCloud [5]","status":"unbound"}
+{"file":"music-sources.feature","title":"The source line reads YouTube [3]","status":"unbound"}
+{"file":"music-sources.feature","title":"The source line reads YouTube · JBL Flip 5 [4]","status":"unbound"}
+{"file":"music-sources.feature","title":"The visionary pauses from Control Center and the island follows [1]","status":"unbound"}
+{"file":"music-sources.feature","title":"The visionary skips from Control Center and the island follows [2]","status":"unbound"}
+{"file":"music-sources.feature","title":"Unmuting a muted YouTube preview adds it to the card without popping the wing","status":"unbound"}
+{"file":"music-sources.feature","title":"When the visionary closes the YouTube tab, the newest remaining source shows [2]","status":"unbound"}
+{"file":"music-sources.feature","title":"When the visionary quits Apple Music, the newest remaining source shows [1]","status":"unbound"}
+{"file":"music-sources.feature","title":"When the visionary quits IINA, the newest remaining source shows [3]","status":"unbound"}
+{"file":"music-sources.feature","title":"With Apple Music and a youtube.com tab in Chrome playing, the newest shows the count 1 of 2 [1]","status":"unbound"}
+{"file":"music-sources.feature","title":"With Apple Music, QuickTime Player and a youtube.com tab in Chrome playing, the newest shows the count 1 of 3 [2]","status":"unbound"}
+{"file":"music-sources.feature","title":"With nothing before it, back twice within the first 3 seconds on the island goes to Apple Music [2]","status":"unbound"}
+{"file":"music-sources.feature","title":"With nothing next after it, skip on the island goes to QuickTime Player [1]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"2 songs starting about a second apart keep the wing out [1]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"20 songs starting about a second apart keep the wing out [3]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"5 songs starting about a second apart keep the wing out [2]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"A new song in Apple Music brings the wing out within a second [1]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"A new song in Apple Music out through \"JBL Flip 5\" brings the wing out within a second [2]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"A new song in IINA brings the wing out within a second [5]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"A new song in Music brings the wing out within a second [7]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"A new song in QuickTime Player brings the wing out within a second [6]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"A new song in a soundcloud.com tab in Chrome brings the wing out within a second [4]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"A new song in a youtube.com playlist in Chrome brings the wing out within a second [3]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"A new song in fullscreen pops no wing","status":"unbound"}
+{"file":"new-song-notice.feature","title":"A new song slides a small wing out left of the notch","status":"unbound"}
+{"file":"new-song-notice.feature","title":"Moving onto the notch while the wing is out opens the full panel","status":"unbound"}
+{"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, art too wide [4]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, menus reach it [5]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"The new-song notice finds room: the art alone [3]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"The new-song notice finds room: the title shortened [2]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"The new-song notice finds room: the whole title [1]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"The wings checked 1 minute after a new song starts [4]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"The wings checked 1 second after a new song starts [1]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"The wings checked 3.5 seconds after a new song starts [2]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"The wings checked 4.5 seconds after a new song starts [3]","status":"unbound"}
+{"file":"new-song-notice.feature","title":"With an external monitor connected, the wing still pops at the built-in notch","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A capture 10 seconds after the previous one joins it [1]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A capture 30 seconds after the previous one joins it [5]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A capture 59 seconds after the previous one joins it [2]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A capture 60 seconds after the previous one joins it [3]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A capture 61 seconds after the previous one starts a new item [4]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A capture 61 seconds after the previous one starts a new item [6]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A new screen recording lands on the shelf by itself [2]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A new screenshot lands on the shelf by itself [1]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A parked file dropped on the Desktop leaves the shelf","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A parked file moved to the Trash leaves the shelf","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A parked folder drags out whole","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A parked link never ages off the shelf","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A parked stack of files drags out as a group","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A refused drop leaves the 2 GB screen recording \"bug-repro.mov\" on the shelf [1]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A refused drop leaves the screenshot \"Screenshot 2026-10-18 at 10.15.02.png\" on the shelf [2]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A screenshot copied only to the clipboard stays off the shelf [1]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A screenshot parked at 11:58 pm, checked at 11:57 pm the next night [2]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A screenshot parked at 11:58 pm, checked at 11:59 pm the next night [3]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A screenshot parked at 11:58 pm, checked at 12:01 am the next morning [1]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A screenshot saved by another screenshot tool stays off the shelf [2]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A stack drags out as one group","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A stack expands into its captures","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"A thirty-first screenshot joins the stack of thirty","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"After a restart after a crash, the whole shelf comes back [2]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"After a restart for an update, the whole shelf comes back [1]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"An accepted drop takes the screenshot off the shelf","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Dragging a file onto the closed notch opens the shelf as a drop target","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Dragging a parked file out behaves as if dragged from its folder","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Dragging a parked screenshot into a Gmail draft in Chrome attaches it [2]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Dragging a parked screenshot into a Messages chat attaches it [1]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Dropped highlighted text is refused","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Dropping a link from Chrome's address bar to \"gov.uk/renew-adult-passport\" onto the notch parks a link to \"gov.uk/renew-adult-passport\" [5]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Dropping a parked file on a Chrome window is a real drop [2]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Dropping a parked file on the Desktop is a real drop [1]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Dropping the file \"boarding-pass.pdf\" from the Desktop onto the notch parks \"boarding-pass.pdf\" as one item [2]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Dropping the file \"tax-return.pdf\" from Finder onto the notch parks \"tax-return.pdf\" as one item [1]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Dropping the folder \"Taxes 2026\" onto the notch parks the folder \"Taxes 2026\" as one item [4]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Dropping three files selected together in Finder onto the notch parks one stack holding the three files [3]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Letting go over the open shelf parks the file","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Moving the file \"tax-return.pdf\" in Finder keeps it on the shelf at its new place [1]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Moving the folder \"Taxes 2026\" in Finder keeps it on the shelf at its new place [2]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Parking a file leaves it in its folder","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Removing \"Screenshot 2026-10-18 at 10.15.02.png\" from the shelf by dropping it on the remove area at the panel's edge [2]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Removing \"tax-return.pdf\" from the shelf by clicking the small x that appears on hovering it [1]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Removing a link by the remove area","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Removing a stack leaves its captures where they are","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Removing the folder \"Taxes 2026\" from the shelf by dropping it on the remove area at the panel's edge [3]","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Scrolling down on the music page brings up the shelf page","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Scrolling up on the shelf page brings the music page back","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"The remove area shows only while a shelf item is being dragged","status":"unbound"}
+{"file":"shelf-captures-and-files.feature","title":"Thirty screenshots in a row while documenting a bug make one stack","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"+ note puts a short note on the shelf","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"A new note of 1 character keeps that 1 character [1]","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"A new note of 139 characters keeps all 139 characters [2]","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"A new note of 140 characters keeps all 140 characters [3]","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"A new note of 141 characters keeps only the first 140 characters [4]","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"A new note of 2000 characters keeps only the first 140 characters [5]","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"A note and an open reminder stay on the shelf, quietly, for a week","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"Checking off a reminder removes it at once","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"Clicking the small x on a note removes it","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"Dragging the note \"idea: notch app shows lyrics\" into a Messages chat drops its text and keeps it [1]","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"Dragging the reminder \"renew passport\" into a Messages chat drops its text and keeps it [2]","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"Editing a note's text saves the correction in place","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"Emptying a note's text removes the note","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"Return on an empty note makes no note","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"The box beside a note makes it a reminder","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"The pencil beside a reminder turns it back into a plain note","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"Typing 1 more into a note of 130 characters leaves all 131 characters [1]","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"Typing 10 more into a note of 130 characters leaves all 140 characters [2]","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"Typing 11 more into a note of 130 characters leaves 140 characters, the typing stopped at the cap [3]","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"Typing 500 more into a note of 130 characters leaves 140 characters, the typing stopped at the cap [4]","status":"unbound"}
