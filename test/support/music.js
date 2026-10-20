@@ -5,10 +5,12 @@
 // carry the album "notch-island test". Nothing else in the library is touched.
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFile } = require('node:child_process');
+const { execFile, execFileSync } = require('node:child_process');
+const os = require('node:os');
 const { promisify } = require('node:util');
 const { testAudio } = require('./paths');
 const { onCleanup } = require('./cleanup');
+const { createKeeper } = require('./music-keeper');
 
 const run = promisify(execFile);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -22,7 +24,62 @@ const TRACKS = [
   { title: 'Champagne Supernova', file: 'champagne-supernova.m4a', seconds: 300, hz: 247 },
 ];
 
+/** Music itself, driven synchronously for the keeper (which runs in clean-ups too). */
+const osaSync = (...lines) => execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { encoding: 'utf8', timeout: 30000 }).trim();
+
+const realDriver = {
+  // `application "Music" is running` does not start it.
+  isRunning: () => osaSync('application "Music" is running') === 'true',
+  snapshot: () => {
+    const out = osaSync(`tell application "Music"
+      set sh to (shuffle enabled as string)
+      set rp to (song repeat as string)
+      set ps to player state as string
+      set tid to ""
+      set pos to "0"
+      if ps is not "stopped" then
+        try
+          set tid to persistent ID of current track
+          set pos to player position as string
+        end try
+      end if
+      return sh & "|" & rp & "|" & ps & "|" & tid & "|" & pos
+    end tell`);
+    const [shuffle, repeat, state, track, position] = out.split('|');
+    return { shuffle, repeat, state, track: track || null, position: Number(position.replace(',', '.')) || 0 };
+  },
+  apply: (s) => {
+    const ok = (v, re) => re.test(String(v)) ? String(v) : null;
+    const shuffle = ok(s.shuffle, /^(true|false)$/);
+    const repeat = ok(s.repeat, /^(off|one|all)$/);
+    const track = s.track && ok(s.track, /^[0-9A-Fa-f]+$/);
+    const lines = ['tell application "Music"'];
+    if (shuffle) lines.push(`set shuffle enabled to ${shuffle}`);
+    if (repeat) lines.push(`set song repeat to ${repeat}`);
+    if (s.state === 'stopped' || !track) lines.push('try', 'stop', 'end try');
+    else {
+      lines.push(`play (first track of library playlist 1 whose persistent ID is "${track}")`,
+        'delay 0.5', `set player position to ${Number(s.position) || 0}`);
+      if (s.state === 'paused') lines.push('pause');
+    }
+    lines.push('end tell');
+    osaSync(...lines);
+  },
+  quit: () => { osaSync('tell application "Music" to quit'); },
+};
+
+const keeper = createKeeper({ driver: realDriver, file: path.join(os.tmpdir(), 'notch-island-music-state.json') });
+let keeperArmed = false;
+/** Before Music is first touched: remember how the visionary had it, and put it back on exit or a signal. */
+function keepMusic() {
+  if (keeperArmed) return;
+  keeperArmed = true;
+  onCleanup(() => { try { keeper.restore(); } catch { /* Music gone */ } });
+  keeper.save();
+}
+
 async function osa(script) {
+  keepMusic();
   const { stdout } = await run('osascript', ['-e', script], { encoding: 'utf8', timeout: 30000 });
   return stdout.trim();
 }
@@ -143,20 +200,8 @@ async function ensurePlaylist() {
   ready = true;
 }
 
-let saved = null;
-/** Queue order needs shuffle and repeat off; put them back when done. */
+/** Queue order needs shuffle and repeat off; the keeper puts them back. */
 async function orderedQueue() {
-  if (!saved) {
-    const [shuffle, repeat] = (await osa('tell application "Music" to return (shuffle enabled as string) & "," & (song repeat as string)')).split(',');
-    saved = { shuffle, repeat };
-    onCleanup(() => {
-      try {
-        require('node:child_process').execFileSync('osascript', ['-e',
-          `tell application "Music" to set shuffle enabled to ${saved.shuffle}`, '-e',
-          `tell application "Music" to set song repeat to ${saved.repeat}`]);
-      } catch { /* Music gone */ }
-    });
-  }
   await osa('tell application "Music"\nset shuffle enabled to false\nset song repeat to off\nend tell');
 }
 
@@ -207,4 +252,4 @@ async function until(pred, ms, message) {
   }
 }
 
-module.exports = { state, play, seek, pause, stop, ensurePlaylist, osa, TRACKS, PLAYLIST };
+module.exports = { keepMusic, state, play, seek, pause, stop, ensurePlaylist, osa, TRACKS, PLAYLIST };

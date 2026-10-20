@@ -236,6 +236,11 @@ func post(_ type: CGEventType, _ p: CGPoint, _ button: CGMouseButton = .left, cl
   e.post(tap: .cghidEventTap)
 }
 
+/// The system-wide left button, as macOS reads it.
+func leftButtonDown() -> Bool {
+  CGEventSource.buttonState(.combinedSessionState, button: .left)
+}
+
 func pointer() -> CGPoint {
   CGEvent(source: nil)?.location ?? .zero
 }
@@ -601,8 +606,29 @@ case "drag":
   }
   emit(["ok": true, "t": now()])
 case "release":
-  post(.leftMouseUp, pointer())
-  emit(["ok": true])
+  // release: let go of the left button and make sure it reads released. The
+  // first event a fresh process posts is often dropped, so a move goes first,
+  // then the mouse-up, and the button is checked and the pair re-sent until it
+  // reads released; failing loudly (exit 6) if it never does.
+  if !leftButtonDown() {
+    emit(["ok": true, "attempts": 0])
+  } else {
+    var attempts = 0
+    while leftButtonDown() && attempts < 25 {
+      attempts += 1
+      post(.mouseMoved, pointer())
+      usleep(15000)
+      post(.leftMouseUp, pointer())
+      usleep(30000)
+    }
+    if leftButtonDown() {
+      fail("the left mouse button still reads held after \(attempts) tries", code: 6)
+    }
+    emit(["ok": true, "attempts": attempts])
+  }
+case "button":
+  // button: whether the left button reads held, system-wide.
+  emit(["left": leftButtonDown()])
 case "scroll":
   // scroll dy wheel|trackpad (at the pointer; negative scrolls down)
   scroll(dy: Int32(num(1)), wheel: arg(2) == "wheel")

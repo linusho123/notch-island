@@ -21,6 +21,17 @@ enum TestInput {
       return ignores.contains(command)
     }
 
+    /// What the left button reads as, when the scenario arranges a mouse-up
+    /// that never arrived ("released" while the real button is down). Read at
+    /// each poll of the open island; nil leaves the real reading.
+    static var leftButtonReading: Bool? {
+      switch read()?["leftButton"] as? String {
+      case "released": return false
+      case "held": return true
+      default: return nil
+      }
+    }
+
     /// The harness's clean-up: unregister the login item and exit.
     static var unregisterLoginAndExit: Bool {
       CommandLine.arguments.contains("--test-unregister-login-and-exit")
@@ -36,5 +47,6 @@ enum TestInput {
     static let dataDirectory: URL? = nil
     static func musicIgnores(_ command: String) -> Bool { false }
     static let unregisterLoginAndExit = false
+    static var leftButtonReading: Bool? { nil }
   #endif
 }

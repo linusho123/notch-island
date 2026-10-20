@@ -184,6 +184,12 @@ final class IslandController: NSObject, NSMenuDelegate {
     }
   }
 
+  /// Whether the left button is down, as macOS reads it. A test build can be
+  /// told the button reads released (a mouse-up that never arrived).
+  private static func leftButtonHeld() -> Bool {
+    TestInput.leftButtonReading ?? (NSEvent.pressedMouseButtons & 1 != 0)
+  }
+
   private func watchPointerWhileOpen(_ open: Bool) {
     if open, openPoll == nil {
       onOpenRefresh()
@@ -193,7 +199,7 @@ final class IslandController: NSObject, NSMenuDelegate {
         ticks += 1
         if ticks % 20 == 0 { self.onOpenRefresh() }
         // A mouse-up that never reached us must not hold the island open.
-        if self.pressStartedOnIsland, NSEvent.pressedMouseButtons & 1 == 0 {
+        if self.pressStartedOnIsland, !Self.leftButtonHeld() {
           self.pressStartedOnIsland = false
           let (_, inside) = self.pointerInside()
           self.machine.leftButton(held: false, inside: inside, at: self.now)

@@ -5,30 +5,40 @@ const os = require('node:os');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 
-const run = promisify(execFile);
+const exec = promisify(execFile);
+const defaultRunner = (cmd, args) => exec(cmd, args, { encoding: 'utf8', maxBuffer: 32 << 20, timeout: 30000 });
+
+const NEEDS_RULE = 'sfltool needs the sudoers rule /etc/sudoers.d/sfltool-dumpbtm (see docs or the phase report)';
 
 /**
- * The registry's own dump. `sfltool dumpbtm` now and then hangs for a minute
- * or more while the registry daemon is busy (seen right after a login item is
- * added); a hung dump is asked again rather than read as an answer.
+ * The registry's own dump, as root: `sudo -n /usr/bin/sfltool dumpbtm`. Plain
+ * `sfltool dumpbtm` raises an administrator-password dialog, which is what
+ * looked like a hang. `-n` never prompts, so a missing sudoers rule
+ * (`linus ALL=(root) NOPASSWD: /usr/bin/sfltool dumpbtm`) fails fast. A call
+ * that really hangs (the registry daemon busy) is asked once more, no more.
+ * `runner(cmd, args)` is injectable for tests.
  */
-async function dump() {
+async function dump({ runner = defaultRunner } = {}) {
   let last;
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const { stdout } = await run('sfltool', ['dumpbtm'], { encoding: 'utf8', maxBuffer: 32 << 20, timeout: 30000 });
+      const { stdout } = await runner('sudo', ['-n', '/usr/bin/sfltool', 'dumpbtm']);
       return stdout;
     } catch (e) {
       last = e;
-      if (!e.killed) throw e;
+      if (e.killed) continue;
+      if (/password is required|a terminal is required|not allowed to execute|may not run sudo/i.test(`${e.stderr || ''}${e.message}`)) {
+        throw new Error(NEEDS_RULE);
+      }
+      throw e;
     }
   }
-  throw new Error(`sfltool dumpbtm hung three times: ${last.message}`);
+  throw new Error(`sfltool dumpbtm hung twice: ${last.message}`);
 }
 
 /** The login items macOS keeps for this user. */
-async function items() {
-  const stdout = await dump();
+async function items(opts) {
+  const stdout = await dump(opts);
   const uid = os.userInfo().uid;
   const sections = stdout.split(/^\s*Records for UID /m);
   const mine = sections.find((s) => s.startsWith(`${uid} `));
@@ -49,8 +59,8 @@ async function items() {
 }
 
 /** The app login item for this bundle id, if macOS lists it as enabled. */
-async function enabledApp(bundleID) {
-  return (await items()).find((i) => i.bundleID === bundleID && /^app\b/.test(i.type || '')
+async function enabledApp(bundleID, opts) {
+  return (await items(opts)).find((i) => i.bundleID === bundleID && /^app\b/.test(i.type || '')
     && /\[\s*enabled\b/.test(i.disposition || '')) || null;
 }
 

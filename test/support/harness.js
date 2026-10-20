@@ -36,6 +36,18 @@ async function notchCenter() {
   return { x: notch.x + notch.w / 2, y: notch.y + Math.min(10, notch.h / 2) };
 }
 
+/**
+ * Safety net: a left button left held down system-wide (a drag whose mouse-up
+ * was dropped) wrecks every later test and the visionary's Mac. Before and
+ * after every test and suite that loads the harness, release it if it reads
+ * held. `release` retries until it reads released and fails loudly otherwise.
+ */
+async function releaseIfHeld() {
+  let held;
+  try { held = await module.exports.leftHeld(); } catch { return; } // harness not built: nothing to guard
+  if (held) await module.exports.release();
+}
+
 module.exports = {
   h,
   builtIn,
@@ -60,10 +72,26 @@ module.exports = {
   regionStats: (x, y, w, hh) => h('region-stats', x, y, w, hh),
   drag: (x1, y1, x2, y2, steps = 20, stepMs = 15, hold = false) =>
     h('drag', x1, y1, x2, y2, steps, stepMs, ...(hold ? ['hold'] : [])),
+  releaseIfHeld,
   release: () => h('release'),
+  leftHeld: async () => (await h('button')).left,
   scroll: (dy, kind) => h('scroll', dy, kind),
   watch: async (pid, ms, everyMs = 40) => (await h('watch', pid, ms, everyMs)).samples,
   sweep: async (pid, a, b, steps, stepMs, settleMs) =>
     (await h('sweep', pid, a.x, a.y, b.x, b.y, steps, stepMs, settleMs)).samples,
   makeMovie: (file, seconds) => h('make-movie', file, seconds),
 };
+
+// The hooks register on the test file that loads the harness (node:test root).
+try {
+  const { before, after, beforeEach, afterEach } = require('node:test');
+  for (const hook of [before, after, beforeEach, afterEach]) hook(releaseIfHeld);
+} catch { /* not under the test runner */ }
+// A last resort: the process is ending with the button still down.
+require('./cleanup').onCleanup(() => {
+  try {
+    const { execFileSync } = require('node:child_process');
+    const out = JSON.parse(execFileSync(harness, ['button'], { encoding: 'utf8', timeout: 5000 }));
+    if (out.left) execFileSync(harness, ['release'], { timeout: 5000 });
+  } catch { /* nothing more to do */ }
+});
