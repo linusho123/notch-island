@@ -17,11 +17,19 @@ bundle() { # <swift build path> <bundle dir> <bundle id> <name>
   rm -rf "$app"
   mkdir -p "$app/Contents/MacOS"
   cp "$bin" "$app/Contents/MacOS/NotchIsland"
+  mkdir -p "$app/Contents/Resources"
+  cp build/now-playing-adapter.dylib "$app/Contents/Resources/now-playing-adapter.dylib"
   sed -e "s/__BUNDLE_ID__/$3/" -e "s/__VERSION__/$VERSION/" -e "s/__NAME__/$4/" \
     app/Info.plist > "$app/Contents/Info.plist"
   codesign --force --sign - "$app" >/dev/null
   echo "built $app"
 }
+
+# The IINA part's now-playing adapter, loaded by /usr/bin/perl (DESIGN).
+mkdir -p build
+clang -dynamiclib -fobjc-arc -O2 -framework Foundation \
+  -o build/now-playing-adapter.dylib app/adapter/now-playing-adapter.m
+codesign --force --sign - build/now-playing-adapter.dylib >/dev/null
 
 swift build -c release --product NotchIsland --build-path .build/release-app
 bundle .build/release-app build/release local.notch-island "notch-island"
@@ -34,3 +42,9 @@ mkdir -p build
 cp .build/harness/release/island-harness build/island-harness
 codesign --force --sign - build/island-harness >/dev/null
 echo "built build/island-harness"
+
+# The harness's own now-playing reader (independent of the island's adapter).
+clang -dynamiclib -fobjc-arc -O2 -framework AppKit \
+  -o build/now-playing-reader.dylib test/support/now-playing/reader.m
+codesign --force --sign - build/now-playing-reader.dylib >/dev/null
+echo "built build/now-playing-reader.dylib"

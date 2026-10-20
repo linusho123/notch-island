@@ -1,6 +1,7 @@
 import AVFoundation
 import AppKit
 import ApplicationServices
+import CoreAudio
 import ScreenCaptureKit
 
 // The acceptance harness's helper. It reads what macOS itself knows (the
@@ -311,12 +312,21 @@ func islandSample(_ pid: pid_t) -> [String: Any] {
 
 // MARK: Movie
 
-func makeMovie(path: String, seconds: Int) {
+func makeMovie(path: String, seconds: Int, withSound: Bool = false) {
   let url = URL(fileURLWithPath: path)
   try? FileManager.default.removeItem(at: url)
   guard let writer = try? AVAssetWriter(outputURL: url, fileType: .mov) else {
     fail("cannot write \(path)")
   }
+  // A quiet tone, so players treat the file as one that sounds.
+  let rate = 8000.0
+  let sound = AVAssetWriterInput(
+    mediaType: .audio,
+    outputSettings: [
+      AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: rate, AVNumberOfChannelsKey: 1,
+      AVEncoderBitRateKey: 16000,
+    ])
+  if withSound { writer.add(sound) }
   let width = 640
   let height = 360
   let input = AVAssetWriterInput(
@@ -330,6 +340,41 @@ func makeMovie(path: String, seconds: Int) {
       kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
       kCVPixelBufferWidthKey as String: width, kCVPixelBufferHeightKey as String: height,
     ])
+  var format = AudioStreamBasicDescription(
+    mSampleRate: rate, mFormatID: kAudioFormatLinearPCM,
+    mFormatFlags: kLinearPCMFormatFlagIsSignedInteger | kLinearPCMFormatFlagIsPacked,
+    mBytesPerPacket: 2, mFramesPerPacket: 1, mBytesPerFrame: 2, mChannelsPerFrame: 1,
+    mBitsPerChannel: 16, mReserved: 0)
+  var description: CMAudioFormatDescription?
+  CMAudioFormatDescriptionCreate(
+    allocator: nil, asbd: &format, layoutSize: 0, layout: nil, magicCookieSize: 0,
+    magicCookie: nil, extensions: nil, formatDescriptionOut: &description)
+  let chunk = Int(rate)  // one second per buffer
+  /// Append second `second` of the tone; interleaved with the frames.
+  func appendSound(_ second: Int) {
+    while !sound.isReadyForMoreMediaData { usleep(1000) }
+    var samples = [Int16](repeating: 0, count: chunk)
+    for i in 0..<chunk {
+      samples[i] = Int16(120 * sin(2 * Double.pi * 220 * Double(second * chunk + i) / rate))
+    }
+    var block: CMBlockBuffer?
+    let bytes = chunk * 2
+    CMBlockBufferCreateWithMemoryBlock(
+      allocator: nil, memoryBlock: nil, blockLength: bytes, blockAllocator: nil,
+      customBlockSource: nil, offsetToData: 0, dataLength: bytes, flags: 0,
+      blockBufferOut: &block)
+    _ = samples.withUnsafeBytes {
+      CMBlockBufferReplaceDataBytes(
+        with: $0.baseAddress!, blockBuffer: block!, offsetIntoDestination: 0, dataLength: bytes)
+    }
+    var buffer: CMSampleBuffer?
+    CMAudioSampleBufferCreateReadyWithPacketDescriptions(
+      allocator: nil, dataBuffer: block!, formatDescription: description!,
+      sampleCount: chunk,
+      presentationTimeStamp: CMTime(value: CMTimeValue(second * chunk), timescale: Int32(rate)),
+      packetDescriptions: nil, sampleBufferOut: &buffer)
+    sound.append(buffer!)
+  }
   writer.add(input)
   writer.startWriting()
   writer.startSession(atSourceTime: .zero)
@@ -344,8 +389,10 @@ func makeMovie(path: String, seconds: Int) {
     memset(base, Int32(shade), CVPixelBufferGetDataSize(buffer))
     CVPixelBufferUnlockBaseAddress(buffer, [])
     adaptor.append(buffer, withPresentationTime: CMTime(value: CMTimeValue(frame), timescale: 1))
+    if withSound, frame < seconds { appendSound(frame) }
   }
   input.markAsFinished()
+  if withSound { sound.markAsFinished() }
   let done = DispatchSemaphore(value: 0)
   writer.finishWriting { done.signal() }
   done.wait()
@@ -546,6 +593,78 @@ case "key":
   CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true)?.post(tap: .cghidEventTap)
   CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false)?.post(tap: .cghidEventTap)
   emit(["ok": true])
+case "tree":
+  // tree pid: everything under an app's Accessibility element, windows or
+  // not (Control Center's module panel is no AXWindow).
+  requireTrust()
+  var elements: [[String: Any]] = []
+  flatten(appElement(pid_t(num(1))), into: &elements)
+  emit(["elements": elements])
+case "press":
+  // press pid identifier-or-description: AXPress the first element under the
+  // app whose identifier or description matches (a menu extra, a button).
+  requireTrust()
+  func find(_ el: AXUIElement, depth: Int) -> AXUIElement? {
+    let id = attr(el, kAXIdentifierAttribute) as? String
+    let desc = attr(el, kAXDescriptionAttribute) as? String
+    if id == arg(2) || desc == arg(2) { return el }
+    guard depth < 40, let children = attr(el, kAXChildrenAttribute) as? [AXUIElement] else {
+      return nil
+    }
+    for child in children {
+      if let hit = find(child, depth: depth + 1) { return hit }
+    }
+    return nil
+  }
+  guard let target = find(appElement(pid_t(num(1))), depth: 0) else {
+    fail("nothing named \(arg(2)) under pid \(arg(1))")
+  }
+  let err = AXUIElementPerformAction(target, kAXPressAction as CFString)
+  emit(["ok": err == .success, "error": err.rawValue])
+case "text-width":
+  // text-width size weight text: the width the text needs on one line in the
+  // system font, to tell a drawn title that is cut short from one that fits.
+  let weights: [String: NSFont.Weight] = ["regular": .regular, "semibold": .semibold]
+  let font = NSFont.systemFont(ofSize: num(1), weight: weights[arg(2)] ?? .regular)
+  let width = (arg(3) as NSString).size(withAttributes: [.font: font]).width
+  emit(["width": Double(width)])
+case "output-device":
+  // The system's default audio output, read from Core Audio: its name and
+  // whether it is the built-in speakers.
+  var device = AudioObjectID(0)
+  var size = UInt32(MemoryLayout<AudioObjectID>.size)
+  var address = AudioObjectPropertyAddress(
+    mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+    mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+  AudioObjectGetPropertyData(
+    AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device)
+  var name: Unmanaged<CFString>?
+  size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+  address.mSelector = kAudioObjectPropertyName
+  AudioObjectGetPropertyData(device, &address, 0, nil, &size, &name)
+  var transport = UInt32(0)
+  size = UInt32(MemoryLayout<UInt32>.size)
+  address.mSelector = kAudioDevicePropertyTransportType
+  AudioObjectGetPropertyData(device, &address, 0, nil, &size, &transport)
+  emit([
+    "name": (name?.takeRetainedValue() as String?) ?? "",
+    "builtIn": transport == kAudioDeviceTransportTypeBuiltIn,
+  ])
+case "media-key":
+  // media-key play|next|previous: press and release the keyboard's media key,
+  // as the key itself sends it (a system-defined event, subtype 8).
+  let codes = ["play": 16, "next": 17, "previous": 18]
+  guard let code = codes[arg(1)] else { fail("unknown media key \(arg(1))") }
+  for down in [true, false] {
+    let flags = NSEvent.ModifierFlags(rawValue: down ? 0xA00 : 0xB00)
+    let data1 = (code << 16) | (down ? 0xA00 : 0xB00)
+    let event = NSEvent.otherEvent(
+      with: .systemDefined, location: .zero, modifierFlags: flags, timestamp: 0,
+      windowNumber: 0, context: nil, subtype: 8, data1: data1, data2: -1)
+    event?.cgEvent?.post(tap: .cghidEventTap)
+    sleepMs(30)
+  }
+  emit(["ok": true])
 case "cgwindows":
   // The windows on screen now, as the window server lists them.
   let list =
@@ -672,7 +791,8 @@ case "capture-check":
   captureCheck(
     CGRect(x: num(1), y: num(2), width: num(3), height: num(4)), islandPid: Int(num(5)))
 case "make-movie":
-  makeMovie(path: arg(1), seconds: Int(num(2)))
+  // make-movie path seconds [sound]
+  makeMovie(path: arg(1), seconds: Int(num(2)), withSound: CommandLine.arguments.count > 4)
   emit(["ok": true])
 default:
   fail("unknown command \(command)")

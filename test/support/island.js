@@ -118,6 +118,10 @@ function parse(windows, notch) {
     dot: labelled('Progress dot'),
     bar: labelled('Progress bar'),
     art: labelled('Cover art') || labelled('Music note'),
+    // The card's own parts, by the identifiers the island gives them.
+    title: all.find((e) => e.identifier === 'song-title' && visible(e)) || null,
+    sourceLine: all.find((e) => e.identifier === 'source-line' && visible(e)) || null,
+    count: all.find((e) => e.identifier === 'flip-count' && visible(e)) || null,
     elements: all,
   };
 }

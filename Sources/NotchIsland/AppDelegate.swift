@@ -8,9 +8,13 @@ import ServiceManagement
 final class AppDelegate: NSObject, NSApplicationDelegate {
   private let contextGuard = ContextGuard()
   private var island: IslandController?
-  private let music = AppleMusicSource()
+  private let channel = NowPlayingChannel()
+  private let output = OutputDeviceWatcher()
+  private var parts: [SourceID: SourcePart] = [:]
+  private var artwork: [SourceID: NSImage?] = [:]
   private var hub: NowPlayingHub
   private let store: LastSongStore
+  private let chrome: ChromeBridge
 
   override init() {
     let directory =
@@ -18,7 +22,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
       .appendingPathComponent("notch-island", isDirectory: true)
     store = LastSongStore(directory: directory)
-    hub = NowPlayingHub(lastSong: store.load())
+    chrome = ChromeBridge(directory: directory)
+    let kept = store.loadKept()
+    hub = NowPlayingHub(lastSong: kept?.song, resumeAt: kept?.resumeAt)
     super.init()
   }
 
@@ -34,18 +40,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = island.model
     model.music = hub.page
     model.onPlayPause = { [weak self] in self?.playPause() }
-    model.onBack = { [weak self] in self?.music.back() }
-    model.onSkip = { [weak self] in self?.music.skip() }
-    model.onSeek = { [weak self] in self?.music.seek(to: $0) }
-    model.onBringForward = { [weak self] in self?.music.bringForward() }
-    island.onOpenRefresh = { [weak self] in self?.music.refresh() }
+    model.onBack = { [weak self] in self?.shownPart?.back() }
+    model.onSkip = { [weak self] in self?.shownPart?.skip() }
+    model.onSeek = { [weak self] in self?.shownPart?.seek(to: $0) }
+    model.onBringForward = { [weak self] in self?.shownPart?.bringForward() }
+    model.onFlip = { [weak self] in self?.flip() }
+    island.onOpenRefresh = { [weak self] in
+      for part in self?.parts.values.map({ $0 }) ?? [] { part.refresh() }
+    }
 
-    music.onReport = { [weak self] report in self?.take(report) }
-    music.onArtwork = { image in model.artwork = image }
+    let iina = IINASource(channel: channel)
+    let sources: [SourcePart] = [AppleMusicSource(), iina, QuickTimeSource(channel: channel)]
+    for part in sources {
+      parts[part.id] = part
+      part.onEvent = { [weak self] id, event in self?.take(id, event) }
+    }
+    channel.onChange = { info in iina.take(info) }
+    chrome.onTabPart = { [weak self] part in
+      self?.parts[part.id] = part
+      part.onEvent = { [weak self] id, event in self?.take(id, event) }
+    }
+    output.onChange = { device in model.output = device }
+
     contextGuard.onScreensChanged = { island.place() }
     contextGuard.start()
     island.place()
-    music.start()
+    output.start()
+    channel.start()
+    chrome.start()
+    for part in sources { part.start() }
   }
 
   /// The rest and grace times (D51, D52) are tuned on the machine (BUILD-PLAN
@@ -65,13 +88,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     return timing
   }
 
-  private func take(_ report: SourceReport) {
-    if hub.update(report), let song = hub.lastSong {
-      try? store.save(song)
+  /// The part whose face the card shows.
+  private var shownPart: SourcePart? { hub.shownID.flatMap { parts[$0] } }
+
+  private func take(_ id: SourceID, _ event: SourceEvent) {
+    let now = ProcessInfo.processInfo.systemUptime
+    var keep = false
+    switch event {
+    case .report(let report): keep = hub.update(id, report)
+    case .hidden: hub.hide(id)
+    case .left: keep = hub.leave(id, at: now) || hub.resumeAt != nil
+    case .artwork(let image): artwork[id] = image
     }
+    if keep, let song = hub.lastSong {
+      try? store.save(song, resumeAt: hub.resumeAt)
+    }
+    show()
+  }
+
+  private func show() {
     guard let model = island?.model else { return }
     model.take(report: hub.report)
     model.music = hub.page
+    model.faceID = hub.shownID?.rawValue
+    let key = hub.shownID ?? hub.lastSong?.sourceID ?? .appleMusic
+    model.artwork = artwork[key] ?? nil
+  }
+
+  private func flip() {
+    hub.flip()
+    show()
   }
 
   private func playPause() {
@@ -80,9 +126,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     case .nothingPlayedYet:
       return
     case .lastSong(let song):
-      music.play(song: song)
+      // Reopen the app it came from, resuming where it was (D31, D117).
+      let part = song.sourceID.flatMap { parts[$0] } ?? parts[.appleMusic]
+      part?.reopen(song, at: hub.resumeAt)
     case .current:
-      if page.isPlaying { music.pause() } else { music.play() }
+      if page.isPlaying { shownPart?.pause() } else { shownPart?.play() }
     }
   }
 

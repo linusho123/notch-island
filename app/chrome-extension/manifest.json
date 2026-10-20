@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "notch-island companion",
+  "description": "Tells notch-island what youtube.com and soundcloud.com tabs are playing, and carries its controls to them.",
+  "version": "0.1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsOHh9KJdYUXv8mAc0vGebnbVOE4PRzqUEn5koTivf0FhbX5jW714C/fAhJuMwB+UJnxV0nFv1WALU901MXrhX/lGnDqaJA05+e2/YZE1tcQFeTBDZ/p3vbUk8jg/7Jza94/a6A4njFjr7BwjtfoSCyTmfYaQnMFQCbshpeMRoyxGtpeyIedDa8ObOs64/9gbgPyM+3Z2zJBXNPjhBmMCNcUbM7OpCK22IqhnjYxpKbxBz1zdetVswEcL/DwHlUImpNPgWmy/DfUxkYw85FjVhUohpK/wTLOcRGiG/3Ksmmy/3HWH0fpwm6FwKs2tcdylPc3Y3kJrYgSkyBs03vEbOQIDAQAB",
+  "permissions": ["nativeMessaging", "tabs"],
+  "host_permissions": ["*://*.youtube.com/*", "*://*.soundcloud.com/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["*://*.youtube.com/*", "*://*.soundcloud.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

@@ -250,6 +250,27 @@ async function play(title, position = 0) {
   if (position > 0) await seek(position);
 }
 
+const FIRST_PLAYLIST = 'notch-island test, Wonderwall first';
+
+/**
+ * Play a stand-in track as the first and only song in Music's queue: a second
+ * test playlist holding just that track of the test playlist.
+ */
+async function playFirstInQueue(title) {
+  await ensurePlaylist();
+  await orderedQueue();
+  await osa(`tell application "Music"
+    if not (exists user playlist ${q(FIRST_PLAYLIST)}) then make new user playlist with properties {name:${q(FIRST_PLAYLIST)}}
+    delete every track of user playlist ${q(FIRST_PLAYLIST)}
+    duplicate (first track of user playlist ${q(PLAYLIST)} whose name is ${q(title)}) to user playlist ${q(FIRST_PLAYLIST)}
+    play user playlist ${q(FIRST_PLAYLIST)}
+  end tell`);
+  await until(async () => {
+    const s = await state();
+    return s.state === 'playing' && s.name === title;
+  }, 5000, `Music did not start ${title} alone`);
+}
+
 /** Move Music's own playback to `position` seconds, retried until it holds. */
 async function seek(position) {
   await until(async () => {
@@ -275,4 +296,4 @@ async function until(pred, ms, message) {
   }
 }
 
-module.exports = { keepMusic, state, play, seek, pause, stop, ensurePlaylist, osa, TRACKS, PLAYLIST };
+module.exports = { keepMusic, state, play, playFirstInQueue, seek, pause, stop, ensurePlaylist, osa, TRACKS, PLAYLIST };
