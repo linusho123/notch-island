@@ -1133,12 +1133,18 @@ D127 2026-10-19 [V] signs D126
   touches: D126
 
 D128 2026-10-19 [V] amends D51
+  pre:   the island is closed [V]
+  trig:  the pointer rests on the notch for {0.15 seconds}, or sweeps across it without resting on its way from Chrome's Help menu to the Wi-Fi icon [V]
   resp:  felt on the real machine at the P1 tuning session, a rest of about {0.15 seconds} opens the island; a sweep across the notch on the way to a status icon still opens nothing [V]
-  why:   0.3 seconds felt slow; half as long felt right, and a sweep did not open it [V]
+  why:   {0.3 seconds} felt slow; half as long felt right, and a sweep did not open it [V]
+  serves: N1
+  spread: Resting the pointer on the notch for <rest> opens the island
+  sib:   none -- the sweep case is ruled in this response
   touches: D51 D99 D18
 # resolves the TBR on D51's rest
 
 D129 2026-10-19 [V] ratifies D52
   resp:  felt on the real machine at the P1 tuning session, the grace of about {0.5 seconds} is right as ruled [V]
+  spread: The pointer leaving the open island for <away>
   touches: D52
 # resolves the TBR on D52's grace
