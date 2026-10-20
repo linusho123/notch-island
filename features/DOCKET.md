@@ -1131,3 +1131,14 @@ D126 2026-10-19 [I>V]
 D127 2026-10-19 [V] signs D126
   resp:  the visionary read the contract, a normal read with no corrections, ruled the fourteen held findings, and signed the record as it stands [V]
   touches: D126
+
+D128 2026-10-19 [V] amends D51
+  resp:  felt on the real machine at the P1 tuning session, a rest of about {0.15 seconds} opens the island; a sweep across the notch on the way to a status icon still opens nothing [V]
+  why:   0.3 seconds felt slow; half as long felt right, and a sweep did not open it [V]
+  touches: D51 D99 D18
+# resolves the TBR on D51's rest
+
+D129 2026-10-19 [V] ratifies D52
+  resp:  felt on the real machine at the P1 tuning session, the grace of about {0.5 seconds} is right as ruled [V]
+  touches: D52
+# resolves the TBR on D52's grace
