@@ -85,15 +85,18 @@ async function assertHangsFromNotch(view) {
 }
 
 /**
- * "About 0.3 seconds": the island opens at 0.3 s of rest. Measured on this
- * Mac with no load, it shows open to Accessibility 270-285 ms after the
- * pointer arrives, and a look takes 30-40 ms. The rest-to-open Thens allow
+ * "About 0.15 seconds" (D128, amending D51): the island opens at 0.15 s of
+ * rest. Measured on this Mac with no load, it shows open to Accessibility
+ * about 120-135 ms after the pointer arrives, and a look takes 30-40 ms. The rest-to-open Thens allow
  * REST_SLACK_MS beyond the rest, so the last look starts by about 40 ms after
- * that and a clearly slow rest (0.55 s) is seen as too slow.
+ * that and a clearly slow rest (0.3 s, the old value) is seen as too slow.
  */
+const RULED_REST_MS = 150;
 const REST_SLACK_MS = 100;
-function untilRestOpens(w) {
-  return Math.max(0, w.arrivedAt + (w.restMs ?? 300) + REST_SLACK_MS - Date.now());
+function restDeadline(w) {
+  // A long rest (2 seconds) has been open long before the Then looks.
+  if ((w.restMs ?? 0) >= 1000) return null;
+  return w.arrivedAt + (w.restMs ?? RULED_REST_MS) + REST_SLACK_MS;
 }
 
 /** Opening never takes the focus from the app in front. */
@@ -121,10 +124,25 @@ async function assertFocusKept(w) {
   assert.equal(keyed.length, 0, 'an island window is the focused or main window of its app');
 }
 
-async function openOnMusicPage(w, ms = 1500) {
+async function openOnMusicPage(w, deadline = null) {
   const pid = w.island.pid;
-  const view = await island.waitFor(pid, (v) => v.open && v.page === 'music', ms,
-    'the island did not open on the music page');
+  let view;
+  if (deadline === null) {
+    view = await island.waitFor(pid, (v) => v.open && v.page === 'music', 1500,
+      'the island did not open on the music page');
+  } else {
+    // Looks back to back; the open island must have been seen by the deadline
+    // (the rest plus REST_SLACK_MS), not merely sometime after it.
+    for (;;) {
+      view = await island.look(pid);
+      const late = Date.now() - deadline;
+      if (view.open && view.page === 'music') {
+        assert.ok(late <= 0, `the island opened on the music page ${Math.round(late)} ms after the allowed time for a rest of ${w.restMs ?? RULED_REST_MS} ms`);
+        break;
+      }
+      assert.ok(late <= 0, `the island is not open ${Math.round(late)} ms after the allowed time for a rest of ${w.restMs ?? RULED_REST_MS} ms`);
+    }
+  }
   await assertHangsFromNotch(view);
   await assertFocusKept(w);
   return view;
@@ -412,14 +430,14 @@ module.exports = (reg) => {
 
   // Whens ----------------------------------------------------------------
 
-  reg.define(/^the visionary rests the (trackpad |mouse |)pointer on the notch for (about 0\.3 seconds|2 seconds)$/, async (w, _kind, howLong) => {
-    w.restMs = howLong === '2 seconds' ? 2000 : 300;
+  reg.define(/^the visionary rests the (trackpad |mouse |)pointer on the notch for (about 0\.15 seconds|2 seconds)$/, async (w, _kind, howLong) => {
+    w.restMs = howLong === '2 seconds' ? 2000 : RULED_REST_MS;
     await rest(w, w.restMs);
   });
 
   reg.define(/^the visionary rests the pointer on the notch$/, async (w) => {
-    w.restMs = 300;
-    await rest(w, 300);
+    w.restMs = RULED_REST_MS;
+    await rest(w, RULED_REST_MS);
   });
 
   reg.define(/^the visionary sweeps the pointer from Chrome's Help menu across the notch to the Wi-Fi icon without resting$/, async (w) => {
@@ -439,6 +457,17 @@ module.exports = (reg) => {
     const over = w.sweep.filter((s) => s.pointer && s.pointer.x >= n.x && s.pointer.x <= n.x + n.w);
     assert.ok(over.length > 1 && over[over.length - 1].t - over[0].t >= 200,
       'the sweep crossed the notch too fast to show anything');
+    // Honest at the ruled rest (D128): the pointer is never still on the notch
+    // for anywhere near a rest. The longest stretch it stays within 8 points
+    // of where the stretch began, over the notch, is under half of it.
+    let longest = 0;
+    for (let i = 0; i < over.length; i++) {
+      let j = i;
+      while (j + 1 < over.length && Math.hypot(over[j + 1].pointer.x - over[i].pointer.x, over[j + 1].pointer.y - over[i].pointer.y) <= 8) j++;
+      longest = Math.max(longest, over[j].t - over[i].t);
+    }
+    assert.ok(longest < RULED_REST_MS / 2,
+      `the sweep lingered ${longest} ms in one spot on the notch, close to a rest`);
   });
 
   reg.define(/^the visionary clicks the notch the moment the pointer reaches it$/, async (w) => {
@@ -496,7 +525,7 @@ module.exports = (reg) => {
     w.releasedAt = Date.now();
     await harness.drag(from.x, from.y, x, from.y, 20, 15);
     const n = await notch();
-    w.afterRelease = (await harness.watch(w.island.pid, 1200, 30))
+    w.afterRelease = (await harness.watch(w.island.pid, 2200, 30))
       .map((s) => ({ t: s.t, view: island.parse(s.windows, n) }));
   });
 
@@ -575,14 +604,14 @@ module.exports = (reg) => {
     await playing(w, 'Wonderwall', 30);
     await pointerAway();
     await sleep(200);
-    w.restMs = 300;
-    await rest(w, 300);
+    w.restMs = RULED_REST_MS;
+    await rest(w, RULED_REST_MS);
   });
 
   // Thens ----------------------------------------------------------------
 
   reg.define(/^the visionary sees the island open downward showing "([^"]+)" and "([^"]+)"$/, async (w, title, artist) => {
-    const view = await openOnMusicPage(w, untilRestOpens(w));
+    const view = await openOnMusicPage(w, restDeadline(w));
     await island.waitFor(w.island.pid, (v) => v.texts.includes(title) && v.texts.includes(artist), 1000,
       `the island does not show "${title}" and "${artist}"`);
     assert.ok(view.panel.h > (await notch()).h * 2, 'the island did not open downward');
@@ -620,7 +649,7 @@ module.exports = (reg) => {
     if (state.startsWith('still')) {
       const closed = w.offSamples.filter((v) => !(v.open && v.page === 'music'));
       assert.equal(closed.length, 0, 'the island closed while the pointer was off it for a moment');
-      await openOnMusicPage(w, 200);
+      await openOnMusicPage(w);
     } else {
       assert.ok(w.offSamples.some((v) => v.open), 'the island was never open while the pointer left it');
       const view = await island.look(w.island.pid);
@@ -697,8 +726,10 @@ module.exports = (reg) => {
     const shown = dotTime(view, s.duration);
     assert.ok(Math.abs(shown - s.position) < 3,
       `the dot stands at ${shown.toFixed(1)} s while Music plays at ${s.position.toFixed(1)} s`);
-    // From soon after the release on, the dot never stood at the dragged-to spot.
-    const settled = w.afterRelease.filter((x) => x.t - w.afterRelease[0].t > 400);
+    // The island holds a clicked spot for at most 1 s while Music applies the
+    // seek (SeekHold, D124); from 1.3 s after the release on, the dot never
+    // stood at the dragged-to spot.
+    const settled = w.afterRelease.filter((x) => x.t - w.afterRelease[0].t > 1300);
     for (const x of settled) {
       assert.ok(Math.abs(dotTime(x.view, s.duration) - mmss(not)) > 20, `the dot stayed at ${not}`);
     }
@@ -735,7 +766,7 @@ module.exports = (reg) => {
 
   reg.define(/^the visionary sees (the island open on the music page|the island open at once on the music page|the shelf page come up from below, as with a two-finger scroll)$/, async (w, result) => {
     if (result === 'the island open on the music page') {
-      await openOnMusicPage(w, untilRestOpens(w));
+      await openOnMusicPage(w, restDeadline(w));
     } else if (result.startsWith('the island open at once')) {
       const first = w.afterClick.find((s) => s.view.open && s.view.page === 'music');
       assert.ok(first, 'the island did not open on the click');

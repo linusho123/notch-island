@@ -4,7 +4,8 @@ import Foundation
 /// the real machine and tuned there (D51, D52), so they are configuration,
 /// never constants buried in the code that uses them.
 public struct IslandTiming: Equatable, Sendable {
-  /// How long the pointer must rest on the closed notch before it opens (D51).
+  /// How long the pointer must rest on the closed notch before it opens (D51,
+  /// amended by D128: about 0.15 s).
   public var rest: TimeInterval
   /// How long the pointer may be off the open island before it closes (D52).
   public var grace: TimeInterval
@@ -12,7 +13,7 @@ public struct IslandTiming: Equatable, Sendable {
   /// sweep across the notch keeps moving further than this, so it never rests.
   public var restRadius: Double
 
-  public static let standard = IslandTiming(rest: 0.3, grace: 0.5, restRadius: 8)
+  public static let standard = IslandTiming(rest: 0.15, grace: 0.5, restRadius: 8)
 
   public init(rest: TimeInterval, grace: TimeInterval, restRadius: Double) {
     self.rest = rest

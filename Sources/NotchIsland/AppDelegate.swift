@@ -70,7 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       try? store.save(song)
     }
     guard let model = island?.model else { return }
-    model.report = hub.report
+    model.take(report: hub.report)
     model.music = hub.page
   }
 

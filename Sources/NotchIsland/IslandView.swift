@@ -20,9 +20,29 @@ final class IslandModel: ObservableObject {
   var onSeek: (TimeInterval) -> Void = { _ in }
   var onBringForward: () -> Void = {}
 
+  /// The clicked position of a seek, held until Music confirms it.
+  private var seekHold = SeekHold()
+
+  /// The position to show: Music's, except just after a seek (see SeekHold).
   func position(at time: TimeInterval) -> TimeInterval? {
-    guard let report, report.state != .stopped else { return nil }
-    return report.position(at: time)
+    guard let report, report.state != .stopped, let real = report.position(at: time) else {
+      seekHold.cancel()
+      return nil
+    }
+    return seekHold.shown(real: real, at: time)
+  }
+
+  /// The bar was let go at `target`: seek, and keep showing it meanwhile.
+  func seek(to target: TimeInterval) {
+    let now = ProcessInfo.processInfo.systemUptime
+    seekHold.begin(target: target, at: now, playing: report?.state == .playing)
+    onSeek(target)
+  }
+
+  /// A report from the source; a different song ends a seek's hold.
+  func take(report new: SourceReport?) {
+    if new?.song != report?.song { seekHold.cancel() }
+    report = new
   }
 }
 
@@ -210,7 +230,7 @@ private struct ProgressBar: View {
                 guard duration > 0, model.music.controlsEnabled else { return }
                 let target = min(max(value.location.x / width, 0), 1) * duration
                 scrubFraction = nil
-                model.onSeek(target)
+                model.seek(to: target)
               }
           )
         }

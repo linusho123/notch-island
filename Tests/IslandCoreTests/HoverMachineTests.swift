@@ -7,6 +7,11 @@ import Testing
 struct HoverMachineTests {
   let timing = IslandTiming(rest: 0.3, grace: 0.5, restRadius: 8)
 
+  @Test func theShippedRestIsAboutASixthOfASecondD128() {
+    #expect(IslandTiming.standard.rest == 0.15)
+    #expect(IslandTiming.standard.grace == 0.5)
+  }
+
   @Test func restingOnTheNotchOpensAfterTheRestTime() {
     var m = HoverMachine(timing: timing)
     m.pointer(x: 855, y: 1100, inside: true, at: 10.0)
