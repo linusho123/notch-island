@@ -133,6 +133,10 @@ Each needs a ruling on how it counts as bound; until then it stays in `wip`.
   log-in. Options: bind them to macOS's own login-item registry (it lists the
   island as enabled) plus one manual log-in check by the visionary recorded
   in the phase report; or keep the login steps manual only.
+  *Ruled 2026-10-19:* registry binding plus one manual check. The visionary
+  deferred the manual log-out/log-in check to the very end of the build (after
+  P6); the release build was installed to /Applications and registered at
+  login on 2026-10-19 (P1, 57a9b41).
 - **Q2 (P2) — the real Bluetooth speaker.** The `JBL Flip 5` scenarios (D4,
   D119, D120) run against an injected output-device name. Options: that
   binding plus one manual check by the visionary with the real speaker,
@@ -197,6 +201,9 @@ external monitor, no Quit, Quit that also unregisters login.
 **Exit:** P1's scenarios pass; Q3's tuning session held; scope clean;
 manifest committed; DESIGN changelog lines for the SwiftPM build and the
 window approach.
+*Closed 2026-10-19:* gate green at 57a9b41; Q3 held (D128 rest 0.15 s, D129
+grace 0.5 s, D130 seek hold); Q1's manual login check deferred by the
+visionary to the end of the build.
 
 ## P2 — Music sources and the flip card
 
