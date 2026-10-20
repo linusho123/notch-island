@@ -186,8 +186,9 @@ private struct ArtworkView: View {
 }
 
 /// The progress bar: elapsed, the bar with its dot, the length. Dragging the
-/// dot or clicking the bar seeks (D25); once let go, the dot shows where the
-/// app really is, never the island's own guess (D124).
+/// dot or clicking the bar seeks (D25); once let go, the dot holds the chosen
+/// spot until the app reports playback there, for about a second at most, and
+/// then shows where the app really is (D130, amending D124).
 private struct ProgressBar: View {
   @ObservedObject var model: IslandModel
   @State private var scrubFraction: Double?
