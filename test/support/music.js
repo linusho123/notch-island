@@ -58,14 +58,16 @@ const realDriver = {
     if (repeat) lines.push(`set song repeat to ${repeat}`);
     if (s.state === 'stopped' || !track) lines.push('try', 'stop', 'end try');
     else {
-      lines.push(`play (first track of library playlist 1 whose persistent ID is "${track}")`,
-        'delay 0.5', `set player position to ${Number(s.position) || 0}`);
+      // Paused: pause at once, then move, so the song is barely heard.
+      lines.push(`play (first track of library playlist 1 whose persistent ID is "${track}")`);
       if (s.state === 'paused') lines.push('pause');
+      lines.push('delay 0.3', `set player position to ${Number(s.position) || 0}`);
     }
     lines.push('end tell');
     osaSync(...lines);
   },
   quit: () => { osaSync('tell application "Music" to quit'); },
+  sleep: (ms) => { execFileSync('sleep', [String(ms / 1000)]); },
   /** Bounded wait (10 s) until the Music process has really gone. */
   waitExited: () => {
     const end = Date.now() + 10000;

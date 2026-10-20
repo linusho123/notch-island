@@ -11,6 +11,7 @@ const { onCleanup } = require('./cleanup');
 const harness = require('./harness');
 const { scratch } = require('./sandbox');
 const { testBinary } = require('./paths');
+const { pauseInstalled } = require('./installed-island');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -50,6 +51,9 @@ function armLoginCleanup() {
 /** Start the island (a binary given, or the test build) and wait for it. */
 async function launch(world, binary = testBinary) {
   armLoginCleanup();
+  // The visionary's installed island steps aside for the run and comes back
+  // when it ends (installed-island.js).
+  pauseInstalled();
   if (runningIslands().length) {
     throw new Error(`another island is already running (pid ${runningIslands().join(', ')}); quit it before the tests`);
   }
