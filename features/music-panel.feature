@@ -1,6 +1,6 @@
 Feature: The music panel
   The camera notch of the visionary's MacBook Air is a closed island. Resting
-  the pointer on it for about a third of a second, or clicking it, opens the
+  the pointer on it for about a sixth of a second, or clicking it, opens the
   island downward on the music page: the current song, its source line, a
   progress bar, and back, pause and skip. A sweep across the notch on the
   way to a status icon opens nothing. The island waits a moment before
@@ -10,7 +10,7 @@ Feature: The music panel
   @D18 @D51
   Scenario: Resting the pointer on the notch opens the music panel
     Given Apple Music is playing "Wonderwall" by Oasis and the island is closed to the plain notch
-    When the visionary rests the trackpad pointer on the notch for about 0.3 seconds
+    When the visionary rests the trackpad pointer on the notch for about 0.15 seconds
     Then the visionary sees the island open downward showing "Wonderwall" and "Oasis"
     And the visionary sees three buttons on it: back, pause and skip
 
@@ -22,7 +22,7 @@ Feature: The music panel
 
     Examples:
       | rest              |
-      | about 0.3 seconds |
+      | about 0.15 seconds |
       | 2 seconds         |
 
   @D51 @D99
@@ -164,7 +164,7 @@ Feature: The music panel
 
     Examples:
       | before                    | action                                                      | result                                                            |
-      | closed to the plain notch | rests the mouse pointer on the notch for about 0.3 seconds  | the island open on the music page                                 |
+      | closed to the plain notch | rests the mouse pointer on the notch for about 0.15 seconds | the island open on the music page                                 |
       | closed to the plain notch | clicks the notch with the mouse                             | the island open at once on the music page                         |
       | open on the music page    | turns the mouse wheel down on the island                    | the shelf page come up from below, as with a two-finger scroll    |
 
