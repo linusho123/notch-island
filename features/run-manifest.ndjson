@@ -43,7 +43,7 @@
 {"file":"music-panel.feature","title":"Play on the last song starts it again","status":"passed"}
 {"file":"music-panel.feature","title":"Play resumes from the same spot","status":"passed"}
 {"file":"music-panel.feature","title":"Resting the pointer on the notch for 2 seconds opens the island [2]","status":"passed"}
-{"file":"music-panel.feature","title":"Resting the pointer on the notch for about 0.3 seconds opens the island [1]","status":"passed"}
+{"file":"music-panel.feature","title":"Resting the pointer on the notch for about 0.15 seconds opens the island [1]","status":"passed"}
 {"file":"music-panel.feature","title":"Resting the pointer on the notch opens the music panel","status":"passed"}
 {"file":"music-panel.feature","title":"Right-clicking the notch offers only Quit","status":"passed"}
 {"file":"music-panel.feature","title":"Scrolling down reaches the shelf when no song has played since the island was installed [2]","status":"passed"}
@@ -54,7 +54,7 @@
 {"file":"music-panel.feature","title":"The pointer leaving the open island for 0.2 seconds and back onto it [1]","status":"passed"}
 {"file":"music-panel.feature","title":"The pointer leaving the open island for 2 seconds [2]","status":"passed"}
 {"file":"music-panel.feature","title":"With an external mouse, the visionary clicks the notch with the mouse as with the trackpad [2]","status":"passed"}
-{"file":"music-panel.feature","title":"With an external mouse, the visionary rests the mouse pointer on the notch for about 0.3 seconds as with the trackpad [1]","status":"passed"}
+{"file":"music-panel.feature","title":"With an external mouse, the visionary rests the mouse pointer on the notch for about 0.15 seconds as with the trackpad [1]","status":"passed"}
 {"file":"music-panel.feature","title":"With an external mouse, the visionary turns the mouse wheel down on the island as with the trackpad [3]","status":"passed"}
 {"file":"music-panel.feature","title":"With nothing playing, the music page offers the last song paused and ready","status":"passed"}
 {"file":"music-sources.feature","title":"A Bluetooth speaker dropping mid-song pops nothing out","status":"unbound"}
