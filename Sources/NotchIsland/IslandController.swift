@@ -192,6 +192,12 @@ final class IslandController: NSObject, NSMenuDelegate {
         guard let self else { return }
         ticks += 1
         if ticks % 20 == 0 { self.onOpenRefresh() }
+        // A mouse-up that never reached us must not hold the island open.
+        if self.pressStartedOnIsland, NSEvent.pressedMouseButtons & 1 == 0 {
+          self.pressStartedOnIsland = false
+          let (_, inside) = self.pointerInside()
+          self.machine.leftButton(held: false, inside: inside, at: self.now)
+        }
         self.pointerChanged()
       }
       RunLoop.main.add(timer, forMode: .common)

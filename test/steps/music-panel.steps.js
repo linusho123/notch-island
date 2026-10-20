@@ -84,12 +84,41 @@ async function assertHangsFromNotch(view) {
   assert.ok(p.x >= screen.x && p.x + p.w <= screen.x + screen.w, 'the panel is not inside the built-in screen');
 }
 
+/**
+ * "About 0.3 seconds": the island opens at 0.3 s of rest. Measured on this
+ * Mac with no load, it shows open to Accessibility 270-285 ms after the
+ * pointer arrives, and a look takes 30-40 ms. The rest-to-open Thens allow
+ * REST_SLACK_MS beyond the rest, so the last look starts by about 40 ms after
+ * that and a clearly slow rest (0.55 s) is seen as too slow.
+ */
+const REST_SLACK_MS = 100;
+function untilRestOpens(w) {
+  return Math.max(0, w.arrivedAt + (w.restMs ?? 300) + REST_SLACK_MS - Date.now());
+}
+
 /** Opening never takes the focus from the app in front. */
 async function assertFocusKept(w) {
   if (!w.frontBefore) return;
   const now = await harness.frontmost();
   assert.equal(now.pid, w.frontBefore.pid,
     `the island took the focus: ${now.name} is in front instead of ${w.frontBefore.name}`);
+  // From the far side, the keyboard too: macOS's own idea of who has the
+  // focus (Accessibility, system-wide) is still the app in front, and none of
+  // the island's windows is the focused or main one. A panel that becomes key
+  // without activating its app passes the check above and fails these.
+  const keys = await harness.keyboardFocus();
+  const islandPid = w.island.pid;
+  assert.notEqual(keys.element, islandPid, 'the island holds the keyboard focus (its panel became key)');
+  assert.notEqual(keys.app, islandPid, 'the island is the app holding the keyboard focus');
+  // Some apps (Chrome until its accessibility is switched on) give no answer;
+  // when macOS does name the focused app, it must be the one in front.
+  if (keys.app) {
+    assert.equal(keys.app, w.frontBefore.pid,
+      `the keyboard focus is with process ${keys.app}, not with ${w.frontBefore.name} in front`);
+  }
+  const panels = await harness.windows(islandPid);
+  const keyed = panels.filter((p) => p.focused || p.main);
+  assert.equal(keyed.length, 0, 'an island window is the focused or main window of its app');
 }
 
 async function openOnMusicPage(w, ms = 1500) {
@@ -553,7 +582,7 @@ module.exports = (reg) => {
   // Thens ----------------------------------------------------------------
 
   reg.define(/^the visionary sees the island open downward showing "([^"]+)" and "([^"]+)"$/, async (w, title, artist) => {
-    const view = await openOnMusicPage(w, Math.max(0, w.arrivedAt + w.restMs + 300 - Date.now()));
+    const view = await openOnMusicPage(w, untilRestOpens(w));
     await island.waitFor(w.island.pid, (v) => v.texts.includes(title) && v.texts.includes(artist), 1000,
       `the island does not show "${title}" and "${artist}"`);
     assert.ok(view.panel.h > (await notch()).h * 2, 'the island did not open downward');
@@ -706,8 +735,7 @@ module.exports = (reg) => {
 
   reg.define(/^the visionary sees (the island open on the music page|the island open at once on the music page|the shelf page come up from below, as with a two-finger scroll)$/, async (w, result) => {
     if (result === 'the island open on the music page') {
-      const deadline = w.arrivedAt + (w.restMs ?? 300) + 300;
-      await openOnMusicPage(w, Math.max(0, deadline - Date.now()));
+      await openOnMusicPage(w, untilRestOpens(w));
     } else if (result.startsWith('the island open at once')) {
       const first = w.afterClick.find((s) => s.view.open && s.view.page === 'music');
       assert.ok(first, 'the island did not open on the click');

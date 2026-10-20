@@ -98,6 +98,13 @@ public struct HoverMachine: Sendable {
 
   public var isDragging: Bool { dragging }
 
+  /// The left button's real state, looked at on the open poll. A drag whose
+  /// mouse-up never arrived is ended here, so the island cannot stay open for
+  /// good.
+  public mutating func leftButton(held: Bool, inside: Bool, at time: TimeInterval) {
+    if !held { dragEnded(inside: inside, at: time) }
+  }
+
   /// When the machine next needs a `tick`, if ever.
   public var nextDeadline: TimeInterval? {
     switch state {

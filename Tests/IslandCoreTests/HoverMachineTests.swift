@@ -149,3 +149,39 @@ struct HoverMachineTests {
     #expect(m.nextDeadline == 2)
   }
 }
+
+/// A mouse-up that never arrives must not hold the island open for good.
+struct LostMouseUpTests {
+  let timing = IslandTiming(rest: 0.3, grace: 0.5, restRadius: 8)
+
+  @Test func aDragWhoseButtonIsNoLongerHeldEndsAndTheGraceRuns() {
+    var m = HoverMachine(timing: timing)
+    m.click(at: 0)
+    m.dragBegan()
+    m.pointer(x: 0, y: 0, inside: false, at: 1)
+    #expect(m.nextDeadline == nil)
+    m.leftButton(held: false, inside: false, at: 2)
+    #expect(!m.isDragging)
+    #expect(m.nextDeadline == 2.5)
+    m.tick(at: 2.5)
+    #expect(m.state == .closed)
+  }
+
+  @Test func aHeldButtonKeepsTheDragGoing() {
+    var m = HoverMachine(timing: timing)
+    m.click(at: 0)
+    m.dragBegan()
+    m.leftButton(held: true, inside: false, at: 2)
+    #expect(m.isDragging)
+    m.tick(at: 10)
+    #expect(m.state == .open)
+  }
+
+  @Test func withNoDragTheButtonCheckChangesNothing() {
+    var m = HoverMachine(timing: timing)
+    m.click(at: 0)
+    m.leftButton(held: false, inside: false, at: 2)
+    #expect(m.nextDeadline == nil)
+    #expect(m.state == .open)
+  }
+}

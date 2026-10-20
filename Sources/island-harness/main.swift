@@ -140,6 +140,7 @@ func windowsJSON(_ pid: pid_t) -> [[String: Any]] {
     if let fs = attr(w, "AXFullScreen") as? Bool { entry["fullScreen"] = fs }
     if let m = attr(w, kAXMinimizedAttribute) as? Bool { entry["minimized"] = m }
     if let m = attr(w, kAXMainAttribute) as? Bool { entry["main"] = m }
+    if let f = attr(w, kAXFocusedAttribute) as? Bool { entry["focused"] = f }
     return entry
   }
 }
@@ -204,6 +205,23 @@ func frontmostJSON() -> [String: Any] {
   return [
     "pid": Int(app.processIdentifier), "bundleID": app.bundleIdentifier ?? "",
     "name": app.localizedName ?? "",
+  ]
+}
+
+/// Where the keyboard goes, as Accessibility keeps it for the whole system:
+/// the app and the element that have the focus, by process.
+func keyboardFocusJSON() -> [String: Any] {
+  let system = AXUIElementCreateSystemWide()
+  AXUIElementSetMessagingTimeout(system, 1.0)
+  func pid(of attribute: String) -> Int {
+    guard let el = attr(system, attribute) else { return 0 }
+    var p: pid_t = 0
+    AXUIElementGetPid(el as! AXUIElement, &p)
+    return Int(p)
+  }
+  return [
+    "app": pid(of: kAXFocusedApplicationAttribute),
+    "element": pid(of: kAXFocusedUIElementAttribute),
   ]
 }
 
@@ -450,6 +468,9 @@ case "screen":
   emit(screensJSON())
 case "frontmost":
   emit(frontmostJSON())
+case "keyboardfocus":
+  requireTrust()
+  emit(keyboardFocusJSON())
 case "pointer":
   let p = pointer()
   emit(["x": p.x, "y": p.y])

@@ -46,6 +46,7 @@ module.exports = {
   menubar: async (pid) => (await h('menubar', pid)).items,
   extras: async () => (await h('extras')).items,
   frontmost: () => h('frontmost'),
+  keyboardFocus: () => h('keyboardfocus'),
   activate: (pid) => h('activate', pid),
   fullscreen: (pid) => h('fullscreen', pid),
   pointer: () => h('pointer'),

@@ -40,7 +40,27 @@ struct NowPlayingTests {
     hub.update(SourceReport(song: nil, state: .stopped, position: nil, readAt: 1))
     #expect(hub.page.content == .lastSong(wonderwall))
     #expect(!hub.page.isPlaying)
+    #expect(hub.page.playEnabled)
+  }
+
+  /// Ruled: with only the last song shown, Back, Skip and seeking are greyed
+  /// out and inert; only play (which starts the last song again, D31) works.
+  @Test func onTheLastSongPageOnlyPlayIsEnabled() {
+    let hub = NowPlayingHub(lastSong: wonderwall)
+    #expect(!hub.page.controlsEnabled)
+    #expect(hub.page.playEnabled)
+  }
+
+  @Test func onACurrentSongEverythingIsEnabled() {
+    var hub = NowPlayingHub(lastSong: nil)
+    hub.update(SourceReport(song: wonderwall, state: .paused, position: 1, readAt: 0))
     #expect(hub.page.controlsEnabled)
+    #expect(hub.page.playEnabled)
+  }
+
+  @Test func beforeAnySongNothingIsEnabled() {
+    let hub = NowPlayingHub(lastSong: nil)
+    #expect(!hub.page.playEnabled)
   }
 
   @Test func theLastSongComesFromTheStoreAfterARestart() {

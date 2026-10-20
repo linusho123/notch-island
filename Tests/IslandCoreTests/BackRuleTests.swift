@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import IslandCore
@@ -26,5 +27,35 @@ struct BackRuleTests {
     #expect(formatPlaybackTime(4335) == "1:12:15")
     #expect(formatPlaybackTime(-2) == "0:00")
     #expect(formatPlaybackTime(.infinity) == "0:00")
+  }
+}
+
+/// D124: back acts on what the app reports, never on a guess.
+struct BackOnFailedReadTests {
+  @Test func aFailedReadIsReadAgainOnceAndUsed() {
+    var reads: [TimeInterval?] = [nil, 120]
+    let action = backAction(reading: { reads.removeFirst() })
+    #expect(action == .restartSong)
+    #expect(reads.isEmpty)
+  }
+
+  @Test func aReadThatWorksIsNotRepeated() {
+    var count = 0
+    let action = backAction(reading: {
+      count += 1
+      return 1
+    })
+    #expect(action == .previousSong)
+    #expect(count == 1)
+  }
+
+  @Test func twoFailedReadsSendNothing() {
+    var count = 0
+    let action = backAction(reading: {
+      count += 1
+      return nil
+    })
+    #expect(action == nil)
+    #expect(count == 2)
   }
 }

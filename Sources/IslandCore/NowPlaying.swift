@@ -65,13 +65,18 @@ public struct MusicPage: Equatable, Sendable {
   public var content: Content
   /// The app is really playing: the middle button shows pause, otherwise play.
   public var isPlaying: Bool
-  /// Back, play/pause and skip can be clicked.
+  /// Back, skip and seeking can be used.
   public var controlsEnabled: Bool
+  /// The middle button (play or pause) can be clicked.
+  public var playEnabled: Bool
 
-  public init(content: Content, isPlaying: Bool, controlsEnabled: Bool) {
+  public init(
+    content: Content, isPlaying: Bool, controlsEnabled: Bool, playEnabled: Bool? = nil
+  ) {
     self.content = content
     self.isPlaying = isPlaying
     self.controlsEnabled = controlsEnabled
+    self.playEnabled = playEnabled ?? controlsEnabled
   }
 
   public var song: Song? {
@@ -108,7 +113,9 @@ public struct NowPlayingHub: Sendable {
         content: .current(song), isPlaying: report.state == .playing, controlsEnabled: true)
     }
     if let lastSong {
-      return MusicPage(content: .lastSong(lastSong), isPlaying: false, controlsEnabled: true)
+      // Nothing acts on a guess: only play, which starts the last song again.
+      return MusicPage(
+        content: .lastSong(lastSong), isPlaying: false, controlsEnabled: false, playEnabled: true)
     }
     return MusicPage(content: .nothingPlayedYet, isPlaying: false, controlsEnabled: false)
   }

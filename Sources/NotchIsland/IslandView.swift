@@ -229,27 +229,28 @@ private struct Controls: View {
 
   var body: some View {
     HStack(spacing: 36) {
-      button("backward.fill", "Back", model.onBack)
+      button("backward.fill", "Back", enabled: model.music.controlsEnabled, model.onBack)
       button(
         model.music.isPlaying ? "pause.fill" : "play.fill",
-        model.music.isPlaying ? "Pause" : "Play", model.onPlayPause)
-      button("forward.fill", "Skip", model.onSkip)
+        model.music.isPlaying ? "Pause" : "Play", enabled: model.music.playEnabled,
+        model.onPlayPause)
+      button("forward.fill", "Skip", enabled: model.music.controlsEnabled, model.onSkip)
     }
     .frame(maxWidth: .infinity)
-    .disabled(!model.music.controlsEnabled)
   }
 
-  private func button(_ symbol: String, _ label: String, _ action: @escaping () -> Void)
-    -> some View
-  {
+  private func button(
+    _ symbol: String, _ label: String, enabled: Bool, _ action: @escaping () -> Void
+  ) -> some View {
     Button(action: action) {
       Image(systemName: symbol)
         .font(.system(size: 18))
-        .foregroundColor(.white.opacity(model.music.controlsEnabled ? 1 : 0.3))
+        .foregroundColor(.white.opacity(enabled ? 1 : 0.3))
         .frame(width: 34, height: 26)
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .disabled(!enabled)
     .accessibilityLabel(label)
   }
 }

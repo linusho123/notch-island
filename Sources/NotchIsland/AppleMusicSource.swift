@@ -16,7 +16,7 @@ final class AppleMusicSource {
   var onArtwork: ((NSImage?) -> Void)?
 
   private let queue = DispatchQueue(label: "notch-island.apple-music")
-  private var lastArtworkTrack: String?
+  private var artwork = ArtworkTracker()
 
   func start() {
     DistributedNotificationCenter.default().addObserver(
@@ -59,10 +59,14 @@ final class AppleMusicSource {
   func back() {
     queue.async { [weak self] in
       guard let self else { return }
-      let position = self.run("tell application \"Music\" to get player position")?.doubleValue
-      switch backAction(atPosition: position ?? 0) {
+      let action = backAction(reading: {
+        self.run("tell application \"Music\" to get player position")?.doubleValue
+      })
+      // A position still unknown after a second read: send nothing (D124).
+      switch action {
       case .previousSong: self.send("back", "previous track")
       case .restartSong: self.send("back", "set player position to 0")
+      case nil: break
       }
       self.refresh(after: 0.15)
     }
@@ -142,17 +146,21 @@ final class AppleMusicSource {
 
   private func readArtworkIfNew(_ report: SourceReport) -> Artwork? {
     let key = report.song?.trackID
-    guard key != lastArtworkTrack else { return nil }
-    lastArtworkTrack = key
-    guard key != nil else { return Artwork(image: nil) }
+    guard artwork.shouldRead(key) else { return nil }
+    guard key != nil else {
+      artwork.finished(key, succeeded: true)
+      return Artwork(image: nil)
+    }
     let script = """
       tell application "Music"
         if (count of artworks of current track) is 0 then return ""
         return raw data of artwork 1 of current track
       end tell
       """
-    let data = run(script)?.data
-    return Artwork(image: data.flatMap { NSImage(data: $0) })
+    // Done only when Music answered; a failed read is tried again later.
+    let result = run(script)
+    artwork.finished(key, succeeded: result != nil)
+    return Artwork(image: result.flatMap { NSImage(data: $0.data) })
   }
 
   private func run(_ source: String) -> NSAppleEventDescriptor? {

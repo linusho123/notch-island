@@ -15,6 +15,13 @@ public func backAction(atPosition position: TimeInterval) -> BackAction {
   return position.rounded(.down) <= 3 ? .previousSong : .restartSong
 }
 
+/// Back from a position read that can fail: a failed read is read once more,
+/// and if the position is still unknown nothing is sent (D124: no guessing).
+public func backAction(reading read: () -> TimeInterval?) -> BackAction? {
+  guard let position = read() ?? read() else { return nil }
+  return backAction(atPosition: position)
+}
+
 /// A playback time as the island shows it: `1:40`, `0:03`, `1:12:05`.
 public func formatPlaybackTime(_ seconds: TimeInterval) -> String {
   let total = seconds.isFinite ? max(0, Int(seconds.rounded(.down))) : 0
