@@ -148,6 +148,11 @@ public struct NowPlayingHub: Sendable {
   /// A face that just read as stopped: an app that quits says "stopped" a
   /// moment before it is gone, and that must not lose where it was.
   private var justStopped: (id: SourceID, report: SourceReport, at: TimeInterval)?
+  /// A hidden source's last report, kept for where it was should it quit.
+  private var hiddenReports: [SourceID: SourceReport] = [:]
+  /// A source left while none of the others played: the page shows its song
+  /// paused and ready, until a source plays (D117).
+  public private(set) var showsLastSong = false
 
   public init(lastSong: Song?, resumeAt: TimeInterval? = nil) {
     self.lastSong = lastSong
@@ -161,6 +166,7 @@ public struct NowPlayingHub: Sendable {
 
   /// The face the card shows.
   public var shownID: SourceID? {
+    if showsLastSong { return nil }
     if let flipped, reports[flipped] != nil { return flipped }
     return faces.first
   }
@@ -178,19 +184,23 @@ public struct NowPlayingHub: Sendable {
   @discardableResult
   public mutating func update(_ id: SourceID, _ report: SourceReport) -> Bool {
     guard report.isFace, let song = report.song else {
-      if let old = reports[id], old.isFace { justStopped = (id, old, report.readAt) }
+      guard let old = reports[id] else { return false }  // not on the card: nothing changes
+      justStopped = (id, old, report.readAt)
       remove(id, keepTurn: false)
       if lastSong?.sourceID == id || (lastSong != nil && lastSong?.sourceID == nil) {
         resumeAt = nil  // stopped: play starts the song again (D31)
       }
-      return false
+      return keepFront()
     }
     if joined[id] == nil {
       joins += 1
       joined[id] = joins
       flipped = nil  // a new source takes the card (D48)
+      showsLastSong = false
     }
+    if report.state == .playing { showsLastSong = false }
     reports[id] = report
+    hiddenReports[id] = nil
     if justStopped?.id == id { justStopped = nil }
     return keepFront()
   }
@@ -198,6 +208,7 @@ public struct NowPlayingHub: Sendable {
   /// The source cannot be seen separately for now (IINA behind another app
   /// on the shared now-playing channel, D111): no face, but it keeps its turn.
   public mutating func hide(_ id: SourceID) {
+    if let report = reports[id] { hiddenReports[id] = report }
     remove(id, keepTurn: true)
   }
 
@@ -205,23 +216,24 @@ public struct NowPlayingHub: Sendable {
   /// its song is the last song, where it was is kept for play to resume.
   @discardableResult
   public mutating func leave(_ id: SourceID, at time: TimeInterval) -> Bool {
-    var last = reports[id]
+    var last = reports[id] ?? hiddenReports[id]
     var until = time
     if last == nil, let stopped = justStopped, stopped.id == id, time - stopped.at < 3 {
       last = stopped.report
       until = stopped.at
     }
-    justStopped = nil
+    if justStopped?.id == id { justStopped = nil }
+    hiddenReports[id] = nil
     remove(id, keepTurn: false)
     guard let last, let song = last.song else { return keepFront() }
-    let changed = keepFront()
-    if faces.isEmpty {
-      let wasLast = lastSong == song
-      lastSong = song
-      resumeAt = last.position(at: until)
-      return changed || !wasLast
-    }
-    return changed
+    // Another source still plays: the newest remaining one shows. None does:
+    // this song stays paused and ready, to resume where it was.
+    guard !reports.values.contains(where: { $0.state == .playing }) else { return keepFront() }
+    let wasLast = lastSong == song
+    showsLastSong = true
+    lastSong = song
+    resumeAt = last.position(at: until)
+    return !wasLast || resumeAt != nil
   }
 
   /// Turn the card to the next face (D48, D111): newest, then older ones,
@@ -242,7 +254,9 @@ public struct NowPlayingHub: Sendable {
   /// The newest face's song is the last song; it plays or is paused now, so
   /// there is nothing to resume.
   private mutating func keepFront() -> Bool {
-    guard let front = faces.first, let song = reports[front]?.song else { return false }
+    guard !showsLastSong, let front = faces.first, let song = reports[front]?.song else {
+      return false
+    }
     resumeAt = nil
     guard song != lastSong else { return false }
     lastSong = song

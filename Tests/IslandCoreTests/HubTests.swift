@@ -224,4 +224,44 @@ struct HubTests {
     let song = Song(title: "x", artist: nil, source: source, trackID: nil, duration: nil)
     #expect(sourceLine(for: song, output: output) == line)
   }
+
+  @Test func whenTheOnlyPlayingSourceQuitsAPausedOneDoesNotTakeOver() {
+    var hub = NowPlayingHub(lastSong: nil)
+    hub.update(.appleMusic, SourceReport(song: wonderwall, state: .paused, position: 30, readAt: 0))
+    hub.update(.iina, playing(rehearsal, at: 2530, readAt: 10))
+    hub.leave(.iina, at: 12)
+    #expect(hub.page.content == .lastSong(rehearsal))
+    #expect(hub.resumeAt == 2532)
+    #expect(hub.shownID == nil)
+    // the paused source plays again: it takes the card
+    hub.update(.appleMusic, playing(wonderwall, at: 30, readAt: 20))
+    #expect(hub.page.content == .current(wonderwall))
+  }
+
+  @Test func whenAnotherSourceStillPlaysTheNewestRemainingShows() {
+    var hub = NowPlayingHub(lastSong: nil)
+    hub.update(.appleMusic, playing(wonderwall))
+    hub.update(.iina, playing(rehearsal))
+    hub.leave(.iina, at: 5)
+    #expect(hub.page.content == .current(wonderwall))
+    #expect(hub.resumeAt == nil)
+  }
+
+  @Test func aHiddenSourceThatQuitsKeepsWhereItWas() {
+    var hub = NowPlayingHub(lastSong: nil)
+    hub.update(.iina, playing(rehearsal, at: 2530, readAt: 0))
+    hub.hide(.iina)
+    hub.leave(.iina, at: 1)
+    #expect(hub.page.content == .lastSong(rehearsal))
+    #expect(hub.resumeAt == 2531)
+  }
+
+  @Test func aStoppedReportFromASourceThatAlreadyLeftKeepsThePlace() {
+    var hub = NowPlayingHub(lastSong: nil)
+    hub.update(.appleMusic, playing(wonderwall, at: 130, readAt: 0))
+    hub.leave(.appleMusic, at: 0)
+    hub.update(.appleMusic, SourceReport(song: nil, state: .stopped, position: nil, readAt: 1))
+    #expect(hub.resumeAt == 130)
+    #expect(hub.page.content == .lastSong(wonderwall))
+  }
 }

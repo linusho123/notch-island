@@ -100,6 +100,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     case .left: keep = hub.leave(id, at: now) || hub.resumeAt != nil
     case .artwork(let image): artwork[id] = image
     }
+    #if ISLAND_TEST_INPUT
+      switch event {
+      case .artwork: break
+      case .report(let r):
+        NSLog(
+          "notch-island: %@ report %@ %@ at %@ -> shows %@", id.rawValue, r.state.rawValue,
+          r.song?.title ?? "-", "\(r.position ?? -1)", "\(hub.page.content)")
+      default:
+        NSLog(
+          "notch-island: %@ %@ -> shows %@ resume %@", id.rawValue, "\(event)",
+          "\(hub.page.content)", "\(hub.resumeAt ?? -1)")
+      }
+    #endif
     if keep, let song = hub.lastSong {
       try? store.save(song, resumeAt: hub.resumeAt)
     }

@@ -37,10 +37,15 @@ async function until(pred, ms, message) {
 
 // ------------------------------------------------------------ the files
 
-/** A stand-in video file with a quiet tone, `seconds` long (mov inside). */
+/**
+ * A stand-in video file with a quiet tone, `seconds` long (mov inside), alone
+ * in its own folder: IINA plays on into the other files of a folder, and a
+ * stand-in must never lead it to another.
+ */
 async function movie(name, seconds) {
-  fs.mkdirSync(MEDIA, { recursive: true });
-  const file = path.join(MEDIA, name);
+  const dir = path.join(MEDIA, `${name.replace(/[^\w.-]/g, '_')}-${seconds}s`);
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, name);
   if (!fs.existsSync(file)) {
     const tmp = path.join(MEDIA, `.making-${process.pid}-${name}.mov`);
     await harness.h('make-movie', tmp, seconds, 'sound');
@@ -51,8 +56,8 @@ async function movie(name, seconds) {
 
 /** An untagged, silent MPEG-1 Layer III file: 128 kbit/s, 44.1 kHz frames. */
 function mp3(name, seconds) {
-  fs.mkdirSync(MEDIA, { recursive: true });
-  const file = path.join(MEDIA, name);
+  fs.mkdirSync(path.join(MEDIA, 'music-files'), { recursive: true });
+  const file = path.join(MEDIA, 'music-files', name);
   if (!fs.existsSync(file)) {
     const frame = Buffer.alloc(417);
     frame.writeUInt32BE(0xfffb9004, 0); // sync, MPEG-1 L3, 128k, 44.1 kHz, no padding, stereo
@@ -64,8 +69,8 @@ function mp3(name, seconds) {
 
 /** An untagged wav file with a quiet tone. */
 function wav(name, seconds) {
-  fs.mkdirSync(MEDIA, { recursive: true });
-  const file = path.join(MEDIA, name);
+  fs.mkdirSync(path.join(MEDIA, 'music-files'), { recursive: true });
+  const file = path.join(MEDIA, 'music-files', name);
   if (!fs.existsSync(file)) {
     const rate = 8000;
     const n = seconds * rate;
@@ -196,12 +201,13 @@ async function playFileInMusic(w, file) {
   music.keepMusic();
   await run('open', ['-a', 'Music', file]);
   const base = path.basename(file);
-  w.defer(() => removeFileTracks(base));
+  w.defer(() => removeFileTracks(base, fs.statSync(file).size));
   await until(async () => {
     const out = await music.osa(`tell application "Music"
       if player state is not playing then return ""
       try
-        return POSIX path of (location of current track)
+        set l to location of current track
+        return POSIX path of l
       end try
       return ""
     end tell`);
@@ -209,19 +215,35 @@ async function playFileInMusic(w, file) {
   }, 15000, `Music did not play "${base}"`);
 }
 
-/** Remove the library tracks that came from the stand-in file `base`. */
-async function removeFileTracks(base) {
-  await music.osa(`tell application "Music"
+/**
+ * Remove the library tracks that came from the stand-in file `base`, and the
+ * copy Music made of it in its media folder (only a file of the stand-in's
+ * own name and size).
+ */
+async function removeFileTracks(base, size) {
+  const out = await music.osa(`tell application "Music"
     try
       stop
     end try
+    set gone to ""
     repeat with t in (every file track of library playlist 1 whose name is ${JSON.stringify(base.replace(/\.[^.]+$/, ''))})
       try
-        set loc to POSIX path of (location of t)
-        if loc ends with ${JSON.stringify(`/${base}`)} then delete t
+        set l to location of t
+        set loc to POSIX path of l
+        if loc ends with ${JSON.stringify(`/${base}`)} then
+          delete t
+          set gone to gone & loc & linefeed
+        end if
       end try
     end repeat
-  end tell`).catch(() => {});
+    return gone
+  end tell`).catch(() => '');
+  const media = path.join(os.homedir(), 'Music', 'Music', 'Media.localized');
+  for (const loc of out.split('\n').filter(Boolean)) {
+    if (loc.startsWith(media + path.sep) && path.basename(loc) === base && fs.existsSync(loc) && fs.statSync(loc).size === size) {
+      fs.rmSync(loc);
+    }
+  }
 }
 
 module.exports = {

@@ -124,6 +124,8 @@ final class IINASource: SourcePart {
   /// After a reopen: seek here once the channel shows the file again.
   private var pendingSeek: (title: String, position: TimeInterval)?
   private var location: (title: String, path: String)?
+  /// IINA has reported since it started: only then can it hide or leave.
+  private var seen = false
 
   init(channel: NowPlayingChannel) {
     self.channel = channel
@@ -131,7 +133,8 @@ final class IINASource: SourcePart {
 
   func start() {
     watchTermination(of: Self.bundleID) { [weak self] in
-      guard let self else { return }
+      guard let self, self.seen else { return }
+      self.seen = false
       self.onEvent?(self.id, .left)
     }
     refresh()
@@ -144,13 +147,15 @@ final class IINASource: SourcePart {
   /// A change of the channel.
   func take(_ info: ChannelInfo?) {
     guard isRunning(Self.bundleID) else {
-      onEvent?(id, .left)
+      if seen { onEvent?(id, .left) }
+      seen = false
       return
     }
     guard let info, info.bundleID == Self.bundleID, let title = info.title, !title.isEmpty else {
-      onEvent?(id, .hidden)
+      if seen { onEvent?(id, .hidden) }
       return
     }
+    seen = true
     if let pending = pendingSeek, pending.title == title {
       pendingSeek = nil
       channel.seek(to: pending.position)

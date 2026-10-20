@@ -25,7 +25,7 @@ const TRACKS = [
 ];
 
 /** Music itself, driven synchronously for the keeper (which runs in clean-ups too). */
-const osaSync = (...lines) => execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { encoding: 'utf8', timeout: 30000 }).trim();
+const osaSync = (...lines) => execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 
 const realDriver = {
   // `application "Music" is running` does not start it.

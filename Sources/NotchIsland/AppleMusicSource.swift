@@ -54,6 +54,12 @@ final class AppleMusicSource: SourcePart {
         self.readReport() ?? SourceReport(song: nil, state: .stopped, position: nil, readAt: now)
       let art = self.readArtworkIfNew(report)
       DispatchQueue.main.async {
+        // Music may have quit while it was being read: a read that ends after
+        // the quit must not put it back on the card.
+        guard self.isRunning else {
+          self.onEvent?(self.id, .left)
+          return
+        }
         self.onEvent?(self.id, .report(report))
         if let art { self.onEvent?(self.id, .artwork(art.image)) }
       }
@@ -96,16 +102,16 @@ final class AppleMusicSource: SourcePart {
       command("play", "play")
       return
     }
-    // A Music that was quit is started by the first command and refuses
-    // commands while its library loads: the play is tried for a while.
+    // A Music that was quit is started by the first command, and while it
+    // loads it takes a play without playing: the play is sent again until
+    // Music itself says it plays, for ten seconds at most.
     let play = """
       repeat 40 times
         try
           play (first track of library playlist 1 whose persistent ID is "\(id)")
-          exit repeat
-        on error
-          delay 0.25
         end try
+        delay 0.25
+        if player state is playing then exit repeat
       end repeat
       """
     guard let position, position > 0 else {
@@ -117,11 +123,19 @@ final class AppleMusicSource: SourcePart {
       "play",
       """
       \(play)
-      repeat 50 times
-        if player state is playing then exit repeat
-        delay 0.1
+      -- A play still on its way may start the song over: the position is
+      -- set until it holds on two reads in a row.
+      set held to 0
+      repeat 12 times
+        if player position < \(seek) - 1 then
+          set player position to \(seek)
+          set held to 0
+        else
+          set held to held + 1
+          if held is 2 then exit repeat
+        end if
+        delay 0.3
       end repeat
-      set player position to \(seek)
       """)
   }
 
@@ -152,7 +166,8 @@ final class AppleMusicSource: SourcePart {
         set t to current track
         set loc to ""
         try
-          set loc to POSIX path of (location of t)
+          set l to location of t
+          set loc to POSIX path of l
         end try
         return {ps, name of t, artist of t, duration of t, player position, persistent ID of t, album of t, loc}
       end tell

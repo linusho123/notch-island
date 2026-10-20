@@ -39,11 +39,14 @@ static void emit(NSDictionary *message) {
   }
 }
 
-/// Read the now-playing app and its info, and write them as one line.
+/// Read the now-playing info and then its app, and write them as one line.
+/// The info is read first: should the app change in between, the line names
+/// the new app with the old info, and the island, seeing another app, gives
+/// the old one no face, rather than giving the old app the new app's song.
 static void report(void) {
-  getPid(queue, ^(int pid) {
-    getIsPlaying(queue, ^(BOOL playing) {
-      getInfo(queue, ^(NSDictionary *info) {
+  getInfo(queue, ^(NSDictionary *info) {
+    getPid(queue, ^(int pid) {
+      getIsPlaying(queue, ^(BOOL playing) {
         NSMutableDictionary *out = [NSMutableDictionary dictionary];
         out[@"type"] = @"nowPlaying";
         out[@"pid"] = @(pid);
