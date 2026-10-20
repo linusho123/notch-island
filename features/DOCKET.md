@@ -1148,3 +1148,12 @@ D129 2026-10-19 [V] ratifies D52
   spread: The pointer leaving the open island for <away>
   touches: D52
 # resolves the TBR on D52's grace
+
+D130 2026-10-19 [V] amends D124
+  pre:   the island is open over "Wonderwall" playing in Apple Music [V]
+  trig:  the visionary clicks or drags the progress bar to a new spot [V]
+  resp:  the dot shows the chosen spot until Apple Music reports playback there, for at most about one second; if Apple Music never gets there, the dot returns to where playback really is [V]
+  why:   without it the dot flashed back to the old position before settling, seen at the P1 tuning session; a hold that ends with the app's real state keeps the intent of the ruling it amends [V]
+  serves: N1
+  sib:   none -- a seek the app ignores is ruled in this response
+  touches: D124 D18
