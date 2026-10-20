@@ -264,4 +264,23 @@ struct HubTests {
     #expect(hub.resumeAt == 130)
     #expect(hub.page.content == .lastSong(wonderwall))
   }
+
+  @Test func aSourceFoundPausedGoesBehindAndDoesNotTakeTheCard() {
+    var hub = NowPlayingHub(lastSong: nil)
+    hub.update(.iina, playing(rehearsal))
+    hub.update(.appleMusic, SourceReport(song: wonderwall, state: .paused, position: 30, readAt: 1))
+    #expect(hub.page.content == .current(rehearsal))
+    #expect(hub.faces == [.iina, .appleMusic])
+  }
+
+  @Test func aSourceThatStartsPlayingAgainTakesTheFront() {
+    var hub = NowPlayingHub(lastSong: nil)
+    hub.update(.appleMusic, playing(wonderwall))
+    hub.update(.chromeTab(7), playing(lecture))
+    hub.update(.appleMusic, SourceReport(song: wonderwall, state: .paused, position: 30, readAt: 1))
+    #expect(hub.page.content == .current(lecture))
+    hub.update(.appleMusic, playing(wonderwall, at: 30, readAt: 2))
+    #expect(hub.page.content == .current(wonderwall))
+    #expect(hub.page.flip?.label == "1 of 2")
+  }
 }

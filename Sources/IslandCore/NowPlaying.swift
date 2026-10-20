@@ -137,7 +137,7 @@ public struct MusicPage: Equatable, Sendable {
 public struct NowPlayingHub: Sendable {
   /// The faces' latest reports.
   public private(set) var reports: [SourceID: SourceReport] = [:]
-  /// When each source joined the card; a hidden source keeps its turn.
+  /// When each source started playing last; a hidden source keeps its turn.
   private var joined: [SourceID: Int] = [:]
   private var joins = 0
   /// The face flipped to; nil shows the newest.
@@ -192,13 +192,19 @@ public struct NowPlayingHub: Sendable {
       }
       return keepFront()
     }
-    if joined[id] == nil {
+    // The newest source is the one that started playing last (D48): a
+    // source that starts or starts again takes the front and the card; one
+    // that joins paused (an app found paused) goes behind the others.
+    let was = reports[id] ?? hiddenReports[id]
+    let starts = report.state == .playing && (was == nil || was?.state != .playing)
+    if starts {
       joins += 1
       joined[id] = joins
-      flipped = nil  // a new source takes the card (D48)
+      flipped = nil
       showsLastSong = false
+    } else if joined[id] == nil {
+      joined[id] = (joined.values.min() ?? 1) - 1
     }
-    if report.state == .playing { showsLastSong = false }
     reports[id] = report
     hiddenReports[id] = nil
     if justStopped?.id == id { justStopped = nil }

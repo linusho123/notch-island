@@ -78,7 +78,11 @@ final class AppleMusicSource: SourcePart {
     queue.async { [weak self] in
       guard let self else { return }
       let action = backAction(reading: {
-        self.run("tell application \"Music\" to get player position")?.doubleValue
+        self.run(
+          """
+          if application "Music" is not running then error "not running"
+          tell application "Music" to get player position
+          """)?.doubleValue
       })
       // A position still unknown after a second read: send nothing (D124).
       switch action {
@@ -159,7 +163,10 @@ final class AppleMusicSource: SourcePart {
   // MARK: Reading Music
 
   private func readReport() -> SourceReport? {
+    // Checked again inside the script, just before it speaks to Music: a
+    // read must never start a Music that just quit.
     let script = """
+      if application "Music" is not running then return {"stopped"}
       tell application "Music"
         set ps to player state as string
         if ps is "stopped" then return {ps}
@@ -211,6 +218,7 @@ final class AppleMusicSource: SourcePart {
       return Artwork(image: nil)
     }
     let script = """
+      if application "Music" is not running then error "Music is not running"
       tell application "Music"
         if (count of artworks of current track) is 0 then return ""
         return raw data of artwork 1 of current track

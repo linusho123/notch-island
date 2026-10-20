@@ -32,12 +32,12 @@
 {"file":"music-panel.feature","title":"Clicking the source line brings Chrome showing that soundcloud.com tab, not the Gmail tab to the front [3]","status":"unbound"}
 {"file":"music-panel.feature","title":"Clicking the source line brings the Apple Music window to the front [1]","status":"passed"}
 {"file":"music-panel.feature","title":"Dragging the parked \"tax-return.pdf\" far from the island keeps it open until let go [2]","status":"unbound"}
-{"file":"music-panel.feature","title":"Dragging the progress dot far from the island keeps it open until let go [1]","status":"unbound"}
+{"file":"music-panel.feature","title":"Dragging the progress dot far from the island keeps it open until let go [1]","status":"passed"}
 {"file":"music-panel.feature","title":"In fullscreen, resting on the notch still opens the panel","status":"passed"}
-{"file":"music-panel.feature","title":"Moving the progress dot by clicking the bar to 1:45:00 jumps the concert file there [2]","status":"unbound"}
-{"file":"music-panel.feature","title":"Moving the progress dot by clicking the bar's start to 0:00:00 jumps the concert file there [4]","status":"unbound"}
-{"file":"music-panel.feature","title":"Moving the progress dot by dragging the dot back to 0:30:00 jumps the concert file there [3]","status":"unbound"}
-{"file":"music-panel.feature","title":"Moving the progress dot by dragging the dot to 1:45:00 jumps the concert file there [1]","status":"unbound"}
+{"file":"music-panel.feature","title":"Moving the progress dot by clicking the bar to 1:45:00 jumps the concert file there [2]","status":"passed"}
+{"file":"music-panel.feature","title":"Moving the progress dot by clicking the bar's start to 0:00:00 jumps the concert file there [4]","status":"passed"}
+{"file":"music-panel.feature","title":"Moving the progress dot by dragging the dot back to 0:30:00 jumps the concert file there [3]","status":"passed"}
+{"file":"music-panel.feature","title":"Moving the progress dot by dragging the dot to 1:45:00 jumps the concert file there [1]","status":"passed"}
 {"file":"music-panel.feature","title":"Pause stops the music and becomes play","status":"passed"}
 {"file":"music-panel.feature","title":"Picking Quit stops the island","status":"passed"}
 {"file":"music-panel.feature","title":"Play on the last song starts it again","status":"passed"}
@@ -50,26 +50,26 @@
 {"file":"music-panel.feature","title":"Scrolling down reaches the shelf when the last song played was \"Wonderwall\" [1]","status":"passed"}
 {"file":"music-panel.feature","title":"Skip plays the next song in the queue","status":"passed"}
 {"file":"music-panel.feature","title":"Sweeping across the notch without resting opens nothing","status":"passed"}
-{"file":"music-panel.feature","title":"The panel shows a downloaded file with no cover art and no artist","status":"unbound"}
+{"file":"music-panel.feature","title":"The panel shows a downloaded file with no cover art and no artist","status":"passed"}
 {"file":"music-panel.feature","title":"The pointer leaving the open island for 0.2 seconds and back onto it [1]","status":"passed"}
 {"file":"music-panel.feature","title":"The pointer leaving the open island for 2 seconds [2]","status":"passed"}
 {"file":"music-panel.feature","title":"With an external mouse, the visionary clicks the notch with the mouse as with the trackpad [2]","status":"passed"}
 {"file":"music-panel.feature","title":"With an external mouse, the visionary rests the mouse pointer on the notch for about 0.15 seconds as with the trackpad [1]","status":"passed"}
 {"file":"music-panel.feature","title":"With an external mouse, the visionary turns the mouse wheel down on the island as with the trackpad [3]","status":"passed"}
 {"file":"music-panel.feature","title":"With nothing playing, the music page offers the last song paused and ready","status":"passed"}
-{"file":"music-sources.feature","title":"A Bluetooth speaker dropping mid-song pops nothing out","status":"unbound"}
+{"file":"music-sources.feature","title":"A Bluetooth speaker dropping mid-song pops nothing out","status":"passed"}
 {"file":"music-sources.feature","title":"A YouTube lecture playing with sound counts as a song","status":"unbound"}
 {"file":"music-sources.feature","title":"A YouTube video started while Wonderwall plays takes the card, with a flip control","status":"unbound"}
 {"file":"music-sources.feature","title":"A muted YouTube preview counts from the moment it is unmuted","status":"unbound"}
-{"file":"music-sources.feature","title":"A song from Apple Music shows on the music page [1]","status":"unbound"}
-{"file":"music-sources.feature","title":"A song from IINA shows on the music page [4]","status":"unbound"}
-{"file":"music-sources.feature","title":"A song from IINA shows on the music page [5]","status":"unbound"}
-{"file":"music-sources.feature","title":"A song from Music shows on the music page [7]","status":"unbound"}
-{"file":"music-sources.feature","title":"A song from Music shows on the music page [8]","status":"unbound"}
-{"file":"music-sources.feature","title":"A song from QuickTime Player shows on the music page [6]","status":"unbound"}
+{"file":"music-sources.feature","title":"A song from Apple Music shows on the music page [1]","status":"passed"}
+{"file":"music-sources.feature","title":"A song from IINA shows on the music page [4]","status":"passed"}
+{"file":"music-sources.feature","title":"A song from IINA shows on the music page [5]","status":"passed"}
+{"file":"music-sources.feature","title":"A song from Music shows on the music page [7]","status":"passed"}
+{"file":"music-sources.feature","title":"A song from Music shows on the music page [8]","status":"passed"}
+{"file":"music-sources.feature","title":"A song from QuickTime Player shows on the music page [6]","status":"passed"}
 {"file":"music-sources.feature","title":"A song from a soundcloud.com tab in Chrome shows on the music page [3]","status":"unbound"}
 {"file":"music-sources.feature","title":"A song from a youtube.com tab in Chrome shows on the music page [2]","status":"unbound"}
-{"file":"music-sources.feature","title":"After the speaker drops, the source line names the app alone","status":"unbound"}
+{"file":"music-sources.feature","title":"After the speaker drops, the source line names the app alone","status":"passed"}
 {"file":"music-sources.feature","title":"Flipping 1 times through three sources shows the IINA file as 2 of 3 [1]","status":"unbound"}
 {"file":"music-sources.feature","title":"Flipping 1 times while IINA has no face shows the Apple Music song as 2 of 2 [1]","status":"unbound"}
 {"file":"music-sources.feature","title":"Flipping 2 times through three sources shows the Apple Music song as 3 of 3 [2]","status":"unbound"}
@@ -81,32 +81,32 @@
 {"file":"music-sources.feature","title":"In Chrome, a muted autoplay clip on a news site stays off the island [2]","status":"unbound"}
 {"file":"music-sources.feature","title":"In Chrome, a muted hover preview on the YouTube home feed, left muted stays off the island [1]","status":"unbound"}
 {"file":"music-sources.feature","title":"In Chrome, an autoplay clip with sound on a news site stays off the island [3]","status":"unbound"}
-{"file":"music-sources.feature","title":"Music playing out through a Bluetooth speaker still counts","status":"unbound"}
+{"file":"music-sources.feature","title":"Music playing out through a Bluetooth speaker still counts","status":"passed"}
 {"file":"music-sources.feature","title":"Play after the visionary closed the youtube.com tab resumes \"Lecture 4: Fourier Series\" at 12:34 [2]","status":"unbound"}
-{"file":"music-sources.feature","title":"Play after the visionary quit Apple Music resumes \"Wonderwall\" at 2:10 [1]","status":"unbound"}
-{"file":"music-sources.feature","title":"Play after the visionary quit IINA resumes the file \"rehearsal.mkv\" at 0:42:10 [3]","status":"unbound"}
-{"file":"music-sources.feature","title":"Quitting the only source leaves its last song paused and ready","status":"unbound"}
+{"file":"music-sources.feature","title":"Play after the visionary quit Apple Music resumes \"Wonderwall\" at 2:10 [1]","status":"passed"}
+{"file":"music-sources.feature","title":"Play after the visionary quit IINA resumes the file \"rehearsal.mkv\" at 0:42:10 [3]","status":"failed"}
+{"file":"music-sources.feature","title":"Quitting the only source leaves its last song paused and ready","status":"passed"}
 {"file":"music-sources.feature","title":"The flipped card's buttons control the other source","status":"unbound"}
-{"file":"music-sources.feature","title":"The keyboard's play or pause key still works and the island follows [1]","status":"unbound"}
-{"file":"music-sources.feature","title":"The keyboard's skip key still works and the island follows [2]","status":"unbound"}
-{"file":"music-sources.feature","title":"The source line reads Apple Music [1]","status":"unbound"}
-{"file":"music-sources.feature","title":"The source line reads Apple Music · JBL Flip 5 [2]","status":"unbound"}
-{"file":"music-sources.feature","title":"The source line reads IINA [6]","status":"unbound"}
-{"file":"music-sources.feature","title":"The source line reads Music [8]","status":"unbound"}
-{"file":"music-sources.feature","title":"The source line reads QuickTime Player [7]","status":"unbound"}
+{"file":"music-sources.feature","title":"The keyboard's play or pause key still works and the island follows [1]","status":"passed"}
+{"file":"music-sources.feature","title":"The keyboard's skip key still works and the island follows [2]","status":"passed"}
+{"file":"music-sources.feature","title":"The source line reads Apple Music [1]","status":"passed"}
+{"file":"music-sources.feature","title":"The source line reads Apple Music · JBL Flip 5 [2]","status":"passed"}
+{"file":"music-sources.feature","title":"The source line reads IINA [6]","status":"failed"}
+{"file":"music-sources.feature","title":"The source line reads Music [8]","status":"passed"}
+{"file":"music-sources.feature","title":"The source line reads QuickTime Player [7]","status":"failed"}
 {"file":"music-sources.feature","title":"The source line reads SoundCloud [5]","status":"unbound"}
 {"file":"music-sources.feature","title":"The source line reads YouTube [3]","status":"unbound"}
 {"file":"music-sources.feature","title":"The source line reads YouTube · JBL Flip 5 [4]","status":"unbound"}
-{"file":"music-sources.feature","title":"The visionary pauses from Control Center and the island follows [1]","status":"unbound"}
-{"file":"music-sources.feature","title":"The visionary skips from Control Center and the island follows [2]","status":"unbound"}
+{"file":"music-sources.feature","title":"The visionary pauses from Control Center and the island follows [1]","status":"failed"}
+{"file":"music-sources.feature","title":"The visionary skips from Control Center and the island follows [2]","status":"passed"}
 {"file":"music-sources.feature","title":"Unmuting a muted YouTube preview adds it to the card without popping the wing","status":"unbound"}
 {"file":"music-sources.feature","title":"When the visionary closes the YouTube tab, the newest remaining source shows [2]","status":"unbound"}
 {"file":"music-sources.feature","title":"When the visionary quits Apple Music, the newest remaining source shows [1]","status":"unbound"}
 {"file":"music-sources.feature","title":"When the visionary quits IINA, the newest remaining source shows [3]","status":"unbound"}
 {"file":"music-sources.feature","title":"With Apple Music and a youtube.com tab in Chrome playing, the newest shows the count 1 of 2 [1]","status":"unbound"}
 {"file":"music-sources.feature","title":"With Apple Music, QuickTime Player and a youtube.com tab in Chrome playing, the newest shows the count 1 of 3 [2]","status":"unbound"}
-{"file":"music-sources.feature","title":"With nothing before it, back twice within the first 3 seconds on the island goes to Apple Music [2]","status":"unbound"}
-{"file":"music-sources.feature","title":"With nothing next after it, skip on the island goes to QuickTime Player [1]","status":"unbound"}
+{"file":"music-sources.feature","title":"With nothing before it, back twice within the first 3 seconds on the island goes to Apple Music [2]","status":"passed"}
+{"file":"music-sources.feature","title":"With nothing next after it, skip on the island goes to QuickTime Player [1]","status":"failed"}
 {"file":"new-song-notice.feature","title":"2 songs starting about a second apart keep the wing out [1]","status":"unbound"}
 {"file":"new-song-notice.feature","title":"20 songs starting about a second apart keep the wing out [3]","status":"unbound"}
 {"file":"new-song-notice.feature","title":"5 songs starting about a second apart keep the wing out [2]","status":"unbound"}

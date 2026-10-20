@@ -119,13 +119,20 @@ async function controlCenter(w, action) {
   const pid = await controlCenterPid();
   await harness.h('press', pid, 'com.apple.menuextra.controlcenter');
   w.defer(() => harness.key(53).catch(() => {}));
-  const tile = await island.until(async () => {
-    const els = (await harness.h('tree', pid)).elements;
-    const text = els.find((e) => e.role === 'AXStaticText' && /Wonderwall/.test(String(e.value || '')));
-    return text ? els : null;
-  }, 5000, 'Control Center shows no Now Playing tile with "Wonderwall"');
   const label = action === 'pauses' ? 'pause' : 'next';
-  assert.ok(tile.some((e) => e.role === 'AXButton' && e.description === label), `the Now Playing tile has no ${label} button`);
+  // The tile shows Wonderwall playing (its pause button up), as the
+  // visionary would see it before clicking.
+  let seen = [];
+  await island.until(async () => {
+    const els = (await harness.h('tree', pid)).elements;
+    seen = els.filter((e) => e.role === 'AXStaticText' || e.role === 'AXButton').map((e) => e.value || e.description);
+    return els.some((e) => e.role === 'AXStaticText' && /Wonderwall/.test(String(e.value || '')))
+      && els.some((e) => e.role === 'AXButton' && e.description === 'pause')
+      && els.some((e) => e.role === 'AXButton' && e.description === label);
+  }, 6000, 'Control Center shows no Now Playing tile with "Wonderwall" playing').catch((e) => {
+    e.message += ` (it shows ${seen.join(', ')})`;
+    throw e;
+  });
   await harness.h('press', pid, label);
   await sleep(300);
   await harness.key(53); // close Control Center

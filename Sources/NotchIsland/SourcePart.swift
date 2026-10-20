@@ -265,7 +265,10 @@ final class QuickTimeSource: SourcePart {
   private func read() {
     guard isRunning(Self.bundleID) else { return }
     // The document that plays, else the front one.
+    // Checked again inside the script, just before it speaks to QuickTime:
+    // a read must never start a QuickTime Player that just quit.
     let script = """
+      if application "QuickTime Player" is not running then return {}
       tell application "QuickTime Player"
         if (count of documents) is 0 then return {}
         set d to front document
@@ -338,8 +341,10 @@ final class QuickTimeSource: SourcePart {
       guard let self else { return }
       let read = {
         runAppleScript(
-          "tell application \"QuickTime Player\" to get current time of front document",
-          label: "QuickTime Player")?.doubleValue
+          """
+          if application "QuickTime Player" is not running then error "not running"
+          tell application "QuickTime Player" to get current time of front document
+          """, label: "QuickTime Player")?.doubleValue
       }
       switch backAction(reading: read) {
       case .previousSong:
