@@ -2,6 +2,8 @@ import AVFoundation
 import AppKit
 import ApplicationServices
 import CoreAudio
+import HarnessCore
+import IOKit
 import MediaPlayer
 import ScreenCaptureKit
 
@@ -235,7 +237,14 @@ func post(_ type: CGEventType, _ p: CGPoint, _ button: CGMouseButton = .left, cl
       mouseEventSource: nil, mouseType: type, mouseCursorPosition: p, mouseButton: button)
   else { fail("could not make a pointer event") }
   e.setIntegerValueField(.mouseEventClickState, value: clicks)
-  e.post(tap: .cghidEventTap)
+  postTagged(e)
+}
+
+/// Every event the harness posts goes out here, tagged as the harness's own,
+/// so the input guard can tell it from the visionary's real input.
+func postTagged(_ e: CGEvent) {
+  e.setIntegerValueField(.eventSourceUserData, value: InputGuard.tag)
+  e.post(tap: .cghidEventTap)  // tagged-post
 }
 
 /// The system-wide left button, as macOS reads it.
@@ -282,8 +291,9 @@ func scroll(dy: Int32, wheel: Bool) {
   if wheel {
     let e = CGEvent(
       scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: dy, wheel2: 0, wheel3: 0)
-    e?.setIntegerValueField(.scrollWheelEventIsContinuous, value: 0)
-    e?.post(tap: .cghidEventTap)
+    guard let e else { return }
+    e.setIntegerValueField(.scrollWheelEventIsContinuous, value: 0)
+    postTagged(e)
     return
   }
   // A two-finger scroll: a gesture that begins, changes and ends.
@@ -292,12 +302,13 @@ func scroll(dy: Int32, wheel: Bool) {
     let e = CGEvent(
       scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1,
       wheel1: i == steps ? 0 : dy / Int32(steps), wheel2: 0, wheel3: 0)
-    e?.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+    guard let e else { continue }
+    e.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
     let phase: Int64 = i == 0 ? 1 : (i == steps ? 4 : 2)  // began, changed, ended
-    e?.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
-    e?.setIntegerValueField(
+    e.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
+    e.setIntegerValueField(
       .scrollWheelEventPointDeltaAxis1, value: Int64(i == steps ? 0 : dy / Int32(steps)))
-    e?.post(tap: .cghidEventTap)
+    postTagged(e)
     sleepMs(12)
   }
 }
@@ -514,6 +525,126 @@ func captureCheck(_ rect: CGRect, islandPid: Int) -> Never {
   exit(0)
 }
 
+// MARK: Sharing the Mac
+
+/// The system's idle clock: milliseconds since the last keyboard or pointer
+/// input of any kind (IOHIDSystem's HIDIdleTime).
+func hidIdleMs() -> Double? {
+  let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOHIDSystem"))
+  guard service != 0 else { return nil }
+  defer { IOObjectRelease(service) }
+  guard
+    let value = IORegistryEntryCreateCFProperty(
+      service, "HIDIdleTime" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue()
+      as? NSNumber
+  else { return nil }
+  return value.doubleValue / 1e6
+}
+
+/// What the waiter needs to know besides input, power and the lid: whether
+/// the built-in display sleeps, the screen is locked, the screen saver runs.
+func sessionJSON() -> [String: Any] {
+  var ids = [CGDirectDisplayID](repeating: 0, count: 16)
+  var count: UInt32 = 0
+  CGGetOnlineDisplayList(16, &ids, &count)
+  let builtIn = ids.prefix(Int(count)).first { CGDisplayIsBuiltin($0) != 0 } ?? CGMainDisplayID()
+  let session = (CGSessionCopyCurrentDictionary() as? [String: Any]) ?? [:]
+  let saver = NSWorkspace.shared.runningApplications.contains {
+    $0.bundleIdentifier == "com.apple.ScreenSaver.Engine"
+      || $0.executableURL?.lastPathComponent == "ScreenSaverEngine"
+  }
+  return [
+    "displayAsleep": CGDisplayIsAsleep(builtIn) != 0,
+    "locked": (session["CGSSessionScreenIsLocked"] as? Bool) ?? false,
+    "onConsole": (session[kCGSessionOnConsoleKey as String] as? Bool) ?? true,
+    "screenSaver": saver,
+  ]
+}
+
+func line(_ value: [String: Any]) {
+  emit(value)
+  fflush(stdout)
+}
+
+/// The input guard's state; globals, as the tap's C callback captures nothing.
+var guardTap: CFMachPort?
+var guardLastHarnessMs = now()
+var guardSawHarness = false
+
+func inputKind(_ type: UInt32) -> String {
+  switch type {
+  case 10, 11, 12: return "keyboard"
+  case 1, 2, 3, 4, 5, 6, 7, 25, 26, 27: return "pointer"
+  case 22: return "scroll"
+  case 14: return "media or special key"
+  default: return "trackpad"
+  }
+}
+
+func reportRealInput(_ fields: [String: Any]) -> Never {
+  var report = fields
+  report["real"] = true
+  report["t"] = now()
+  line(report)
+  exit(0)
+}
+
+/// input-guard: a listen-only tap on every event of the session. Prints
+/// {"ready"} once the tap is up, {"harness"} the first time it sees one of
+/// the harness's own tagged events, and {"real", ...} (then exits) the moment
+/// it sees keyboard, pointer or trackpad input the harness did not post, or
+/// the idle clock shows input no tap could see. Never a key code.
+func runInputGuard() -> Never {
+  let callback: CGEventTapCallBack = { _, type, event, _ in
+    if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+      if let tap = guardTap { CGEvent.tapEnable(tap: tap, enable: true) }
+      return Unmanaged.passUnretained(event)
+    }
+    let raw = type.rawValue
+    var subtype: Int?
+    if raw == 14 { subtype = NSEvent(cgEvent: event).map { Int($0.subtype.rawValue) } }
+    let userData = event.getIntegerValueField(.eventSourceUserData)
+    switch InputGuard.origin(type: raw, userData: userData, subtype: subtype) {
+    case .harness:
+      guardLastHarnessMs = now()
+      if !guardSawHarness {
+        guardSawHarness = true
+        line(["harness": true, "t": now()])
+      }
+    case .real:
+      reportRealInput([
+        "signal": "tap", "type": Int(raw), "kind": inputKind(raw),
+        "sourcePid": Int(event.getIntegerValueField(.eventSourceUnixProcessID)),
+      ])
+    case .notInput:
+      break
+    }
+    return Unmanaged.passUnretained(event)
+  }
+  guard
+    let tap = CGEvent.tapCreate(
+      tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly,
+      eventsOfInterest: CGEventMask.max, callback: callback, userInfo: nil)
+  else {
+    fail("the input guard could not open an event tap (Accessibility or Input Monitoring)", code: 3)
+  }
+  guardTap = tap
+  let source = CFMachPortCreateRunLoopSource(nil, tap, 0)
+  CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+  CGEvent.tapEnable(tap: tap, enable: true)
+  guardLastHarnessMs = now()
+  Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+    guard let idle = hidIdleMs() else { return }
+    let since = now() - guardLastHarnessMs
+    if InputGuard.idleShowsRealInput(hidIdleMs: idle, msSinceHarnessEvent: since) {
+      reportRealInput(["signal": "idle", "hidIdleMs": idle, "sinceHarnessMs": since])
+    }
+  }
+  line(["ready": true, "t": now()])
+  RunLoop.main.run()
+  exit(0)
+}
+
 // MARK: Commands
 
 switch command {
@@ -527,6 +658,17 @@ case "keyboardfocus":
 case "pointer":
   let p = pointer()
   emit(["x": p.x, "y": p.y])
+case "nudge":
+  // nudge: one tagged move to where the pointer already is, so the input
+  // guard can show it sees the harness's own events. Nothing moves.
+  post(.mouseMoved, pointer())
+  emit(["ok": true])
+case "idle":
+  emit(["idleMs": hidIdleMs().map { $0 as Any } ?? NSNull()])
+case "session":
+  emit(sessionJSON())
+case "input-guard":
+  runInputGuard()
 case "trusted":
   emit(["trusted": AXIsProcessTrusted()])
 case "windows":
@@ -591,8 +733,9 @@ case "arrive-and-click":
 case "key":
   // key keycode: press and release one key (53 is Escape).
   let code = CGKeyCode(num(1))
-  CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true)?.post(tap: .cghidEventTap)
-  CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false)?.post(tap: .cghidEventTap)
+  for down in [true, false] {
+    if let e = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down) { postTagged(e) }
+  }
   emit(["ok": true])
 case "tree":
   // tree pid: everything under an app's Accessibility element, windows or
@@ -662,7 +805,7 @@ case "media-key":
     let event = NSEvent.otherEvent(
       with: .systemDefined, location: .zero, modifierFlags: flags, timestamp: 0,
       windowNumber: 0, context: nil, subtype: 8, data1: data1, data2: -1)
-    event?.cgEvent?.post(tap: .cghidEventTap)
+    if let e = event?.cgEvent { postTagged(e) }
     sleepMs(30)
   }
   emit(["ok": true])

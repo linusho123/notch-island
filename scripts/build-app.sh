@@ -37,11 +37,7 @@ bundle .build/release-app build/release local.notch-island "notch-island"
 swift build -c release --product NotchIsland --build-path .build/test-app -Xswiftc -DISLAND_TEST_INPUT
 bundle .build/test-app build/test local.notch-island.test "notch-island test"
 
-swift build -c release --product island-harness --build-path .build/harness
-mkdir -p build
-cp .build/harness/release/island-harness build/island-harness
-codesign --force --sign - build/island-harness >/dev/null
-echo "built build/island-harness"
+sh scripts/build-harness.sh
 
 # The harness's own now-playing reader (independent of the island's adapter).
 clang -dynamiclib -fobjc-arc -O2 -framework AppKit \
