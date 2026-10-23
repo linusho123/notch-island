@@ -311,6 +311,10 @@ module.exports = (reg) => {
 
   reg.define(/^the visionary clicks (skip|back twice within the first 3 seconds) on the island$/, async (w, what) => {
     await openIsland(w);
+    // The visionary can click it: the button is there and not greyed out.
+    const view = await island.look(w.island.pid);
+    const label = what === 'skip' ? 'Skip' : 'Back';
+    assert.ok(button(view, label).enabled, `${label.toLowerCase()} is greyed out on the island`);
     if (what === 'skip') {
       w.appBefore = await players.quickTimeState();
       await clickButton(w, 'Skip');
