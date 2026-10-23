@@ -94,4 +94,15 @@ async function onCommand(msg) {
   }
 }
 
+// A service worker that restarts has lost what it knew of the open tabs: ask
+// each youtube.com and soundcloud.com tab to report again.
+async function requery() {
+  try {
+    for (const tab of await chrome.tabs.query({})) {
+      if (siteOf(tab.url || '')) chrome.tabs.sendMessage(tab.id, { type: 'command', command: 'report' }).catch(() => {});
+    }
+  } catch { /* no tabs to ask */ }
+}
+
 connect();
+requery();

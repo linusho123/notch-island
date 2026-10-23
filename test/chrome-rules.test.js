@@ -7,7 +7,7 @@
 // visionary rules on launching it (see the P2 report).
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { siteOf, counts, reopenURL } = require('../app/chrome-extension/rules');
+const { siteOf, counts, reopenURL, pickMedia } = require('../app/chrome-extension/rules');
 
 const sounding = { paused: false, muted: false, volume: 1, ended: false };
 
@@ -44,4 +44,18 @@ test('a counted tab stays while paused, so its play works; a never-sounding paus
 test('a closed tab reopens at the spot it left', () => {
   assert.equal(reopenURL('https://www.youtube.com/watch?v=l4', 754.6), 'https://www.youtube.com/watch?v=l4&t=754s');
   assert.equal(reopenURL('https://soundcloud.com/a/late-night-mix', 754), 'https://soundcloud.com/a/late-night-mix#t=12:34');
+});
+
+test('the page\'s main player is the one that sounds, not a muted hover preview (P2 fix S7)', () => {
+  const preview = { paused: false, ended: false, muted: true, volume: 1, currentTime: 2 };
+  const main = { paused: false, ended: false, muted: false, volume: 1, currentTime: 90 };
+  assert.equal(pickMedia([preview, main]), main);
+  assert.equal(pickMedia([main, preview]), main);
+  // None sounds: a playing one still beats a paused one, then one that has played.
+  const paused = { paused: true, ended: false, muted: false, volume: 1, currentTime: 0 };
+  const played = { paused: true, ended: false, muted: false, volume: 1, currentTime: 30 };
+  assert.equal(pickMedia([paused, preview]), preview);
+  assert.equal(pickMedia([paused, played]), played);
+  assert.equal(pickMedia([paused]), paused);
+  assert.equal(pickMedia([]), null);
 });

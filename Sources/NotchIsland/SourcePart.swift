@@ -123,7 +123,7 @@ final class IINASource: SourcePart {
   var onEvent: ((SourceID, SourceEvent) -> Void)?
   private let channel: NowPlayingChannel
   /// After a reopen: seek here once the channel shows the file again.
-  private var pendingSeek: (title: String, position: TimeInterval)?
+  private var pendingSeek = PendingSeek()
   private var location: (title: String, path: String)?
   /// IINA has reported since it started: only then can it hide or leave.
   private var seen = false
@@ -157,9 +157,8 @@ final class IINASource: SourcePart {
       return
     }
     seen = true
-    if let pending = pendingSeek, pending.title == title {
-      pendingSeek = nil
-      channel.seek(to: pending.position)
+    if let position = pendingSeek.take(title: title, at: ProcessInfo.processInfo.systemUptime) {
+      channel.seek(to: position)
     }
     let song = Song(
       title: title, artist: (info.artist?.isEmpty ?? true) ? nil : info.artist, source: "IINA",
@@ -209,7 +208,10 @@ final class IINASource: SourcePart {
       activate(bundleID: Self.bundleID)
       return
     }
-    if let position { pendingSeek = (song.title, position) }
+    if let position {
+      pendingSeek.set(
+        title: song.title, position: position, at: ProcessInfo.processInfo.systemUptime)
+    }
     open(path, inApp: Self.bundleID)
   }
 }

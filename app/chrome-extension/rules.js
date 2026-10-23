@@ -44,7 +44,18 @@
     return u.toString();
   }
 
-  const api = { siteOf, counts, reopenURL };
+  /**
+   * Which of a page's media elements is the one that plays. A muted hover
+   * preview must not mask the real player: the one that sounds wins, then one
+   * that plays, then one that has played, then the first.
+   */
+  function pickMedia(list) {
+    const playing = (m) => !m.paused && !m.ended;
+    const sounding = (m) => playing(m) && !m.muted && m.volume > 0;
+    return list.find(sounding) || list.find(playing) || list.find((m) => m.currentTime > 0) || list[0] || null;
+  }
+
+  const api = { siteOf, counts, reopenURL, pickMedia };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.notchIslandRules = api;
 })(typeof self !== 'undefined' ? self : globalThis);

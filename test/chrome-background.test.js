@@ -73,3 +73,29 @@ test('while the island is away the extension backs off its reconnects', () => {
   assert.ok(delays[5] > delays[0] * 2, `no back-off: ${delays}`);
   assert.ok(delays.every((d) => d <= 300000), `a reconnect waits too long: ${delays}`);
 });
+
+test('when the service worker starts it asks the open youtube.com and soundcloud.com tabs to report again', async () => {
+  const asked = [];
+  const evt = () => ({ addListener() {} });
+  const port = { onMessage: { addListener() {} }, onDisconnect: { addListener() {} }, postMessage() {} };
+  const chrome = {
+    runtime: { connectNative: () => port, onMessage: evt() },
+    tabs: {
+      get: async () => ({}), onUpdated: evt(), onRemoved: evt(),
+      query: async () => [
+        { id: 3, url: 'https://www.youtube.com/watch?v=x' },
+        { id: 4, url: 'https://news.example.com/' },
+        { id: 5, url: 'https://soundcloud.com/a/b' },
+      ],
+      sendMessage: async (id, msg) => { asked.push([id, msg.command]); },
+    },
+    windows: {},
+  };
+  const sandbox = { chrome, setTimeout, console, URL, Date };
+  sandbox.self = sandbox;
+  sandbox.importScripts = (f) => vm.runInContext(fs.readFileSync(path.join(DIR, f), 'utf8'), sandbox);
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(DIR, 'background.js'), 'utf8'), sandbox);
+  await new Promise((r) => setTimeout(r, 50));
+  assert.deepEqual(asked, [[3, 'report'], [5, 'report']]);
+});

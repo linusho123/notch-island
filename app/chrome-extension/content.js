@@ -5,8 +5,7 @@
   'use strict';
 
   function mainMedia() {
-    const all = [...document.querySelectorAll('video, audio')];
-    return all.find((m) => !m.paused && !m.ended) || all.find((m) => m.currentTime > 0) || all[0] || null;
+    return self.notchIslandRules.pickMedia([...document.querySelectorAll('video, audio')]);
   }
 
   function title() {
