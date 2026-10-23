@@ -250,8 +250,8 @@ final class QuickTimeSource: SourcePart {
   private func follow(_ running: Bool) {
     timer?.invalidate()
     timer = nil
-    guard running else { return }
-    let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
+    guard let interval = PollPolicy.quickTime(isOpen: running) else { return }
+    let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in self?.refresh() }
     RunLoop.main.add(timer, forMode: .common)
     self.timer = timer
     refresh()

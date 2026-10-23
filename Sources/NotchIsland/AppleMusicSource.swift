@@ -18,6 +18,7 @@ final class AppleMusicSource: SourcePart {
 
   private let queue = DispatchQueue(label: "notch-island.apple-music")
   private var artwork = ArtworkTracker()
+  private var playheadTimer: Timer?
 
   func start() {
     DistributedNotificationCenter.default().addObserver(
@@ -25,6 +26,7 @@ final class AppleMusicSource: SourcePart {
       name: Notification.Name("com.apple.Music.playerInfo"), object: nil)
     watchTermination(of: Self.bundleID) { [weak self] in
       guard let self else { return }
+      self.watchPlayhead(playing: false)
       self.onEvent?(self.id, .left)
     }
     refresh()
@@ -46,7 +48,10 @@ final class AppleMusicSource: SourcePart {
     queue.asyncAfter(deadline: .now() + delay) { [weak self] in
       guard let self else { return }
       guard self.isRunning else {
-        DispatchQueue.main.async { self.onEvent?(self.id, .left) }
+        DispatchQueue.main.async {
+          self.watchPlayhead(playing: false)
+          self.onEvent?(self.id, .left)
+        }
         return
       }
       // A read that failed (Music busy, the script timed out) says nothing
@@ -67,8 +72,25 @@ final class AppleMusicSource: SourcePart {
         }
         self.onEvent?(self.id, .report(report))
         if let art { self.onEvent?(self.id, .artwork(art.image)) }
+        self.watchPlayhead(playing: report.state == .playing)
       }
     }
+  }
+
+  /// While Music plays, its playhead is looked at now and then (D133): a move
+  /// made in Music's own window announces nothing, and a resume after Music
+  /// quits would otherwise start from the island's own estimate. Nothing runs
+  /// while Music is paused, stopped or quit.
+  private func watchPlayhead(playing: Bool) {
+    guard let interval = PollPolicy.musicPlayhead(isPlaying: playing) else {
+      playheadTimer?.invalidate()
+      playheadTimer = nil
+      return
+    }
+    guard playheadTimer == nil else { return }
+    let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in self?.refresh() }
+    RunLoop.main.add(timer, forMode: .common)
+    playheadTimer = timer
   }
 
   // MARK: Commands
