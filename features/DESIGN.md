@@ -57,7 +57,7 @@ Major parts, in prose:
 - While the screen is shared or recorded the island keeps working for the visionary as always, while nothing of it — wing, panel or shelf — appears in what the share or the recording captures; a recording that just ended still lands on the shelf. [ruled: D108]
 - Hidden-from-capture is buildable only while macOS lets an app keep its own windows out of shares and recordings; if the build finds it no longer does, the sharing question returns to the visionary rather than being settled in code. [ruled: D110]
 - The island always shows the app's real state, never its own guess: when an app ignores a pause, a seek, a click on the source line or play on a quit source, the island keeps showing what the app is really doing, with no shake or message. [ruled: D124]
-- The flip cycles only through the sources the island can see separately, and its count matches the faces shown; a source it cannot see separately has no face. [ruled: D111, D121]
+- The flip cycles only through the sources the island can see separately, and its count matches the faces shown; a source it cannot see separately has no face. A paused source is still a face, one flip away, until its app quits or its tab closes. [ruled: D111, D121, D131]
 - The source line names the site for Chrome sources and the app otherwise, adding the speaker only when it is not the built-in one; a dropped Bluetooth speaker simply disappears from it. [ruled: D119, D120]
 - The island may rely on a small companion Chrome extension, installed once by the visionary, to follow what youtube.com and soundcloud.com tabs are playing. [ruled: D126]
 - The shelf points at files and folders, never moves or copies them; a moved item follows its new place and a trashed one leaves. [ruled: D36, D58]
