@@ -10,17 +10,31 @@ import IslandCore
 final class ChromeBridge {
   /// A tab part appeared; the app wires it like any other part.
   var onTabPart: ((ChromeTabPart) -> Void)?
-  private(set) var parts: [Int: ChromeTabPart] = [:]
-  /// Tabs that closed while they counted: where they were, to reopen (D117).
-  private var closed: [Int: ChromeTab] = [:]
+  private(set) var parts: [SourceID: ChromeTabPart] = [:]
+
+  /// One Chrome's connection (its host process). Two Chromes with the
+  /// extension have two, each with its own tab ids and closed tabs.
+  private final class Link {
+    var number: Int
+    let handle: FileHandle
+    var buffer = Data()
+    /// The Chrome whose extension reports (the host's parent process), so the
+    /// exact Chrome comes to the front even with another Chrome running.
+    var chromePid: pid_t?
+    /// Tabs that closed while they counted: where they were, to reopen (D117).
+    var closed: [Int: ChromeTab] = [:]
+    init(number: Int, handle: FileHandle) {
+      self.number = number
+      self.handle = handle
+    }
+  }
+
+  private var links: [Int: Link] = [:]
+  private var nextLink = 1
+  private var book = ChromeTabBook()
   private var listener: Int32 = -1
   private var acceptSource: DispatchSourceRead?
-  private var connection: FileHandle?
-  private var buffer = Data()
   let socketPath: String
-  /// The Chrome whose extension reports (the host's parent process), so the
-  /// exact Chrome comes to the front even with another Chrome running.
-  private(set) var chromePid: pid_t?
 
   init(directory: URL) {
     socketPath = Self.socketPath(directory: directory)
@@ -75,63 +89,81 @@ final class ChromeBridge {
       close(fd)
       return
     }
-    connection?.closeFile()
-    buffer = Data()
-    closed = [:]  // tab ids belong to one Chrome session
     let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
-    handle.readabilityHandler = { [weak self] h in
+    let link = Link(number: nextLink, handle: handle)
+    nextLink += 1
+    links[link.number] = link
+    handle.readabilityHandler = { [weak self, weak link] h in
       let data = h.availableData
       DispatchQueue.main.async {
+        guard let self, let link else { return }
         if data.isEmpty {
           h.readabilityHandler = nil
-          self?.connectionClosed(h)
+          self.connectionClosed(link)
         } else {
-          self?.take(data)
+          self.take(data, from: link)
         }
       }
     }
-    connection = handle
   }
 
-  private func connectionClosed(_ handle: FileHandle) {
-    guard handle === connection else { return }
-    connection = nil
-    // Chrome or its extension went away: every tab leaves.
-    for id in Array(parts.keys) { leave(id) }
+  private func connectionClosed(_ link: Link) {
+    // Only a link still current: one replaced by its own Chrome's reconnect
+    // was already handed over.
+    guard links[link.number] === link else { return }
+    links[link.number] = nil
+    // That Chrome or its extension went away: its tabs leave, no one else's.
+    for id in book.close(connection: link.number) { leave(id) }
   }
 
-  private func take(_ data: Data) {
-    buffer.append(data)
-    guard buffer.count < NativeMessaging.maxMessage * 2 else {
-      buffer = Data()
+  /// The same Chrome connecting again (its extension reconnects, or its
+  /// service worker restarts): the new connection takes over the old one's
+  /// tabs, so nothing leaves and rejoins as the newest.
+  private func adopt(_ link: Link, chromePid pid: pid_t) {
+    link.chromePid = pid
+    guard let old = links.values.first(where: { $0 !== link && $0.chromePid == pid }) else {
       return
     }
-    while let newline = buffer.firstIndex(of: 0x0A) {
-      let line = Data(buffer[buffer.startIndex..<newline])
-      buffer.removeSubrange(buffer.startIndex...newline)
+    links[link.number] = nil
+    old.handle.readabilityHandler = nil
+    old.handle.closeFile()
+    link.number = old.number
+    link.closed = old.closed
+    links[link.number] = link
+  }
+
+  private func take(_ data: Data, from link: Link) {
+    link.buffer.append(data)
+    guard link.buffer.count < NativeMessaging.maxMessage * 2 else {
+      link.buffer = Data()
+      return
+    }
+    while let newline = link.buffer.firstIndex(of: 0x0A) {
+      let line = Data(link.buffer[link.buffer.startIndex..<newline])
+      link.buffer.removeSubrange(link.buffer.startIndex...newline)
       guard let message = try? JSONSerialization.jsonObject(with: line) as? [String: Any]
       else { continue }
       if message["type"] as? String == "hello",
         let pid = (message["chrome"] as? NSNumber)?.int32Value
       {
-        chromePid = pid
+        adopt(link, chromePid: pid)
         continue
       }
       guard message["type"] as? String == "tabs" else { continue }
       let tabs = ((message["tabs"] as? [Any]) ?? []).compactMap(ChromeTab.parse)
       for gone in ((message["closed"] as? [Any]) ?? []).compactMap(ChromeTab.parse) {
-        closed[gone.tab] = gone
+        link.closed[gone.tab] = gone
       }
-      apply(tabs)
+      apply(tabs, from: link)
     }
   }
 
-  private func apply(_ tabs: [ChromeTab]) {
+  private func apply(_ tabs: [ChromeTab], from link: Link) {
     let now = ProcessInfo.processInfo.systemUptime
-    let seen = Set(tabs.map(\.tab))
-    for id in Array(parts.keys) where !seen.contains(id) { leave(id) }
+    for id in book.apply(connection: link.number, tabs: tabs.map(\.tab)) { leave(id) }
     for tab in tabs {
-      let part = parts[tab.tab] ?? makePart(tab.tab)
+      let id = ChromeTabBook.id(connection: link.number, tab: tab.tab)
+      let part = parts[id] ?? makePart(tab.tab, link: link.number)
       let song = Song(
         title: tab.title, artist: tab.artist, source: tab.site, trackID: nil,
         duration: tab.duration, sourceID: part.id, location: tab.url)
@@ -145,31 +177,36 @@ final class ChromeBridge {
     }
   }
 
-  private func makePart(_ tab: Int) -> ChromeTabPart {
-    let part = ChromeTabPart(tab: tab, bridge: self)
-    parts[tab] = part
+  private func makePart(_ tab: Int, link: Int) -> ChromeTabPart {
+    let part = ChromeTabPart(tab: tab, link: link, bridge: self)
+    parts[part.id] = part
     onTabPart?(part)
     return part
   }
 
-  private func leave(_ tab: Int) {
-    guard let part = parts.removeValue(forKey: tab) else { return }
+  private func leave(_ id: SourceID) {
+    guard let part = parts.removeValue(forKey: id) else { return }
     part.onEvent?(part.id, .left)
   }
 
   /// A command to the extension for one tab.
-  func send(_ command: String, tab: Int, position: TimeInterval? = nil) {
-    var message: [String: Any] = ["command": command, "tab": tab]
+  func send(_ command: String, to part: ChromeTabPart, position: TimeInterval? = nil) {
+    var message: [String: Any] = ["command": command, "tab": part.tab]
     if let position { message["position"] = position }
-    guard let connection, let data = try? JSONSerialization.data(withJSONObject: message) else {
-      return
-    }
-    try? connection.write(contentsOf: data + Data([0x0A]))
+    guard let link = links[part.link],
+      let data = try? JSONSerialization.data(withJSONObject: message)
+    else { return }
+    try? link.handle.write(contentsOf: data + Data([0x0A]))
   }
 
-  /// Whether the extension, connected now, still holds this closed tab.
+  /// The Chrome a tab runs in, to bring it to the front.
+  func chromePid(of part: ChromeTabPart) -> pid_t? { links[part.link]?.chromePid }
+
+  /// Whether a Chrome, connected now, still holds this closed tab.
   func canReopen(_ id: SourceID) -> Bool {
-    connection != nil && closed.keys.contains { SourceID.chromeTab($0) == id }
+    links.values.contains { link in
+      link.closed.keys.contains { ChromeTabBook.id(connection: link.number, tab: $0) == id }
+    }
   }
 
   /// Open a page in Chrome, launching it if it is not running (D117).
@@ -183,10 +220,13 @@ final class ChromeBridge {
   }
 
   /// Reopen a closed tab where it left off (D117); false if it is not known.
-  func reopen(tab: Int, at position: TimeInterval?) -> Bool {
-    guard connection != nil, closed[tab] != nil else { return false }
-    send("reopen", tab: tab, position: position)
-    closed[tab] = nil
+  func reopen(tab: Int, link number: Int, at position: TimeInterval?) -> Bool {
+    guard let link = links[number], link.closed[tab] != nil else { return false }
+    var message: [String: Any] = ["command": "reopen", "tab": tab]
+    if let position { message["position"] = position }
+    guard let data = try? JSONSerialization.data(withJSONObject: message) else { return false }
+    try? link.handle.write(contentsOf: data + Data([0x0A]))
+    link.closed[tab] = nil
     return true
   }
 }
@@ -194,37 +234,39 @@ final class ChromeBridge {
 /// One youtube.com or soundcloud.com tab on the card.
 final class ChromeTabPart: SourcePart {
   let tab: Int
+  /// Which Chrome (its connection to the island) the tab is in.
+  let link: Int
   let id: SourceID
   var onEvent: ((SourceID, SourceEvent) -> Void)?
   private weak var bridge: ChromeBridge?
-  private var lastPosition: (TimeInterval, TimeInterval)?
 
-  init(tab: Int, bridge: ChromeBridge) {
+  init(tab: Int, link: Int, bridge: ChromeBridge) {
     self.tab = tab
-    self.id = .chromeTab(tab)
+    self.link = link
+    self.id = ChromeTabBook.id(connection: link, tab: tab)
     self.bridge = bridge
   }
 
   func start() {}
   func refresh() {}
-  func play() { bridge?.send("play", tab: tab) }
-  func pause() { bridge?.send("pause", tab: tab) }
-  func skip() { bridge?.send("next", tab: tab) }
-  func back() { bridge?.send("previous", tab: tab) }
-  func seek(to seconds: TimeInterval) { bridge?.send("seek", tab: tab, position: seconds) }
+  func play() { bridge?.send("play", to: self) }
+  func pause() { bridge?.send("pause", to: self) }
+  func skip() { bridge?.send("next", to: self) }
+  func back() { bridge?.send("previous", to: self) }
+  func seek(to seconds: TimeInterval) { bridge?.send("seek", to: self, position: seconds) }
   /// The exact tab comes to the front, in a front Chrome window (D26): the
   /// extension makes it the active tab of a focused window, and the Chrome
   /// it runs in (never another Chrome) is brought to the front.
   func bringForward() {
-    bridge?.send("focus", tab: tab)
-    guard let pid = bridge?.chromePid,
+    bridge?.send("focus", to: self)
+    guard let pid = bridge?.chromePid(of: self),
       let app = NSRunningApplication(processIdentifier: pid),
       app.bundleIdentifier == "com.google.Chrome"
     else { return }
     app.activate()
   }
   func reopen(_ song: Song, at position: TimeInterval?) {
-    _ = bridge?.reopen(tab: tab, at: position)
+    _ = bridge?.reopen(tab: tab, link: link, at: position)
   }
 }
 

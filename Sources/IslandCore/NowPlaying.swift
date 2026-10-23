@@ -16,7 +16,11 @@ public struct SourceID: Hashable, Codable, Sendable, RawRepresentable, CustomStr
   public static let appleMusic = SourceID(rawValue: "apple-music")
   public static let quickTime = SourceID(rawValue: "quicktime")
   public static let iina = SourceID(rawValue: "iina")
-  public static func chromeTab(_ tab: Int) -> SourceID { SourceID(rawValue: "chrome-tab:\(tab)") }
+  /// A tab of a Chrome; the tab ids of two Chromes collide, so a Chrome's
+  /// connection (numbered from 1) is part of the id.
+  public static func chromeTab(_ tab: Int, connection: Int = 0) -> SourceID {
+    SourceID(rawValue: connection == 0 ? "chrome-tab:\(tab)" : "chrome-tab:\(connection):\(tab)")
+  }
 
   public var description: String { rawValue }
 }

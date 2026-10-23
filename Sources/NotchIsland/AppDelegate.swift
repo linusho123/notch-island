@@ -143,7 +143,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       // A song never starts another source (D124): a Chrome song whose tab is
       // gone opens its page in Chrome, and only a youtube.com or soundcloud.com one.
       let route = LastSongRouting.route(
-        song, liveParts: Set(parts.keys),
+        song, liveParts: Set(parts.filter { !($0.value is ChromeTabPart) }.keys),
         closedTabKnown: song.sourceID.map { chrome.canReopen($0) } ?? false,
         resumeAt: hub.resumeAt)
       switch route {

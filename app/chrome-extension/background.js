@@ -10,6 +10,8 @@ const HOST = 'local.notch_island';
 const tabs = new Map(); // tab id -> { url, site, media, counted, windowId }
 const closed = new Map(); // tab id -> { url, position, title }
 let port = null;
+let attempts = 0; // reconnects since the host last stayed up
+let connectedAt = 0;
 
 function connect() {
   try {
@@ -19,9 +21,14 @@ function connect() {
     return;
   }
   port.onMessage.addListener(onCommand);
+  connectedAt = Date.now();
   port.onDisconnect.addListener(() => {
     port = null;
-    setTimeout(connect, 5000);
+    // The host ends at once while the island is quit: wait longer each time
+    // (5 s, 10 s, ... up to 5 minutes) rather than start a host every 5 s.
+    if (Date.now() - connectedAt > 30000) attempts = 0;
+    setTimeout(connect, Math.min(5000 * 2 ** attempts, 300000));
+    attempts += 1;
   });
   send();
 }
