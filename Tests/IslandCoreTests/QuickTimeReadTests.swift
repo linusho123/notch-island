@@ -46,3 +46,16 @@ struct QuickTimeReadTests {
     #expect(hub.page.flip == FlipCount(index: 0, count: 2))
   }
 }
+
+struct QuickTimeScriptTests {
+  @Test func aCommandSentByNameNeverStartsQuickTime() {
+    let script = QuickTimeScripts.command("play front document")
+    let guardRange = script.range(of: "is not running")
+    let tellRange = script.range(of: "tell application \"QuickTime Player\"")
+    #expect(guardRange != nil, "no check that QuickTime runs: \(script)")
+    if let g = guardRange, let t = tellRange {
+      #expect(g.lowerBound < t.lowerBound, "the check comes after the command")
+    }
+    #expect(script.contains("play front document"))
+  }
+}

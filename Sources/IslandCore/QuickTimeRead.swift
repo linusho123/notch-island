@@ -37,3 +37,16 @@ public enum QuickTimeRead {
       song: song, state: doc.playing ? .playing : .paused, position: doc.currentTime, readAt: now)
   }
 }
+
+/// The AppleScript the island sends QuickTime Player by name. A command sent
+/// by name starts QuickTime when it is not running, so every one except the
+/// reopen of the last song (which is meant to start it) first checks that it
+/// runs (P2 fix S3).
+public enum QuickTimeScripts {
+  public static func command(_ verb: String) -> String {
+    """
+    if application "QuickTime Player" is not running then error "not running"
+    tell application "QuickTime Player" to \(verb)
+    """
+  }
+}

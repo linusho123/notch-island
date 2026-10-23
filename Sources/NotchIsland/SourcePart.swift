@@ -310,8 +310,7 @@ final class QuickTimeSource: SourcePart {
 
   private func command(_ verb: String) {
     queue.async { [weak self] in
-      _ = runAppleScript(
-        "tell application \"QuickTime Player\" to \(verb)", label: "QuickTime Player")
+      _ = runAppleScript(QuickTimeScripts.command(verb), label: "QuickTime Player")
       self?.refresh(after: 0.15)
     }
   }
@@ -352,7 +351,7 @@ final class QuickTimeSource: SourcePart {
         DispatchQueue.main.async { self.sendIfQuickTimeIsOnTheChannel("previous") }
       case .restartSong:
         _ = runAppleScript(
-          "tell application \"QuickTime Player\" to set current time of front document to 0",
+          QuickTimeScripts.command("set current time of front document to 0"),
           label: "QuickTime Player")
       case nil: break
       }
