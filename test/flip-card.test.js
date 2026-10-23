@@ -61,6 +61,10 @@ test('the flip card: newest in front as 1 of 2, a flip to Apple Music as 2 of 2 
   await island.waitFor(pid, (v) => v.texts.includes('holiday.mov') && v.count?.value === '1 of 2', 2000,
     'a second flip does not turn back to the newest');
 
+  // Music plays again, so QuickTime is not the only source playing when it
+  // quits (alone, its song would stay paused and ready, D117).
+  await music.osa('tell application "Music" to play');
+  await island.until(async () => (await music.state()).state === 'playing', 3000, 'Music did not play again');
   await players.quitQuickTime();
   view = await island.waitFor(pid, (v) => v.texts.includes('Wonderwall') && !v.buttons.some((b) => b.label === 'Flip'), 4000,
     'QuickTime Player quit but the card still offers it');

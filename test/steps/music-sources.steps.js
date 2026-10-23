@@ -240,7 +240,14 @@ module.exports = (reg) => {
     const at = players.seconds(spot);
     const name = titleOf(title);
     if (closed === 'quit Apple Music') {
-      await playing(w, name, at);
+      // Music announces state changes, not a move of its playhead: the
+      // visionary moves to the spot while paused and plays on from there, so
+      // Music itself tells the island it plays from that spot.
+      await playing(w, name, 5);
+      await music.pause();
+      await music.seek(at);
+      await music.osa('tell application "Music" to play');
+      await musicSays((s) => s.state === 'playing' && s.position >= at, 3000, `Music does not play on from ${spot}`);
       await sleep(1200); // the island sees it play
       await quitMusic();
     } else {
