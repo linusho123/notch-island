@@ -12,6 +12,7 @@ const harness = require('../support/harness');
 const island = require('../support/island');
 const music = require('../support/music');
 const chrome = require('../support/chrome');
+const standIns = require('../support/stand-ins');
 const registry = require('../support/registry');
 const players = require('../support/players');
 const procs = require('../support/procs');
@@ -345,6 +346,21 @@ module.exports = (reg) => {
     await plainNotch(w);
   });
 
+  reg.define(/^a (youtube\.com video|soundcloud\.com track) in a Chrome tab behind a Gmail tab is playing while Messages is in front$/, async (w, what) => {
+    await ensureIsland(w);
+    await music.pause().catch(() => {});
+    const youtube = what.startsWith('youtube');
+    w.tab = await chrome.playInTab(w, youtube ? 'Lecture 4: Fourier Series' : 'late night mix', 30);
+    w.lineName = youtube ? 'YouTube' : 'SoundCloud';
+    w.gmail = await w.chrome.browser.open(standIns.urls.gmail());
+    await island.until(async () => (await w.gmail.shown()) && !(await w.tab.shown()), 5000,
+      'the Gmail tab is not in front of the playing tab');
+    await osa('tell application "Messages" to activate');
+    await island.until(async () => (await harness.frontmost()).bundleID === 'com.apple.MobileSMS', 5000,
+      'Messages did not come to the front');
+    await plainNotch(w);
+  });
+
   reg.define(/^the island is open over "Wonderwall" because the pointer is on it$/, async (w) => {
     await ensureIsland(w);
     await playing(w, 'Wonderwall', 30);
@@ -552,9 +568,10 @@ module.exports = (reg) => {
     } else {
       // The source line names the app, and the speaker when it is not the
       // built-in one (D119): "Apple Music" or "Apple Music · <speaker>".
+      const name = w.lineName || 'Apple Music';
       const line = view.sourceLine;
-      assert.ok(line && /^Apple Music( · .+)?$/.test(line.value),
-        `the island shows no source line naming Apple Music (it shows ${view.texts.join(', ')})`);
+      assert.ok(line && (line.value === name || line.value.startsWith(`${name} · `)),
+        `the island shows no source line naming ${name} (it shows ${view.texts.join(', ')})`);
       target = line.frame;
     }
     const c = center(target);
@@ -770,6 +787,17 @@ module.exports = (reg) => {
 
   reg.define(/^the visionary sees "(Wonderwall|Don't Look Back in Anger)" on the island$/, async (w, song) => {
     await showsSong(w, song);
+  });
+
+  reg.define(/^the visionary sees Chrome showing that (?:youtube\.com|soundcloud\.com) tab, not the Gmail tab come to the front over Messages$/, async (w) => {
+    // The test Chrome is the frontmost app, and Chrome itself shows the
+    // playing tab, the Gmail tab now hidden behind it.
+    await island.until(async () => (await harness.frontmost()).pid === w.chrome.pid, 4000,
+      'Chrome did not come to the front');
+    await island.until(async () => (await w.tab.shown()) && !(await w.gmail.shown()), 4000,
+      'Chrome came forward on the Gmail tab, not the playing one');
+    const m = await w.tab.media();
+    assert.ok(!m.paused, 'the playing tab stopped');
   });
 
   reg.define(/^the visionary sees the Apple Music window come to the front over Messages$/, async () => {

@@ -47,6 +47,7 @@ let package = Package(
         .linkedFramework("AVFoundation"),
         .linkedFramework("ScreenCaptureKit"),
         .linkedFramework("CoreAudio"),
+        .linkedFramework("MediaPlayer"),
       ]
     ),
     .testTarget(

@@ -2,6 +2,7 @@ import AVFoundation
 import AppKit
 import ApplicationServices
 import CoreAudio
+import MediaPlayer
 import ScreenCaptureKit
 
 // The acceptance harness's helper. It reads what macOS itself knows (the
@@ -790,6 +791,29 @@ case "sweep":
 case "capture-check":
   captureCheck(
     CGRect(x: num(1), y: num(2), width: num(3), height: num(4)), islandPid: Int(num(5)))
+case "now-playing-stand-in":
+  // now-playing-stand-in file seconds: another app on the system's shared
+  // now-playing channel, none the island follows. It plays the file quietly
+  // and publishes itself as now playing, for `seconds` or until stopped.
+  guard let player = try? AVAudioPlayer(contentsOf: URL(fileURLWithPath: arg(1))) else {
+    fail("cannot play \(arg(1))")
+  }
+  player.numberOfLoops = -1
+  player.volume = 0.2
+  player.play()
+  let center = MPNowPlayingInfoCenter.default()
+  center.nowPlayingInfo = [
+    MPMediaItemPropertyTitle: "notch-island stand-in", MPNowPlayingInfoPropertyPlaybackRate: 1.0,
+    MPMediaItemPropertyPlaybackDuration: player.duration,
+    MPNowPlayingInfoPropertyElapsedPlaybackTime: 0.0,
+  ]
+  center.playbackState = .playing
+  let commands = MPRemoteCommandCenter.shared()
+  _ = commands.playCommand.addTarget { _ in .success }
+  _ = commands.pauseCommand.addTarget { _ in .success }
+  emit(["ok": true, "pid": Int(getpid())])
+  fflush(stdout)
+  RunLoop.main.run(until: Date().addingTimeInterval(num(2)))
 case "make-movie":
   // make-movie path seconds [sound]
   makeMovie(path: arg(1), seconds: Int(num(2)), withSound: CommandLine.arguments.count > 4)

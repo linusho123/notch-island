@@ -13,6 +13,10 @@ const harness = require('../support/harness');
 const island = require('../support/island');
 const music = require('../support/music');
 const players = require('../support/players');
+const procs = require('../support/procs');
+const chrome = require('../support/chrome');
+const standIns = require('../support/stand-ins');
+const paths = require('../support/paths');
 const { helpers } = require('./music-panel.steps');
 
 const {
@@ -24,8 +28,13 @@ const JBL = { name: 'JBL Flip 5', builtIn: false };
 
 // ---------------------------------------------------------------- helpers
 
-/** "the file "x"" or "x": what the island shows as the title. */
-const titleOf = (text) => (/^the file "(.+)"$/.exec(text) || /^"(.+)"$/.exec(text) || [])[1];
+/** "the file "x"", "the video "x"", "the track "x"" or "x": what the island shows as the title. */
+const titleOf = (text) => (/^the (?:file|video|track) "(.+)"$/.exec(text) || /^"(.+)"$/.exec(text) || [])[1];
+
+/** The Chrome sources, by the site the source line names. */
+const CHROME_SOURCES = { 'a youtube.com tab in Chrome': 'YouTube', 'a soundcloud.com tab in Chrome': 'SoundCloud' };
+const SOURCE_RE = '(Apple Music|IINA|QuickTime Player|Music|a youtube\\.com tab in Chrome|a soundcloud\\.com tab in Chrome)';
+const TITLE_RE = '("[^"]+"|the (?:file|video|track) "[^"]+")';
 
 /**
  * The sound goes out through `speaker`. A Bluetooth speaker is the injected
@@ -61,6 +70,9 @@ async function startSource(w, source, title, at = 30) {
   } else if (source === 'QuickTime Player') {
     await music.pause().catch(() => {});
     await players.playInQuickTime(w, await players.movie(name, 120), at);
+  } else if (CHROME_SOURCES[source]) {
+    await music.pause().catch(() => {});
+    w.tab = await chrome.playInTab(w, name, at);
   } else if (source === 'Music') {
     const file = name.endsWith('.mp3') ? players.mp3(name, 180) : players.wav(name, 180);
     await players.playFileInMusic(w, file);
@@ -144,17 +156,59 @@ async function musicHoldsTheMediaKeys() {
     'the system does not show Music as now playing, so a media key would reach another app');
 }
 
+const center = (f) => ({ x: f.x + f.w / 2, y: f.y + f.h / 2 });
+
+/** The card's faces, as the examples name them. */
+const FACES = {
+  'the IINA file': 'rehearsal.mkv',
+  'the Apple Music song': 'Wonderwall',
+  'the YouTube video': 'Lecture 4: Fourier Series',
+};
+
+/** Apple Music plays Wonderwall, then the lecture starts in a youtube.com tab. */
+async function musicThenLecture(w) {
+  await ensureIsland(w);
+  await playing(w, 'Wonderwall', 30);
+  await sleep(1200);
+  w.tab = await chrome.playInTab(w, 'Lecture 4: Fourier Series', 30);
+}
+
+/** The YouTube home feed's muted hover preview plays in the test Chrome. */
+async function mutedPreview(w) {
+  const browser = await chrome.companion(w);
+  const tab = await browser.open(standIns.urls.home());
+  await tab.waitMedia((m) => !m.paused && m.muted && m.currentTime > 0, 15000, 'the muted preview does not play');
+  return tab;
+}
+
+/** The visionary clicks the preview's own unmute control. */
+async function unmute(tab) {
+  await tab.click('#unmute');
+  await tab.waitMedia((m) => !m.muted && !m.paused, 3000, 'the preview did not unmute');
+}
+
+/** Click the flip control once and wait for the count to move on. */
+async function flipOnce(w) {
+  const view = await island.look(w.island.pid);
+  const before = view.count?.value;
+  const c = center(button(view, 'Flip').frame);
+  await harness.glide(c.x, c.y, 4, 8);
+  await harness.click(c.x, c.y);
+  await island.waitFor(w.island.pid, (v) => v.count?.value !== before, 1500, 'the flip control did nothing');
+  await sleep(500); // the turn plays out
+}
+
 // --------------------------------------------------------------- definer
 
 module.exports = (reg) => {
   // Givens ---------------------------------------------------------------
 
-  reg.define(/^(Apple Music|IINA|QuickTime Player|Music) is playing ("[^"]+"|the file "[^"]+") and nothing else is playing$/, async (w, source, title) => {
+  reg.define(new RegExp(`^${SOURCE_RE} is playing ${TITLE_RE} and nothing else is playing$`), async (w, source, title) => {
     await ensureIsland(w);
     await startSource(w, source, title);
   });
 
-  reg.define(/^(Apple Music|IINA|QuickTime Player|Music) is playing ("[^"]+"|the file "[^"]+") out through (the MacBook speakers|the Bluetooth speaker "[^"]+") and nothing else is playing$/, async (w, source, title, speaker) => {
+  reg.define(new RegExp(`^${SOURCE_RE} is playing ${TITLE_RE} out through (the MacBook speakers|the Bluetooth speaker "[^"]+") and nothing else is playing$`), async (w, source, title, speaker) => {
     await ensureIsland(w);
     await soundThrough(w, speaker);
     await startSource(w, source, title);
@@ -326,9 +380,14 @@ module.exports = (reg) => {
     assert.equal(players.running('com.apple.Music'), false, 'Music is running again: the island started it');
   });
 
-  reg.define(/^the visionary sees (Apple Music|IINA) open ("Wonderwall"|the file "[^"]+") again$/, async (w, app, title) => {
+  reg.define(/^the visionary sees (Apple Music|IINA|Chrome) open ("Wonderwall"|"Lecture 4: Fourier Series"|the file "[^"]+") again$/, async (w, app, title) => {
     const name = titleOf(title);
-    if (app === 'Apple Music') {
+    if (app === 'Chrome') {
+      // The test Chrome itself has a tab of that page playing again.
+      w.reopened = await w.chrome.browser.find((t) => t.title.startsWith(name), 8000,
+        `Chrome did not open "${name}" again`);
+      await w.reopened.waitMedia((m) => !m.paused && !m.muted, 8000, `Chrome does not play "${name}" again`);
+    } else if (app === 'Apple Music') {
       await musicSays((s) => s.state === 'playing' && s.name === name, 8000, `Music did not open "${name}" again`);
     } else {
       await players.until(async () => {
@@ -338,11 +397,14 @@ module.exports = (reg) => {
     }
   });
 
-  reg.define(/^the visionary hears ("Wonderwall"|the file "[^"]+") playing from ([\d:]+), not from the start$/, async (w, title, spot) => {
+  reg.define(/^the visionary hears ("Wonderwall"|"Lecture 4: Fourier Series"|the file "[^"]+") playing from ([\d:]+), not from the start$/, async (w, title, spot) => {
     const at = players.seconds(spot);
     const since = (Date.now() - w.closedAt) / 1000;
     const check = (pos) => pos >= at - 1 && pos <= at + since + 3;
-    if (titleOf(title) === 'Wonderwall') {
+    if (titleOf(title) === 'Lecture 4: Fourier Series') {
+      const m = await w.reopened.media();
+      assert.ok(!m.paused && check(m.currentTime), `the lecture plays from ${m.currentTime.toFixed(1)} s, not from ${spot}`);
+    } else if (titleOf(title) === 'Wonderwall') {
       const s = await musicSays((x) => x.state === 'playing' && check(x.position), 6000,
         `Music does not play Wonderwall from ${spot}`);
       assert.equal(s.name, 'Wonderwall');
@@ -426,6 +488,274 @@ module.exports = (reg) => {
         'the island does not show Champagne Supernova');
       assert.ok(!view.texts.includes('Wonderwall'), 'the island still shows Wonderwall');
     }
+  });
+
+  // ------------------------------------------------------- Chrome and the flip card
+
+  reg.define(/^a youtube\.com tab in Chrome is playing "(Lecture 4: Fourier Series)" with sound$/, async (w, title) => {
+    await ensureIsland(w);
+    w.tab = await chrome.playInTab(w, title, 30);
+  });
+
+  reg.define(/^a muted hover preview of "Lecture 5: Laplace Transforms" is playing on the YouTube home feed in Chrome(, and nothing else is playing)?$/, async (w, alone) => {
+    await ensureIsland(w);
+    if (alone) await music.pause().catch(() => {});
+    w.preview = await mutedPreview(w);
+  });
+
+  reg.define(/^the visionary has just unmuted it$/, async (w) => {
+    await unmute(w.preview);
+  });
+
+  reg.define(/^the island is closed and Apple Music is playing "Wonderwall"$/, async (w) => {
+    await ensureIsland(w);
+    await playing(w, 'Wonderwall', 30);
+    await plainNotch(w);
+  });
+
+  reg.define(/^"Wonderwall" was the last song played, now paused, and nothing else is playing$/, async (w) => {
+    await ensureIsland(w);
+    await playing(w, 'Wonderwall', 30);
+    await sleep(1200); // the island sees it play
+    await music.pause();
+    await musicSays((s) => s.state === 'paused' && s.name === 'Wonderwall', 3000, 'Music did not pause Wonderwall');
+    await chrome.companion(w);
+    await plainNotch(w);
+  });
+
+  reg.define(/^Apple Music is playing "Wonderwall"$/, async (w) => {
+    await ensureIsland(w);
+    await playing(w, 'Wonderwall', 30);
+  });
+
+  reg.define(/^the visionary then started "(Lecture 4: Fourier Series)" in a youtube\.com tab in Chrome$/, async (w, title) => {
+    await sleep(1200); // Wonderwall has been playing a while
+    w.tab = await chrome.playInTab(w, title, 30);
+  });
+
+  reg.define(/^the music page shows "Lecture 4: Fourier Series" while "Wonderwall" also plays in Apple Music$/, async (w) => {
+    await musicThenLecture(w);
+    await openIsland(w);
+    await island.waitFor(w.island.pid, (v) => v.title?.value === 'Lecture 4: Fourier Series', 3000,
+      'the music page does not show the lecture');
+  });
+
+  reg.define(/^(Apple Music and a youtube\.com tab in Chrome|Apple Music, QuickTime Player and a youtube\.com tab in Chrome) are playing, the youtube\.com tab in Chrome started last$/, async (w, sources) => {
+    await ensureIsland(w);
+    await playing(w, 'Wonderwall', 30);
+    if (sources.includes('QuickTime Player')) {
+      await sleep(1200);
+      await players.playInQuickTime(w, await players.movie('holiday.mov', 120), 10);
+    }
+    await sleep(1200);
+    w.tab = await chrome.playInTab(w, 'Lecture 4: Fourier Series', 30);
+  });
+
+  reg.define(/^the card has been flipped to "Wonderwall" while "Lecture 4: Fourier Series" also plays$/, async (w) => {
+    await musicThenLecture(w);
+    await openIsland(w);
+    await island.waitFor(w.island.pid, (v) => v.title?.value === 'Lecture 4: Fourier Series', 3000,
+      'the card does not show the lecture first');
+    await flipOnce(w);
+    await island.waitFor(w.island.pid, (v) => v.title?.value === 'Wonderwall', 2000, 'the card did not flip to Wonderwall');
+  });
+
+  reg.define(/^(?:Apple Music, IINA and a youtube\.com tab in Chrome are all playing, the YouTube tab started last|Apple Music started "Wonderwall" first, then IINA started "rehearsal\.mkv", then a youtube\.com tab started "Lecture 4: Fourier Series")$/, async (w) => {
+    await ensureIsland(w);
+    await playing(w, 'Wonderwall', 30);
+    await sleep(1200);
+    await players.playInIINA(w, await players.movie('rehearsal.mkv', 600), 30);
+    await sleep(1200);
+    w.tab = await chrome.playInTab(w, 'Lecture 4: Fourier Series', 30);
+    await sleep(800);
+  });
+
+  reg.define(/^the island can see IINA separately$/, async () => {
+    // The shared now-playing channel shows IINA (the harness's own reader).
+    await players.until(async () => (await players.nowPlaying()).bundleID === players.IINA_ID, 3000,
+      'the shared now-playing channel does not show IINA');
+  });
+
+  reg.define(/^the shared now-playing channel shows another app than IINA, so the island cannot see IINA separately$/, async (w) => {
+    // Another app, none the island follows, takes the channel.
+    const tone = players.wav('channel-stand-in.wav', 600);
+    const helper = procs.start('now-playing stand-in', paths.harness, ['now-playing-stand-in', tone, 600]);
+    w.defer(() => procs.stop(helper));
+    await players.until(async () => (await players.nowPlaying()).pid === helper.pid, 5000,
+      'the stand-in app did not take the shared now-playing channel');
+    await sleep(800);
+  });
+
+  reg.define(/^the visionary unmutes the preview$/, async (w) => {
+    await unmute(w.preview);
+  });
+
+  reg.define(/^(a muted hover preview on the YouTube home feed, left muted|a muted autoplay clip on a news site|an autoplay clip with sound on a news site) starts playing in Chrome$/, async (w, clip) => {
+    const browser = await chrome.companion(w);
+    if (clip.startsWith('a muted hover preview')) {
+      w.clip = await mutedPreview(w);
+    } else {
+      const sound = clip.includes('with sound');
+      w.clip = await browser.open(standIns.urls.news(sound));
+      await w.clip.waitMedia((m) => !m.paused && m.currentTime > 0 && m.muted === !sound, 15000,
+        `the news clip does not play ${sound ? 'with sound' : 'muted'}`);
+    }
+  });
+
+  reg.define(/^the visionary clicks the flip control$/, async (w) => {
+    // Watch the card while it turns.
+    const flip = button(await island.look(w.island.pid), 'Flip');
+    const c = center(flip.frame);
+    await harness.glide(c.x, c.y, 4, 8);
+    const watching = harness.watch(w.island.pid, 1200, 15);
+    await sleep(120);
+    await harness.click(c.x, c.y);
+    w.flipSamples = await watching;
+  });
+
+  reg.define(/^the visionary opens the island and clicks the flip control (\d+) times$/, async (w, n) => {
+    await openIsland(w);
+    await island.waitFor(w.island.pid, (v) => v.title?.value === 'Lecture 4: Fourier Series', 3000,
+      'the card does not show the YouTube video, the newest, first');
+    for (let i = 0; i < Number(n); i++) await flipOnce(w);
+  });
+
+  reg.define(/^the visionary clicks pause$/, async (w) => {
+    w.tabBefore = await w.tab.media();
+    await clickButton(w, 'Pause');
+  });
+
+  reg.define(/^the visionary closes the YouTube tab$/, async (w) => {
+    await w.tab.close();
+  });
+
+  reg.define(/^the visionary quits IINA$/, async (w) => {
+    await players.quitIINA(w);
+  });
+
+  reg.define(/^the visionary closed the youtube\.com tab while it played "(Lecture 4: Fourier Series)" at ([\d:]+), and nothing else is playing$/, async (w, title, spot) => {
+    await ensureIsland(w);
+    await music.pause().catch(() => {});
+    const at = players.seconds(spot);
+    w.tab = await chrome.playInTab(w, title, at);
+    await sleep(1200); // the island sees it play
+    await w.tab.close();
+    w.spot = at;
+    w.title = title;
+    w.closedAt = Date.now();
+  });
+
+  // Thens ------------------------------------------------------------
+
+  reg.define(/^the visionary sees "(Lecture 4: Fourier Series|Lecture 5: Laplace Transforms)" on the music page$/, async (w, title) => {
+    await island.waitFor(w.island.pid, (v) => v.open && v.page === 'music' && v.title?.value === title, 3000,
+      `the music page does not show "${title}"`);
+    // The tab itself plays it, with sound.
+    const tab = title.startsWith('Lecture 5') ? w.preview : w.tab;
+    const m = await tab.media();
+    assert.ok(!m.paused && !m.muted, `the tab is ${m.paused ? 'paused' : 'muted'}`);
+  });
+
+  reg.define(/^the visionary sees the plain notch, with no wing popping out$/, async (w) => {
+    await staysPlain(w, 2500);
+    const m = await w.preview.media();
+    assert.ok(!m.paused && !m.muted, 'the preview does not play with sound');
+  });
+
+  reg.define(/^the visionary, resting the pointer on the notch, sees a flip control on the card between "(Wonderwall)" and "(Lecture 5: Laplace Transforms)"$/, async (w, a, b) => {
+    await openIsland(w);
+    const view = await island.waitFor(w.island.pid, (v) => v.buttons.some((x) => x.label === 'Flip'), 3000,
+      'the card has no flip control');
+    assert.equal(view.count?.value, '1 of 2', `the count reads ${view.count?.value}`);
+    const faces = [view.title?.value];
+    await flipOnce(w);
+    faces.push((await island.look(w.island.pid)).title?.value);
+    assert.deepEqual([...faces].sort(), [a, b].sort(), `the card's faces are ${faces.join(' and ')}`);
+  });
+
+  reg.define(/^the visionary sees no wings beside the notch$/, async (w) => {
+    await staysPlain(w, 2500);
+  });
+
+  reg.define(/^the visionary, resting the pointer on the notch, sees "Wonderwall" still paused and ready on the music page$/, async (w) => {
+    await openIsland(w);
+    const view = await island.waitFor(w.island.pid, (v) => v.title?.value === 'Wonderwall' && v.buttons.some((b) => b.label === 'Play'),
+      2000, 'the island does not show Wonderwall paused and ready');
+    assert.ok(button(view, 'Play').enabled, 'play is greyed out');
+    assert.ok(!view.buttons.some((b) => b.label === 'Flip'), 'the card has a flip control: the clip counts');
+    assert.equal(view.count, null, 'the card shows a count: the clip counts');
+    const s = await music.state();
+    assert.ok(s.state === 'paused' && s.name === 'Wonderwall', `Music is ${s.state} on ${s.name}`);
+    const m = await w.clip.media();
+    assert.ok(!m.paused, 'the clip is not playing');
+  });
+
+  reg.define(/^the visionary sees a small flip control on the card$/, async (w) => {
+    const view = await island.look(w.island.pid);
+    const flip = button(view, 'Flip');
+    assert.ok(flip.frame.w <= 40 && flip.frame.h <= 40, `the flip control is ${flip.frame.w}×${flip.frame.h}`);
+    assert.ok(island.inside(flip.frame, view.musicFrame), 'the flip control is not on the card');
+  });
+
+  reg.define(/^the visionary sees the card flip over like a mirror to show "Wonderwall"$/, async (w) => {
+    const final = await island.waitFor(w.island.pid, (v) => v.title?.value === 'Wonderwall', 2000,
+      'the card does not show Wonderwall after the flip');
+    // Turning like a mirror about its upright axis, the face narrows towards
+    // edge-on and opens out again while its height holds.
+    const full = final.title.frame;
+    const turning = w.flipSamples.map((s) => (s.windows || []).flatMap((x) => x.elements || [])
+      .find((e) => e.identifier === 'song-title')?.frame).filter(Boolean);
+    const edgeOn = turning.filter((f) => f.w < full.w * 0.5 && f.h > full.h * 0.85);
+    assert.ok(edgeOn.length > 0, `the card never turned: its title stayed ${[...new Set(turning.map((f) => Math.round(f.w)))].join(', ')} wide`);
+    const i = turning.indexOf(edgeOn[0]);
+    assert.ok(turning.slice(i).some((f) => f.w > full.w * 0.9), 'the turned face never opened out again');
+    const s = await music.state();
+    assert.ok(s.state === 'playing' && s.name === 'Wonderwall', `Music is ${s.state} on ${s.name}`);
+  });
+
+  reg.define(/^the visionary sees the count "(\d of \d)"$/, async (w, count) => {
+    await island.waitFor(w.island.pid, (v) => v.count?.value === count, 2000, `the count does not read "${count}"`);
+  });
+
+  reg.define(/^the visionary sees the count "(\d of \d)" beside the flip control$/, async (w, count) => {
+    const view = await island.waitFor(w.island.pid, (v) => v.count?.value === count, 2000, `the count does not read "${count}"`);
+    const flip = button(view, 'Flip').frame;
+    const c = view.count.frame;
+    const gap = Math.hypot((c.x + c.w / 2) - (flip.x + flip.w / 2), (c.y + c.h / 2) - (flip.y + flip.h / 2));
+    assert.ok(gap < 40, `the count is ${Math.round(gap)} pt from the flip control`);
+  });
+
+  reg.define(/^the visionary hears "Wonderwall" stop in Apple Music while the lecture keeps playing$/, async (w) => {
+    await musicSays((s) => s.state === 'paused' && s.name === 'Wonderwall', 3000, 'Music did not pause Wonderwall');
+    const a = await w.tab.media();
+    await sleep(1000);
+    const b = await w.tab.media();
+    assert.ok(!b.paused && b.currentTime > a.currentTime + 0.5, `the lecture stopped (at ${a.currentTime} then ${b.currentTime})`);
+  });
+
+  reg.define(/^the visionary sees (the IINA file|the Apple Music song|the YouTube video|"Lecture 4: Fourier Series"|"rehearsal\.mkv") on the card$/, async (w, face) => {
+    const want = FACES[face] || titleOf(face);
+    // The visionary looks at the card: open the island if it is closed.
+    if (!(await island.look(w.island.pid)).open) {
+      await pointerAway();
+      await sleep(200);
+      await openIsland(w);
+    }
+    await openOnMusicPage(w);
+    await island.waitFor(w.island.pid, (v) => v.title?.value === want, 3000, `the card does not show "${want}"`);
+  });
+
+  reg.define(/^the visionary never sees ("Wonderwall"|"Lecture 4: Fourier Series"|"rehearsal\.mkv") again when flipping the card$/, async (w, left) => {
+    const gone = titleOf(left);
+    const view = await island.look(w.island.pid);
+    const seen = [view.title?.value];
+    const n = view.count ? Number(view.count.value.split(' of ')[1]) : 1;
+    for (let i = 0; i < n + 1 && view.count; i++) {
+      await flipOnce(w);
+      seen.push((await island.look(w.island.pid)).title?.value);
+    }
+    assert.ok(!seen.includes(gone), `flipping shows "${gone}" again (${seen.join(', ')})`);
+    assert.equal(n, 2, `the card has ${n} faces, not the two remaining sources`);
   });
 };
 
