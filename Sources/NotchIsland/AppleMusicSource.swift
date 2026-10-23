@@ -42,16 +42,21 @@ final class AppleMusicSource: SourcePart {
 
   /// Read Music's state now. Music is never launched just to be read: a quit
   /// Music has left the card (D117).
-  func refresh(after delay: TimeInterval) {
+  func refresh(after delay: TimeInterval, retries: Int = 3) {
     queue.asyncAfter(deadline: .now() + delay) { [weak self] in
       guard let self else { return }
       guard self.isRunning else {
         DispatchQueue.main.async { self.onEvent?(self.id, .left) }
         return
       }
-      let now = ProcessInfo.processInfo.systemUptime
-      let report =
-        self.readReport() ?? SourceReport(song: nil, state: .stopped, position: nil, readAt: now)
+      // A read that failed (Music busy, the script timed out) says nothing
+      // about what Music does: no report, and a few fresh reads. Taken
+      // as "stopped", it would drop Music from the card and bring it back as
+      // the newest source (D48).
+      guard let report = self.readReport() else {
+        if retries > 0 { self.refresh(after: 0.5, retries: retries - 1) }
+        return
+      }
       let art = self.readArtworkIfNew(report)
       DispatchQueue.main.async {
         // Music may have quit while it was being read: a read that ends after
