@@ -84,3 +84,24 @@ struct ChannelModelTests {
     #expect(decision == .restart(after: 2))
   }
 }
+
+/// The island's skip reaches QuickTime Player as the system's next command,
+/// and only when the channel shows QuickTime (P2 fix S8, D46).
+struct ChannelRoutingTests {
+  func info(_ bundle: String?) -> ChannelInfo? {
+    ChannelInfo(
+      bundleID: bundle, pid: 1, title: "t", artist: nil, duration: nil, elapsed: nil,
+      timestamp: nil, rate: 1, playing: true, readAt: 0)
+  }
+
+  @Test func theCommandIsSentWhenTheChannelShowsThatApp() {
+    #expect(info("com.apple.QuickTimePlayerX").shows("com.apple.QuickTimePlayerX"))
+  }
+
+  @Test func theCommandIsNotSentWhenTheChannelShowsAnotherAppOrNone() {
+    #expect(!info("com.colliderli.iina").shows("com.apple.QuickTimePlayerX"))
+    #expect(!info(nil).shows("com.apple.QuickTimePlayerX"))
+    let none: ChannelInfo? = nil
+    #expect(!none.shows("com.apple.QuickTimePlayerX"))
+  }
+}

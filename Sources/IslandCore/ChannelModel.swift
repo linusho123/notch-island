@@ -128,3 +128,10 @@ public struct ChannelModel: Sendable {
     return (effects, .restart(after: delay))
   }
 }
+
+extension Optional where Wrapped == ChannelInfo {
+  /// Whether the channel shows this app now. A system command (next, previous)
+  /// reaches whichever app the channel shows, so the island sends one for an
+  /// app only when the channel shows that app (D46).
+  public func shows(_ bundleID: String) -> Bool { self?.bundleID == bundleID }
+}

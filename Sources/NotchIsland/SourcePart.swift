@@ -334,7 +334,7 @@ final class QuickTimeSource: SourcePart {
   /// A system command reaches whichever app the channel shows; sent only when
   /// that is QuickTime Player, so no other app is ever skipped.
   private func sendIfQuickTimeIsOnTheChannel(_ command: String) {
-    guard channel.info?.bundleID == Self.bundleID else { return }
+    guard channel.info.shows(Self.bundleID) else { return }
     channel.send(command)
   }
 
