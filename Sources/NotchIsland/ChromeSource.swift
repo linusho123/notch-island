@@ -18,9 +18,18 @@ final class ChromeBridge {
   private var connection: FileHandle?
   private var buffer = Data()
   let socketPath: String
+  /// The Chrome whose extension reports (the host's parent process), so the
+  /// exact Chrome comes to the front even with another Chrome running.
+  private(set) var chromePid: pid_t?
 
   init(directory: URL) {
-    socketPath = directory.appendingPathComponent("chrome.sock").path
+    socketPath = Self.socketPath(directory: directory)
+  }
+
+  /// Where the island listens for the host: in its data folder, unless the
+  /// test input names a shorter path (a socket path is limited to 104 bytes).
+  static func socketPath(directory: URL) -> String {
+    TestInput.chromeSocket ?? directory.appendingPathComponent("chrome.sock").path
   }
 
   func start() {
@@ -99,9 +108,15 @@ final class ChromeBridge {
     while let newline = buffer.firstIndex(of: 0x0A) {
       let line = Data(buffer[buffer.startIndex..<newline])
       buffer.removeSubrange(buffer.startIndex...newline)
-      guard let message = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
-        message["type"] as? String == "tabs"
+      guard let message = try? JSONSerialization.jsonObject(with: line) as? [String: Any]
       else { continue }
+      if message["type"] as? String == "hello",
+        let pid = (message["chrome"] as? NSNumber)?.int32Value
+      {
+        chromePid = pid
+        continue
+      }
+      guard message["type"] as? String == "tabs" else { continue }
       let tabs = ((message["tabs"] as? [Any]) ?? []).compactMap(ChromeTab.parse)
       for gone in ((message["closed"] as? [Any]) ?? []).compactMap(ChromeTab.parse) {
         closed[gone.tab] = gone
@@ -181,10 +196,16 @@ final class ChromeTabPart: SourcePart {
   func skip() { bridge?.send("next", tab: tab) }
   func back() { bridge?.send("previous", tab: tab) }
   func seek(to seconds: TimeInterval) { bridge?.send("seek", tab: tab, position: seconds) }
-  /// The exact tab comes to the front, in a front Chrome window (D26).
+  /// The exact tab comes to the front, in a front Chrome window (D26): the
+  /// extension makes it the active tab of a focused window, and the Chrome
+  /// it runs in (never another Chrome) is brought to the front.
   func bringForward() {
     bridge?.send("focus", tab: tab)
-    activate(bundleID: "com.google.Chrome")
+    guard let pid = bridge?.chromePid,
+      let app = NSRunningApplication(processIdentifier: pid),
+      app.bundleIdentifier == "com.google.Chrome"
+    else { return }
+    app.activate()
   }
   func reopen(_ song: Song, at position: TimeInterval?) {
     _ = bridge?.reopen(tab: tab, at: position)
@@ -203,12 +224,11 @@ enum ChromeHost {
 
   static func run(origin: String) -> Never {
     guard NativeMessaging.isAllowedOrigin(origin) else { exit(1) }
-    let directory = FileManager.default.urls(
-      for: .applicationSupportDirectory, in: .userDomainMask)[
-        0
-      ]
+    let directory =
+      TestInput.dataDirectory
+      ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
       .appendingPathComponent("notch-island", isDirectory: true)
-    let path = directory.appendingPathComponent("chrome.sock").path
+    let path = ChromeBridge.socketPath(directory: directory)
     let fd = socket(AF_UNIX, SOCK_STREAM, 0)
     guard fd >= 0, var address = ChromeBridge.address(path) else { exit(0) }
     let connected = withUnsafePointer(to: &address) {
@@ -218,6 +238,12 @@ enum ChromeHost {
     }
     guard connected == 0 else { exit(0) }
     let island = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+    // Which Chrome this is: the host's parent, the browser that started it.
+    if let hello = try? JSONSerialization.data(withJSONObject: [
+      "type": "hello", "chrome": getppid(),
+    ]) {
+      island.write(hello + Data([0x0A]))
+    }
     // Island to Chrome.
     Thread.detachNewThread {
       var lines = Data()

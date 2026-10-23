@@ -33,6 +33,7 @@ let package = Package(
         .linkedFramework("SwiftUI"),
         .linkedFramework("ServiceManagement"),
         .linkedFramework("CoreAudio"),
+        .linkedFramework("ScriptingBridge"),
       ]
     ),
     // The acceptance harness's own helper, never bundled into the app: reads

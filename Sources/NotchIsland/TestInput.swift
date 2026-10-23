@@ -43,6 +43,10 @@ enum TestInput {
       return OutputDevice(name: name, isBuiltIn: device["builtIn"] as? Bool ?? false)
     }
 
+    /// Where the island and its Chrome host meet, when the scratch data
+    /// folder's path is too long for a socket. Read once, at launch.
+    static let chromeSocket: String? = read()?["chromeSocket"] as? String
+
     private static var watchers: [() -> Void] = []
     private static var source: DispatchSourceFileSystemObject?
 
@@ -82,6 +86,7 @@ enum TestInput {
     static let unregisterLoginAndExit = false
     static var leftButtonReading: Bool? { nil }
     static var outputDevice: OutputDevice? { nil }
+    static let chromeSocket: String? = nil
     static func onChange(_ action: @escaping () -> Void) {}
   #endif
 }

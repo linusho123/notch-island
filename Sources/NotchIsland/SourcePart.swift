@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import IslandCore
+import ScriptingBridge
 
 /// What a source part tells the hub.
 enum SourceEvent {
@@ -263,48 +264,43 @@ final class QuickTimeSource: SourcePart {
   func refresh() { refresh(after: 0) }
 
   private func read() {
-    guard isRunning(Self.bundleID) else { return }
-    // The document that plays, else the front one.
-    // Checked again inside the script, just before it speaks to QuickTime:
-    // a read must never start a QuickTime Player that just quit.
-    let script = """
-      if application "QuickTime Player" is not running then return {}
-      tell application "QuickTime Player"
-        if (count of documents) is 0 then return {}
-        set d to front document
-        repeat with x in documents
-          if playing of x then
-            set d to x
-            exit repeat
-          end if
-        end repeat
-        set p to ""
-        try
-          set p to POSIX path of (file of d as alias)
-        end try
-        return {playing of d, name of d, current time of d, duration of d, p}
-      end tell
-      """
-    let result = runAppleScript(script, label: "QuickTime Player")
     let now = ProcessInfo.processInfo.systemUptime
-    let report: SourceReport
-    if let list = result, list.numberOfItems >= 5 {
-      let path = list.atIndex(5)?.stringValue ?? ""
-      let name =
-        path.isEmpty ? (list.atIndex(2)?.stringValue ?? "") : (path as NSString).lastPathComponent
-      let song = Song(
-        title: name, artist: nil, source: "QuickTime Player", trackID: nil,
-        duration: list.atIndex(4)?.doubleValue, sourceID: id, location: path.isEmpty ? nil : path)
-      report = SourceReport(
-        song: song, state: list.atIndex(1)?.booleanValue == true ? .playing : .paused,
-        position: list.atIndex(3)?.doubleValue, readAt: now)
-    } else {
-      report = SourceReport(song: nil, state: .stopped, position: nil, readAt: now)
-    }
+    let report =
+      Self.readDocument(id: id, at: now)
+      ?? SourceReport(song: nil, state: .stopped, position: nil, readAt: now)
+    guard isRunning(Self.bundleID) else { return }
     DispatchQueue.main.async {
       self.onEvent?(self.id, .report(report))
       self.onEvent?(self.id, .artwork(nil))
     }
+  }
+
+  /// The document that plays, else the front one, read through Scripting
+  /// Bridge addressed to the running QuickTime Player's process: a read sent
+  /// as QuickTime quits fails, where a script addressed by name would start
+  /// QuickTime again. A read must never start a QuickTime Player that just quit.
+  private static func readDocument(id: SourceID, at now: TimeInterval) -> SourceReport? {
+    guard
+      let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+        .first(where: { !$0.isTerminated }),
+      let app = SBApplication(processIdentifier: running.processIdentifier),
+      let documents = (app.value(forKey: "documents") as? SBElementArray)?.get() as? [SBObject],
+      !documents.isEmpty
+    else { return nil }
+    let playing = { (d: SBObject) in (d.value(forKey: "playing") as? NSNumber)?.boolValue == true }
+    let doc = documents.first(where: playing) ?? documents[0]
+    let path = (doc.value(forKey: "file") as? URL)?.path ?? ""
+    let name =
+      path.isEmpty
+      ? (doc.value(forKey: "name") as? String ?? "") : (path as NSString).lastPathComponent
+    guard !name.isEmpty else { return nil }
+    let song = Song(
+      title: name, artist: nil, source: "QuickTime Player", trackID: nil,
+      duration: (doc.value(forKey: "duration") as? NSNumber)?.doubleValue, sourceID: id,
+      location: path.isEmpty ? nil : path)
+    return SourceReport(
+      song: song, state: playing(doc) ? .playing : .paused,
+      position: (doc.value(forKey: "currentTime") as? NSNumber)?.doubleValue, readAt: now)
   }
 
   private func command(_ verb: String) {
