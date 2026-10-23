@@ -11,6 +11,7 @@
 const assert = require('node:assert/strict');
 const harness = require('../support/harness');
 const { showsFaceWithCount } = require('../support/looks');
+const { planMacBookSpeakers } = require('../support/speakers');
 const island = require('../support/island');
 const music = require('../support/music');
 const players = require('../support/players');
@@ -44,12 +45,12 @@ const TITLE_RE = '("[^"]+"|the (?:file|video|track) "[^"]+")';
  */
 async function soundThrough(w, speaker) {
   if (speaker === 'the MacBook speakers') {
-    // The real system's output when that is the built-in speakers. When the
-    // visionary's own headphones are connected the harness does not reroute
-    // their sound: it stands in the built-in speakers instead, and says so.
-    const out = await harness.h('output-device');
-    if (!out.builtIn) {
-      process.stderr.write(`  note: the Mac's output is "${out.name}"; the MacBook speakers are injected for this scenario\n`);
+    // The real system's output when that is the built-in speakers. With
+    // other output connected (headphones) the run fails with the reason,
+    // unless injecting the built-in speakers was asked for (and then says so).
+    const plan = planMacBookSpeakers(await harness.h('output-device'), process.env);
+    if (plan.inject) {
+      process.stderr.write(`  note: ${plan.note} for this scenario\n`);
       island.feed(w, { outputDevice: { name: 'MacBook Air Speakers', builtIn: true } }); // test input (Q2)
     }
     return;
