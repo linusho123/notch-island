@@ -1157,3 +1157,27 @@ D130 2026-10-19 [V] amends D124
   serves: N1
   sib:   none -- a seek the app ignores is ruled in this response
   touches: D124 D18
+
+D131 2026-10-22 [I>V]
+  resp:  a paused source counts as a face on the flip card, not only a playing one: with Apple Music paused on "Wonderwall" beside a playing YouTube tab, the paused Apple Music stays one flip away, the count reading `2 of 2` on its face, until its app quits or its tab closes [I>V]
+  ->     structural
+  serves: N1
+  touches: D48 D111 D121 D117
+# P2 head review question V1; the reviewer's recommended option, matching the hub as built; bounds the count of D121 rather than adding a scenario
+# roads not taken: a paused source stays only for a few minutes or only when paused from the island; only playing sources are faces
+
+D132 2026-10-22 [I>V]
+  resp:  while QuickTime Player is open, the island may check it on a timer about once a second, since QuickTime sends no updates of its own; the check stops when QuickTime quits, and the island stays within the cost ceiling of D79, measured in P6 [I>V]
+  ->     structural
+  serves: N1 N7
+  touches: D79 D111 D121
+# P2 head review question V2; the reviewer's recommended option; amends the DESIGN principle "never on a timer loop", whose ceiling D79 stands
+# roads not taken: once a second while playing and every few seconds while paused; no timer, following QuickTime only through the shared now-playing channel, which breaks the `1 of 3` case
+
+D133 2026-10-22 [I>V]
+  resp:  while Music plays, the island checks Music's playhead every ten to fifteen seconds, so a resume after the visionary moved the playhead inside Music's own window and then quit Music is off by at most that much [I>V]
+  ->     structural
+  serves: N1
+  touches: D117 D132 D79
+# P2 head review question V3; the reviewer's recommended interval: Music announces track and state changes but not playhead moves
+# roads not taken: keep as built, off by the size of a seek made inside Music
