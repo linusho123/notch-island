@@ -16,7 +16,9 @@ enum MenuBarReader {
       NSLog("notch-island: no Accessibility permission, so the menu bar cannot be read")
       return nil
     }
-    guard let app = NSWorkspace.shared.menuBarOwningApplication ?? NSWorkspace.shared.frontmostApplication
+    guard
+      let app = NSWorkspace.shared.menuBarOwningApplication
+        ?? NSWorkspace.shared.frontmostApplication
     else { return nil }
     let element = AXUIElementCreateApplication(app.processIdentifier)
     AXUIElementSetMessagingTimeout(element, 0.3)
