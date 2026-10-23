@@ -9,6 +9,7 @@ module.exports = {
   releaseApp: path.join(root, 'build', 'release', 'NotchIsland.app'),
   releaseBinary: path.join(root, 'build', 'release', 'NotchIsland.app', 'Contents', 'MacOS', 'NotchIsland'),
   harness: path.join(root, 'build', 'island-harness'),
+  menuStandInApp: path.join(root, 'build', 'MenuStandIn.app'),
   testBundleID: 'local.notch-island.test',
   testAudio: path.join(root, 'build', 'test-audio'),
 };

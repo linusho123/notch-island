@@ -9,6 +9,8 @@
 // Given's exact gap width (`leftGap`), which no Then reads.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
+const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 const harness = require('../support/harness');
 const island = require('../support/island');
@@ -121,12 +123,22 @@ async function nearEnd(lead = 1.5) {
  */
 async function standInInFront(w, menus) {
   if (w.standIn) await procs.stop(w.standIn);
-  const handle = procs.start('menu stand-in', paths.harness, ['menu-stand-in', '900', ...menus]);
+  // Opened as the visionary opens an app (LaunchServices), so it comes to the
+  // front; it prints its pid to the file `open` hands its output to.
+  const out = path.join(os.tmpdir(), `notch-island-stand-in-${process.pid}-${Date.now()}.out`);
+  fs.writeFileSync(out, '');
+  w.defer(() => fs.rmSync(out, { force: true }));
+  execFileSync('open', ['-n', '-a', paths.menuStandInApp, '--stdout', out, '--args', 'menu-stand-in', '900', ...menus],
+    { timeout: 20000 });
+  const pid = await island.until(() => {
+    const m = /"pid"\s*:\s*(\d+)/.exec(fs.readFileSync(out, 'utf8'));
+    return m ? Number(m[1]) : null;
+  }, 10000, 'the menu stand-in did not start');
+  const handle = procs.adopt('menu stand-in', pid);
   w.defer(() => procs.stop(handle));
   w.standIn = handle;
   await island.until(async () => (await harness.menubar(handle.pid).catch(() => [])).length >= menus.length + 2,
     10000, 'the menu stand-in showed no menu bar');
-  await harness.activate(handle.pid);
   await island.until(async () => (await harness.frontmost()).pid === handle.pid, 5000,
     'the menu stand-in did not come to the front');
   await sleep(200);
@@ -209,8 +221,9 @@ async function iinaParts() {
 const SOURCES = {
   'Apple Music': {
     async given(w, first) {
-      await wonderwallClosed(w);
       assert.equal(first, 'Wonderwall');
+      await roomInFront(w);
+      await wonderwallClosed(w);
     },
     async when(w, second) {
       assert.equal(second, 'Champagne Supernova');
@@ -314,8 +327,7 @@ const SOURCES = {
       await players.playFileInMusic(w, file);
       const { start } = await startedPer(async () => {
         const s = await music.state();
-        const where = await music.osa('tell application "Music" to get POSIX path of (location of current track)').catch(() => '');
-        return { ...s, file: path.basename(where) };
+        return { ...s, file: path.basename(await players.musicFile()) };
       }, (s) => s.state === 'playing' && s.file === base && s.position < 5, 20000, `Music did not play "${second}"`);
       w.started = start;
     },
