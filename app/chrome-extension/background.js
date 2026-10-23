@@ -23,6 +23,10 @@ function connect() {
   port.onMessage.addListener(onCommand);
   connectedAt = Date.now();
   port.onDisconnect.addListener(() => {
+    // Chrome sets lastError ("Native host has exited.") while this runs; read
+    // it, so Chrome does not log it as an unchecked error. The island being
+    // quit is expected; the back-off below handles it.
+    void chrome.runtime.lastError;
     port = null;
     // The host ends at once while the island is quit: wait longer each time
     // (5 s, 10 s, ... up to 5 minutes) rather than start a host every 5 s.

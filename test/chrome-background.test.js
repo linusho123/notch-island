@@ -99,3 +99,28 @@ test('when the service worker starts it asks the open youtube.com and soundcloud
   await new Promise((r) => setTimeout(r, 50));
   assert.deepEqual(asked, [[3, 'report'], [5, 'report']]);
 });
+
+test('when the host ends, the extension reads chrome.runtime.lastError so Chrome logs no unchecked error', () => {
+  const listeners = [];
+  let read = 0;
+  const port = { onMessage: { addListener() {} }, onDisconnect: { addListener: (f) => listeners.push(f) }, postMessage() {} };
+  const evt = () => ({ addListener() {} });
+  const runtime = { connectNative: () => port, onMessage: evt() };
+  // Chrome sets lastError while the onDisconnect listener runs; a listener
+  // that never reads it makes Chrome log "Unchecked runtime.lastError:
+  // Native host has exited".
+  Object.defineProperty(runtime, 'lastError', { get: () => { read += 1; return { message: 'Native host has exited.' }; } });
+  const chrome = {
+    runtime,
+    tabs: { get: async () => ({}), onUpdated: evt(), onRemoved: evt(), query: async () => [] },
+    windows: {},
+  };
+  const sandbox = { chrome, console, URL, Date, setTimeout: () => 1 };
+  sandbox.self = sandbox;
+  sandbox.importScripts = (f) => vm.runInContext(fs.readFileSync(path.join(DIR, f), 'utf8'), sandbox);
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(DIR, 'background.js'), 'utf8'), sandbox);
+  assert.equal(read, 0);
+  listeners[listeners.length - 1]();
+  assert.ok(read >= 1, 'onDisconnect never read chrome.runtime.lastError');
+});
