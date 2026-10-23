@@ -14,6 +14,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { onCleanup } = require('./cleanup');
 const { testBinary } = require('./paths');
+const { listIslands } = require('./island-procs');
 
 const INSTALLED_APP = '/Applications/NotchIsland.app';
 const INSTALLED_BINARY = path.join(INSTALLED_APP, 'Contents', 'MacOS', 'NotchIsland');
@@ -67,14 +68,7 @@ function createInstalledKeeper({ driver, file }) {
 
 // ------------------------------------------------------------- the real Mac
 
-function islandPids() {
-  try {
-    return execFileSync('pgrep', ['-x', 'NotchIsland'], { encoding: 'utf8' })
-      .split('\n').filter(Boolean).map(Number);
-  } catch {
-    return [];
-  }
-}
+const islandPids = () => listIslands();
 
 function binaryOf(pid) {
   try { return execFileSync('ps', ['-o', 'comm=', '-p', String(pid)], { encoding: 'utf8' }).trim(); } catch { return null; }

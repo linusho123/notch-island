@@ -5,13 +5,14 @@
 // the Accessibility tree macOS keeps of its windows.
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFileSync, spawnSync } = require('node:child_process');
+const { spawnSync } = require('node:child_process');
 const procs = require('./procs');
 const { onCleanup } = require('./cleanup');
 const harness = require('./harness');
 const { scratch } = require('./sandbox');
 const { testBinary } = require('./paths');
 const { pauseInstalled } = require('./installed-island');
+const { listIslands } = require('./island-procs');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -26,15 +27,8 @@ function feed(world, patch) {
   fs.writeFileSync(file, JSON.stringify({ ...current, ...patch }));
 }
 
-/** Every running island process, test build or not (by executable name). */
-function runningIslands() {
-  try {
-    return execFileSync('pgrep', ['-x', 'NotchIsland'], { encoding: 'utf8' })
-      .split('\n').filter(Boolean).map(Number);
-  } catch {
-    return [];
-  }
-}
+/** Every running island process, test build or not (the Chrome host is not one). */
+const runningIslands = () => listIslands();
 
 // The test build registers itself to start at login, as the real island
 // does. When the test process ends, the test build unregisters itself again,
