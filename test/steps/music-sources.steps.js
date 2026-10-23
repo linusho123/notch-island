@@ -372,6 +372,13 @@ module.exports = (reg) => {
 
   reg.define(/^the visionary sees the notch stay plain, with no wing and no notice$/, async (w) => {
     await staysPlain(w, 2500);
+    // The control: the drop did reach the island. Opened afterwards, its
+    // source line names the app alone.
+    await pointerAway();
+    await sleep(200);
+    await openIsland(w);
+    await openOnMusicPage(w);
+    await sourceLineReads(w, 'Apple Music');
   });
 
   reg.define(/^the visionary sees the source line read "Apple Music", the speaker part gone$/, async (w) => {
