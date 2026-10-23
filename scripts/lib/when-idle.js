@@ -212,7 +212,7 @@ async function runGuarded({ command, guardCommand, harness, restore, log = conso
 
 function describe(real) {
   if (real.signal === 'idle') return `idle clock: input ${Math.round(real.hidIdleMs ?? 0)} ms ago, none of it the harness's`;
-  return `${real.signal || 'tap'}: ${real.kind || `event type ${real.type}`}`;
+  return `${real.signal || 'tap'}: ${real.kind || 'input'} (event type ${real.type}, from pid ${real.sourcePid ?? '?'})`;
 }
 
 module.exports = {
