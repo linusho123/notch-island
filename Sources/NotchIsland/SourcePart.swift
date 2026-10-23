@@ -263,44 +263,49 @@ final class QuickTimeSource: SourcePart {
 
   func refresh() { refresh(after: 0) }
 
-  private func read() {
+  /// Read QuickTime now. A read that failed says nothing about what QuickTime
+  /// does: no report, and a few fresh reads. Taken as "stopped", it would drop
+  /// QuickTime from the card and bring it back as the newest source (D48).
+  private func read(retries: Int = 3) {
     let now = ProcessInfo.processInfo.systemUptime
-    let report =
-      Self.readDocument(id: id, at: now)
-      ?? SourceReport(song: nil, state: .stopped, position: nil, readAt: now)
     guard isRunning(Self.bundleID) else { return }
+    guard let report = QuickTimeRead.report(id: id, documents: Self.readDocuments(), at: now)
+    else {
+      if retries > 0 {
+        queue.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.read(retries: retries - 1) }
+      }
+      return
+    }
     DispatchQueue.main.async {
+      // QuickTime may have quit while it was being read: a read that ends
+      // after the quit must not put it back on the card.
+      guard isRunning(Self.bundleID) else { return }
       self.onEvent?(self.id, .report(report))
       self.onEvent?(self.id, .artwork(nil))
     }
   }
 
-  /// The document that plays, else the front one, read through Scripting
-  /// Bridge addressed to the running QuickTime Player's process: a read sent
-  /// as QuickTime quits fails, where a script addressed by name would start
-  /// QuickTime again. A read must never start a QuickTime Player that just quit.
-  private static func readDocument(id: SourceID, at now: TimeInterval) -> SourceReport? {
+  /// The documents, read through Scripting Bridge addressed to the running
+  /// QuickTime Player's process: a read sent as QuickTime quits fails, where
+  /// a script addressed by name would start QuickTime again. A read must never
+  /// start a QuickTime Player that just quit. Nil when the read failed.
+  private static func readDocuments() -> [QuickTimeDocument]? {
     guard
       let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
         .first(where: { !$0.isTerminated }),
       let app = SBApplication(processIdentifier: running.processIdentifier),
-      let documents = (app.value(forKey: "documents") as? SBElementArray)?.get() as? [SBObject],
-      !documents.isEmpty
+      let documents = (app.value(forKey: "documents") as? SBElementArray)?.get() as? [SBObject]
     else { return nil }
-    let playing = { (d: SBObject) in (d.value(forKey: "playing") as? NSNumber)?.boolValue == true }
-    let doc = documents.first(where: playing) ?? documents[0]
-    let path = (doc.value(forKey: "file") as? URL)?.path ?? ""
-    let name =
-      path.isEmpty
-      ? (doc.value(forKey: "name") as? String ?? "") : (path as NSString).lastPathComponent
-    guard !name.isEmpty else { return nil }
-    let song = Song(
-      title: name, artist: nil, source: "QuickTime Player", trackID: nil,
-      duration: (doc.value(forKey: "duration") as? NSNumber)?.doubleValue, sourceID: id,
-      location: path.isEmpty ? nil : path)
-    return SourceReport(
-      song: song, state: playing(doc) ? .playing : .paused,
-      position: (doc.value(forKey: "currentTime") as? NSNumber)?.doubleValue, readAt: now)
+    return documents.map { doc in
+      let path = (doc.value(forKey: "file") as? URL)?.path ?? ""
+      let name =
+        path.isEmpty
+        ? (doc.value(forKey: "name") as? String ?? "") : (path as NSString).lastPathComponent
+      return QuickTimeDocument(
+        name: name, path: path, duration: (doc.value(forKey: "duration") as? NSNumber)?.doubleValue,
+        playing: (doc.value(forKey: "playing") as? NSNumber)?.boolValue == true,
+        currentTime: (doc.value(forKey: "currentTime") as? NSNumber)?.doubleValue)
+    }
   }
 
   private func command(_ verb: String) {
