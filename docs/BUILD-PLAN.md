@@ -237,6 +237,19 @@ a face it cannot keep, a reopened song from 0:00, `MacBook speakers` named,
 skip greyed when nothing is next.
 **Exit:** the extension installed once into the visionary's own Chrome, with
 their go-ahead.
+*Closed 2026-10-23:* gate green at b6a67b6 (npm test 273: 160 pass, 0 fail,
+113 todo; swift test 121; lint 0; scope 0); `music-sources` left wip,
+`music-panel` narrowed to its shelf-drag row (P4). Run by hand (the Workflow
+tool was off): builder resumed after a rate-limit stop, two cold reviews, head
+review (5 must, 8 should), fix round, verifier (S8 blocked once, fixed as S8b),
+gate. Visionary rulings: D131 a paused source stays a face, D132 QuickTime
+checked about once a second while open, D133 Music's playhead every 10–15 s;
+M4 accepted as is: the D46/D47 Apple Music back row on the first song is an
+equivalent mutant (Music's own back is a no-op there, and D47 makes the app's
+response the outcome), like QuickTime's skip on a lone file. Still pending on
+the visionary: the extension's one-time install into their own Chrome
+(`npm run install:chrome-host -- --real`), the Q2 real JBL Flip 5 check
+(deferrable to the end), the Q1 login check (end of the build).
 
 ## P3 — The new-song notice
 
