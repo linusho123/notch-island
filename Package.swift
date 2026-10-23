@@ -32,6 +32,8 @@ let package = Package(
         .linkedFramework("AppKit"),
         .linkedFramework("SwiftUI"),
         .linkedFramework("ServiceManagement"),
+        .linkedFramework("CoreAudio"),
+        .linkedFramework("ScriptingBridge"),
       ]
     ),
     // The acceptance harness's own helper, never bundled into the app: reads
@@ -44,6 +46,8 @@ let package = Package(
         .linkedFramework("ApplicationServices"),
         .linkedFramework("AVFoundation"),
         .linkedFramework("ScreenCaptureKit"),
+        .linkedFramework("CoreAudio"),
+        .linkedFramework("MediaPlayer"),
       ]
     ),
     .testTarget(

@@ -12,7 +12,9 @@ const harness = require('../support/harness');
 const island = require('../support/island');
 const music = require('../support/music');
 const chrome = require('../support/chrome');
+const standIns = require('../support/stand-ins');
 const registry = require('../support/registry');
+const players = require('../support/players');
 const procs = require('../support/procs');
 const { root, testBundleID } = require('../support/paths');
 const { osa } = music;
@@ -237,6 +239,18 @@ async function islandWindowsOnScreen() {
   return (await harness.cgwindows()).filter((x) => /^notch-island/i.test(x.owner));
 }
 
+const CONCERT = 'concert_2019_final_v2.mkv';
+const CONCERT_SECONDS = 7420; // 2:03:40
+
+/** IINA plays the concert stand-in (2:03:40 long) from 1:12:05. */
+async function concert(w) {
+  await ensureIsland(w);
+  await music.pause().catch(() => {});
+  const file = await players.movie(CONCERT, CONCERT_SECONDS - 1); // frames 0...n: n + 1 seconds
+  await players.playInIINA(w, file, 4325);
+  w.concertAt = Date.now();
+}
+
 // --------------------------------------------------------------- definer
 
 module.exports = (reg) => {
@@ -326,6 +340,21 @@ module.exports = (reg) => {
   reg.define(/^"Wonderwall" in Apple Music is playing while Messages is in front$/, async (w) => {
     await ensureIsland(w);
     await playing(w, 'Wonderwall', 30);
+    await osa('tell application "Messages" to activate');
+    await island.until(async () => (await harness.frontmost()).bundleID === 'com.apple.MobileSMS', 5000,
+      'Messages did not come to the front');
+    await plainNotch(w);
+  });
+
+  reg.define(/^a (youtube\.com video|soundcloud\.com track) in a Chrome tab behind a Gmail tab is playing while Messages is in front$/, async (w, what) => {
+    await ensureIsland(w);
+    await music.pause().catch(() => {});
+    const youtube = what.startsWith('youtube');
+    w.tab = await chrome.playInTab(w, youtube ? 'Lecture 4: Fourier Series' : 'late night mix', 30);
+    w.lineName = youtube ? 'YouTube' : 'SoundCloud';
+    w.gmail = await w.chrome.browser.open(standIns.urls.gmail());
+    await island.until(async () => (await w.gmail.shown()) && !(await w.tab.shown()), 5000,
+      'the Gmail tab is not in front of the playing tab');
     await osa('tell application "Messages" to activate');
     await island.until(async () => (await harness.frontmost()).bundleID === 'com.apple.MobileSMS', 5000,
       'Messages did not come to the front');
@@ -537,8 +566,12 @@ module.exports = (reg) => {
       assert.ok(view.art, 'the island shows no cover art');
       target = view.art.frame;
     } else {
-      const line = view.textElements.find((e) => e.value === 'Apple Music');
-      assert.ok(line, `the island shows no source line naming Apple Music (it shows ${view.texts.join(', ')})`);
+      // The source line names the app, and the speaker when it is not the
+      // built-in one (D119): "Apple Music" or "Apple Music · <speaker>".
+      const name = w.lineName || 'Apple Music';
+      const line = view.sourceLine;
+      assert.ok(line && (line.value === name || line.value.startsWith(`${name} · `)),
+        `the island shows no source line naming ${name} (it shows ${view.texts.join(', ')})`);
       target = line.frame;
     }
     const c = center(target);
@@ -756,6 +789,17 @@ module.exports = (reg) => {
     await showsSong(w, song);
   });
 
+  reg.define(/^the visionary sees Chrome showing that (?:youtube\.com|soundcloud\.com) tab, not the Gmail tab come to the front over Messages$/, async (w) => {
+    // The test Chrome is the frontmost app, and Chrome itself shows the
+    // playing tab, the Gmail tab now hidden behind it.
+    await island.until(async () => (await harness.frontmost()).pid === w.chrome.pid, 4000,
+      'Chrome did not come to the front');
+    await island.until(async () => (await w.tab.shown()) && !(await w.gmail.shown()), 4000,
+      'Chrome came forward on the Gmail tab, not the playing one');
+    const m = await w.tab.media();
+    assert.ok(!m.paused, 'the playing tab stopped');
+  });
+
   reg.define(/^the visionary sees the Apple Music window come to the front over Messages$/, async () => {
     await island.until(async () => (await harness.frontmost()).bundleID === 'com.apple.Music', 4000,
       'Apple Music did not come to the front');
@@ -846,4 +890,143 @@ module.exports = (reg) => {
     await openOnMusicPage(w);
     await showsSong(w, 'Wonderwall', 1500);
   });
+
+  // IINA and the concert file (P2): D24, D25, and the progress-dot row of
+  // the drag outline (D52). IINA is read from the system now-playing service
+  // by the harness's own reader.
+
+  reg.define(/^IINA is playing the downloaded file "concert_2019_final_v2\.mkv", with no cover art and no artist, at 1:12:05 of 2:03:40$/, async (w) => {
+    await concert(w);
+  });
+
+  reg.define(/^its sound goes out through the Bluetooth speaker "JBL Flip 5"$/, (w) => {
+    island.feed(w, { outputDevice: { name: 'JBL Flip 5', builtIn: false } }); // test input (Q2)
+  });
+
+  reg.define(/^the island is open over "concert_2019_final_v2\.mkv" playing in IINA at 1:12:05 of 2:03:40$/, async (w) => {
+    await concert(w);
+    await openByRest(w);
+    await showsSong(w, CONCERT);
+  });
+
+  reg.define(/^the island is open on the music page over "concert_2019_final_v2\.mkv"$/, async (w) => {
+    await concert(w);
+    await openByRest(w);
+    await showsSong(w, CONCERT);
+  });
+
+  reg.define(/^the visionary rests the pointer on the notch and the island opens$/, async (w) => {
+    w.restMs = RULED_REST_MS;
+    await rest(w, RULED_REST_MS);
+    await openOnMusicPage(w, restDeadline(w));
+  });
+
+  reg.define(/^the visionary moves playback by (dragging the dot|clicking the bar|dragging the dot back|clicking the bar's start) to ([\d:]+)$/, async (w, how, target) => {
+    const view = await island.waitFor(w.island.pid, (v) => v.dot && v.bar, 2000, 'the island shows no progress bar');
+    const bar = view.bar.frame;
+    const to = players.seconds(target);
+    const x = bar.x + (to / CONCERT_SECONDS) * bar.w;
+    const y = bar.y + bar.h / 2;
+    w.seekTarget = to;
+    w.releasedAt = Date.now();
+    if (how.startsWith('dragging')) {
+      const from = center(view.dot.frame);
+      await harness.drag(from.x, from.y, x, y, 20, 15);
+    } else {
+      await harness.glide(x, y, 5, 10);
+      await harness.click(x, y);
+    }
+  });
+
+  reg.define(/^the visionary drags the progress dot with the pointer down to the Dock, without letting go$/, async (w) => {
+    const view = await island.waitFor(w.island.pid, (v) => v.dot, 2000, 'the island shows no progress dot');
+    const d = center(view.dot.frame);
+    const { frame } = await harness.builtIn();
+    w.defer(() => harness.release().catch(() => {}));
+    await harness.drag(d.x, d.y, d.x, frame.y + frame.h - 20, 20, 15, true);
+    const n = await notch();
+    w.held = (await harness.watch(w.island.pid, 1500, 40)).map((s) => island.parse(s.windows, n));
+    w.stillHeld = await harness.leftHeld();
+  });
+
+  reg.define(/^the visionary sees a music-note placeholder where the cover art would be$/, async (w) => {
+    const view = await island.look(w.island.pid);
+    assert.ok(view.art, 'the island shows nothing where the cover art would be');
+    const placeholder = view.elements.find((e) => e.description === 'Music note');
+    assert.ok(placeholder, `the island shows ${view.art.description}, not a music-note placeholder`);
+  });
+
+  reg.define(/^the visionary sees the filename cut short with an ellipsis$/, async (w) => {
+    const view = await island.look(w.island.pid);
+    assert.ok(view.title, 'the island shows no title');
+    assert.equal(view.title.value, CONCERT, 'the title is not the file\'s name');
+    // The name as drawn is narrower than the whole name needs on one line, so
+    // it is cut short (SwiftUI cuts with an ellipsis).
+    const { width } = await harness.h('text-width', 14, 'semibold', CONCERT);
+    assert.ok(view.title.frame.w < width - 4,
+      `the title is drawn ${view.title.frame.w} points wide, the whole name needs ${width.toFixed(0)}: it is not cut short`);
+  });
+
+  reg.define(/^the visionary sees the source line "IINA · JBL Flip 5"$/, async (w) => {
+    await island.waitFor(w.island.pid, (v) => v.sourceLine?.value === 'IINA · JBL Flip 5', 2000,
+      'the source line does not read "IINA · JBL Flip 5"');
+  });
+
+  reg.define(/^the visionary sees a progress bar reading 1:12:05 elapsed of 2:03:40$/, async (w) => {
+    const view = await island.look(w.island.pid);
+    assert.ok(view.bar && view.dot, 'the island shows no progress bar');
+    assert.ok(view.texts.includes('2:03:40'), `the bar does not read a length of 2:03:40 (${view.texts.join(', ')})`);
+    const since = (Date.now() - w.concertAt) / 1000;
+    const shown = view.texts.filter((t) => /^\d+:\d\d:\d\d$/.test(t) && t !== '2:03:40').map(players.seconds);
+    assert.ok(shown.some((t) => t >= 4325 && t <= 4325 + since + 1),
+      `the bar reads ${shown.join(', ')} s elapsed, not 1:12:05 (${since.toFixed(1)} s after the file was at 1:12:05)`);
+    const real = await players.iinaState();
+    assert.ok(real, 'the system no longer shows IINA as now playing');
+    assert.ok(shown.some((t) => Math.abs(t - real.elapsed) <= 2), `the bar reads ${shown.join(', ')}, IINA is at ${real.elapsed.toFixed(1)}`);
+  });
+
+  reg.define(/^the visionary sees the back, pause and skip buttons$/, async (w) => {
+    const view = await island.look(w.island.pid);
+    const shown = [...view.buttons].filter((b) => ['Back', 'Pause', 'Play', 'Skip'].includes(b.label))
+      .sort((a, b) => a.frame.x - b.frame.x);
+    assert.deepEqual(shown.map((b) => b.label), ['Back', 'Pause', 'Skip']);
+    assert.ok(shown.every((b) => b.enabled), 'a button is greyed out');
+  });
+
+  reg.define(/^the visionary hears the concert carry on from ([\d:]+)$/, async (w, target) => {
+    const to = players.seconds(target);
+    let last;
+    await players.until(async () => {
+      last = await players.iinaState();
+      const since = (Date.now() - w.releasedAt) / 1000;
+      return last && last.playing && last.elapsed >= to - 3 && last.elapsed <= to + since + 3;
+    }, 4000, `IINA does not play the concert from ${target}`).catch((e) => {
+      e.message += ` (IINA is at ${last && last.elapsed})`;
+      throw e;
+    });
+  });
+
+  reg.define(/^the visionary sees the elapsed time read ([\d:]+) of 2:03:40$/, async (w, target) => {
+    const to = players.seconds(target);
+    const view = await island.waitFor(w.island.pid, (v) => {
+      const since = (Date.now() - w.releasedAt) / 1000;
+      return v.texts.includes('2:03:40') && v.texts.some((t) => /^\d+:\d\d(:\d\d)?$/.test(t) && t !== '2:03:40'
+        && players.seconds(t) >= to - 3 && players.seconds(t) <= to + since + 3);
+    }, 3000, `the island does not read ${target} of 2:03:40`);
+    assert.ok(view.texts.includes('2:03:40'));
+  });
+
+  reg.define(/^the visionary sees the island stay open for as long as the drag is under way$/, async (w) => {
+    assert.ok(w.stillHeld, 'the drag was not under way: the button is up');
+    assert.ok(w.held.length > 10, 'the island was not watched during the drag');
+    const closed = w.held.filter((v) => !v.open);
+    assert.equal(closed.length, 0, 'the island closed while the dot was still held far away');
+    await harness.release();
+  });
+};
+
+// Shared with the other features' steps (each feature keeps its own registry).
+module.exports.helpers = {
+  notch, away, pointerAway, ensureIsland, playing, plainNotch, rest, openOnMusicPage, openByRest,
+  button, clickButton, showsSong, musicSays, dotTime, restDeadline, assertFocusKept, RULED_REST_MS,
 };

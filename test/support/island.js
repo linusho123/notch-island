@@ -5,12 +5,14 @@
 // the Accessibility tree macOS keeps of its windows.
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFileSync, spawnSync } = require('node:child_process');
+const { spawnSync } = require('node:child_process');
 const procs = require('./procs');
 const { onCleanup } = require('./cleanup');
 const harness = require('./harness');
 const { scratch } = require('./sandbox');
 const { testBinary } = require('./paths');
+const { pauseInstalled } = require('./installed-island');
+const { listIslands } = require('./island-procs');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -25,15 +27,8 @@ function feed(world, patch) {
   fs.writeFileSync(file, JSON.stringify({ ...current, ...patch }));
 }
 
-/** Every running island process, test build or not (by executable name). */
-function runningIslands() {
-  try {
-    return execFileSync('pgrep', ['-x', 'NotchIsland'], { encoding: 'utf8' })
-      .split('\n').filter(Boolean).map(Number);
-  } catch {
-    return [];
-  }
-}
+/** Every running island process, test build or not (the Chrome host is not one). */
+const runningIslands = () => listIslands();
 
 // The test build registers itself to start at login, as the real island
 // does. When the test process ends, the test build unregisters itself again,
@@ -47,9 +42,14 @@ function armLoginCleanup() {
   });
 }
 
+let sockets = 0;
+
 /** Start the island (a binary given, or the test build) and wait for it. */
 async function launch(world, binary = testBinary) {
   armLoginCleanup();
+  // The visionary's installed island steps aside for the run and comes back
+  // when it ends (installed-island.js).
+  pauseInstalled();
   if (runningIslands().length) {
     throw new Error(`another island is already running (pid ${runningIslands().join(', ')}); quit it before the tests`);
   }
@@ -58,7 +58,11 @@ async function launch(world, binary = testBinary) {
   await harness.move(notch.x + notch.w / 2, 420);
   const data = path.join(scratch(world), 'island-data');
   fs.mkdirSync(data, { recursive: true });
-  feed(world, { dataDirectory: data });
+  // The island's socket for its Chrome host: a short path (a socket path is
+  // limited to 104 bytes), removed with the scenario.
+  const sock = `/tmp/notch-island-${process.pid}-${++sockets}.sock`;
+  world.defer(() => fs.rmSync(sock, { force: true }));
+  feed(world, { dataDirectory: data, chromeSocket: sock });
   const log = fs.openSync(path.join(scratch(world), 'island.log'), 'a');
   const handle = procs.start('notch-island', binary, [], {
     env: { ...process.env, NOTCH_ISLAND_TEST_INPUT: inputFile(world) },
@@ -114,6 +118,10 @@ function parse(windows, notch) {
     dot: labelled('Progress dot'),
     bar: labelled('Progress bar'),
     art: labelled('Cover art') || labelled('Music note'),
+    // The card's own parts, by the identifiers the island gives them.
+    title: all.find((e) => e.identifier === 'song-title' && visible(e)) || null,
+    sourceLine: all.find((e) => e.identifier === 'source-line' && visible(e)) || null,
+    count: all.find((e) => e.identifier === 'flip-count' && visible(e)) || null,
     elements: all,
   };
 }
@@ -155,4 +163,4 @@ async function waitFor(pid, pred, ms, message) {
   }
 }
 
-module.exports = { launch, feed, look, parse, waitFor, isPlainNotch, runningIslands, until, inside };
+module.exports = { launch, feed, inputFile, look, parse, waitFor, isPlainNotch, runningIslands, until, inside };

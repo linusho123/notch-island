@@ -25,7 +25,7 @@ const TRACKS = [
 ];
 
 /** Music itself, driven synchronously for the keeper (which runs in clean-ups too). */
-const osaSync = (...lines) => execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { encoding: 'utf8', timeout: 30000 }).trim();
+const osaSync = (...lines) => execFileSync('osascript', lines.flatMap((l) => ['-e', l]), { encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 
 const realDriver = {
   // `application "Music" is running` does not start it.
@@ -58,14 +58,16 @@ const realDriver = {
     if (repeat) lines.push(`set song repeat to ${repeat}`);
     if (s.state === 'stopped' || !track) lines.push('try', 'stop', 'end try');
     else {
-      lines.push(`play (first track of library playlist 1 whose persistent ID is "${track}")`,
-        'delay 0.5', `set player position to ${Number(s.position) || 0}`);
+      // Paused: pause at once, then move, so the song is barely heard.
+      lines.push(`play (first track of library playlist 1 whose persistent ID is "${track}")`);
       if (s.state === 'paused') lines.push('pause');
+      lines.push('delay 0.3', `set player position to ${Number(s.position) || 0}`);
     }
     lines.push('end tell');
     osaSync(...lines);
   },
   quit: () => { osaSync('tell application "Music" to quit'); },
+  sleep: (ms) => { execFileSync('sleep', [String(ms / 1000)]); },
   /** Bounded wait (10 s) until the Music process has really gone. */
   waitExited: () => {
     const end = Date.now() + 10000;
@@ -248,6 +250,31 @@ async function play(title, position = 0) {
   if (position > 0) await seek(position);
 }
 
+const FIRST_PLAYLIST = 'notch-island test, Wonderwall first';
+
+/**
+ * Play a stand-in track as the first song in Music's queue, nothing before
+ * it: a second test playlist holding that track of the test playlist and the
+ * ones after it (so a skip forward is told apart from a back).
+ */
+async function playFirstInQueue(title) {
+  await ensurePlaylist();
+  await orderedQueue();
+  const from = TRACKS.findIndex((t) => t.title === title);
+  const copies = TRACKS.slice(from).map((t) =>
+    `duplicate (first track of user playlist ${q(PLAYLIST)} whose name is ${q(t.title)}) to user playlist ${q(FIRST_PLAYLIST)}`);
+  await osa(`tell application "Music"
+    if not (exists user playlist ${q(FIRST_PLAYLIST)}) then make new user playlist with properties {name:${q(FIRST_PLAYLIST)}}
+    delete every track of user playlist ${q(FIRST_PLAYLIST)}
+    ${copies.join('\n')}
+    play user playlist ${q(FIRST_PLAYLIST)}
+  end tell`);
+  await until(async () => {
+    const s = await state();
+    return s.state === 'playing' && s.name === title;
+  }, 5000, `Music did not start ${title} alone`);
+}
+
 /** Move Music's own playback to `position` seconds, retried until it holds. */
 async function seek(position) {
   await until(async () => {
@@ -273,4 +300,4 @@ async function until(pred, ms, message) {
   }
 }
 
-module.exports = { keepMusic, state, play, seek, pause, stop, ensurePlaylist, osa, TRACKS, PLAYLIST };
+module.exports = { keepMusic, state, play, playFirstInQueue, seek, pause, stop, ensurePlaylist, osa, TRACKS, PLAYLIST };

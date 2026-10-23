@@ -130,3 +130,75 @@ test('a save that throws leaves nothing armed: the error is rethrown at every la
   assert.throws(() => keeper.save(), /-609/);
   assert.throws(() => keeper.save(), /-609/);
 });
+
+// P1's last gate: Music was open and paused at 0:30 in Wonderwall before the
+// suite; a test quit Music mid-run, and the restore found Music relaunching:
+// its first commands fail while the library loads, so the restore gave up and
+// left Music stopped with no track. The restore must outlast a Music that is
+// still starting, and check from Music itself that the state is back.
+function startingMusic(initial, failingCommands) {
+  const fake = fakeMusic(initial);
+  const { m, driver } = fake;
+  let failing = 0;
+  const apply = driver.apply;
+  const snapshot = driver.snapshot;
+  const launchIfQuit = () => {
+    if (!m.running) {
+      m.running = true; m.state = 'stopped'; m.track = null; m.position = 0;
+      m.log.push(['launched']);
+      failing = failingCommands;
+    }
+  };
+  driver.apply = (s) => {
+    launchIfQuit(); // `tell application "Music"` starts a quit Music
+    if (failing > 0) { failing--; throw new Error('Music got an error: Can’t get track. (-1728)'); }
+    apply(s);
+  };
+  driver.snapshot = () => {
+    launchIfQuit();
+    if (failing > 0) { failing--; throw new Error('Music got an error: Connection is invalid. (-609)'); }
+    return snapshot();
+  };
+  driver.sleep = () => {};
+  return fake;
+}
+
+test('Music quit mid-run: the restore relaunches it and puts back the paused track and position, outlasting its start-up', () => {
+  const { m, driver } = startingMusic({ running: true, state: 'paused', track: 'W0NDERWALL', position: 30.88, shuffle: 'true', repeat: 'all' }, 3);
+  const keeper = createKeeper({ driver, file: tmpFile() });
+  keeper.save();
+  // the suite plays its own track, then a test quits Music
+  m.state = 'stopped'; m.track = null; m.running = false;
+  keeper.restore();
+  assert.deepEqual([m.running, m.state, m.track, m.position, m.shuffle, m.repeat],
+    [true, 'paused', 'W0NDERWALL', 30.88, 'true', 'all']);
+});
+
+test('the restore reads Music back and tries again when Music took the commands but did not end up as saved', () => {
+  const { m, driver } = fakeMusic({ running: true, state: 'playing', track: 'ABC123', position: 50 });
+  driver.sleep = () => {};
+  let first = true;
+  const apply = driver.apply;
+  driver.apply = (s) => {
+    apply(s);
+    if (first) { first = false; m.state = 'stopped'; m.track = null; } // Music dropped it
+  };
+  const keeper = createKeeper({ driver, file: tmpFile() });
+  keeper.save();
+  m.track = 'TEST1';
+  keeper.restore();
+  assert.deepEqual([m.state, m.track], ['playing', 'ABC123']);
+});
+
+test('a restore that cannot succeed gives up in bounded time and says so', () => {
+  const { m, driver } = fakeMusic({ running: true, state: 'paused', track: 'ABC123', position: 5 });
+  let clock = 0;
+  driver.sleep = (ms) => { clock += ms; };
+  driver.now = () => clock;
+  driver.apply = () => { throw new Error('-1728'); };
+  const keeper = createKeeper({ driver, file: tmpFile() });
+  keeper.save();
+  m.track = 'TEST1';
+  assert.throws(() => keeper.restore(), /could not put Music back/);
+  assert.ok(clock <= 30000, `the restore kept trying for ${clock} ms`);
+});

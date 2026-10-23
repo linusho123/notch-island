@@ -13,12 +13,17 @@ final class IslandModel: ObservableObject {
   @Published var report: SourceReport?
   /// The notch's size, for the closed shape and the open panel's top strip.
   @Published var notchSize = CGSize(width: 185, height: 33)
+  /// The output device, for the source line's speaker part (D119, D120).
+  @Published var output: OutputDevice?
+  /// Which source's face the card shows; a change turns the card (D48).
+  @Published var faceID: String?
 
   var onBack: () -> Void = {}
   var onPlayPause: () -> Void = {}
   var onSkip: () -> Void = {}
   var onSeek: (TimeInterval) -> Void = { _ in }
   var onBringForward: () -> Void = {}
+  var onFlip: () -> Void = {}
 
   /// The clicked position of a seek, held until Music confirms it.
   private var seekHold = SeekHold()
@@ -120,35 +125,13 @@ private struct MusicPageView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
-      HStack(alignment: .center, spacing: 12) {
-        ArtworkView(image: model.music.song == nil ? nil : model.artwork)
-          .onTapGesture { model.onBringForward() }
-        VStack(alignment: .leading, spacing: 3) {
-          switch model.music.content {
-          case .nothingPlayedYet:
-            Text("Nothing played yet")
-              .font(.system(size: 14, weight: .semibold))
-              .foregroundColor(.white.opacity(0.7))
-          case .current(let song), .lastSong(let song):
-            Text(song.title)
-              .font(.system(size: 14, weight: .semibold))
-              .foregroundColor(.white)
-              .lineLimit(1)
-              .truncationMode(.middle)
-            if let artist = song.artist {
-              Text(artist)
-                .font(.system(size: 12))
-                .foregroundColor(.white.opacity(0.7))
-                .lineLimit(1)
-            }
-            Text(song.source)
-              .font(.system(size: 11))
-              .foregroundColor(.white.opacity(0.5))
-              .lineLimit(1)
-              .onTapGesture { model.onBringForward() }
-          }
+      HStack(alignment: .top, spacing: 8) {
+        FlipCard(faceID: model.faceID) {
+          SongCard(model: model)
         }
-        Spacer(minLength: 0)
+        if let flip = model.music.flip {
+          FlipControl(count: flip.label, action: model.onFlip)
+        }
       }
       if model.music.song != nil {
         ProgressBar(model: model)
@@ -161,6 +144,107 @@ private struct MusicPageView: View {
     .padding(.vertical, 10)
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Music page")
+  }
+}
+
+/// The card's face: art, title, artist and the source line.
+private struct SongCard: View {
+  @ObservedObject var model: IslandModel
+  /// A long title, such as a downloaded file's name, is cut short in the
+  /// middle with an ellipsis (D24).
+  static let titleWidth: CGFloat = 176
+
+  var body: some View {
+    HStack(alignment: .center, spacing: 12) {
+      ArtworkView(image: model.music.song == nil ? nil : model.artwork)
+        .onTapGesture { model.onBringForward() }
+      VStack(alignment: .leading, spacing: 3) {
+        switch model.music.content {
+        case .nothingPlayedYet:
+          Text("Nothing played yet")
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(.white.opacity(0.7))
+        case .current(let song), .lastSong(let song):
+          Text(song.title)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundColor(.white)
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .frame(maxWidth: Self.titleWidth, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("song-title")
+          if let artist = song.artist {
+            Text(artist)
+              .font(.system(size: 12))
+              .foregroundColor(.white.opacity(0.7))
+              .lineLimit(1)
+          }
+          Text(sourceLine(for: song, output: model.output))
+            .font(.system(size: 11))
+            .foregroundColor(.white.opacity(0.5))
+            .lineLimit(1)
+            .accessibilityIdentifier("source-line")
+            .onTapGesture { model.onBringForward() }
+        }
+      }
+      Spacer(minLength: 0)
+    }
+  }
+}
+
+/// Turns the card like a mirror, about its upright axis, whenever the face
+/// changes (D48): the old face turns away and the new one turns in.
+private struct FlipCard<Content: View>: View {
+  var faceID: String?
+  @ViewBuilder var content: () -> Content
+
+  var body: some View {
+    ZStack {
+      content()
+        .id(faceID ?? "")
+        .transition(
+          .asymmetric(
+            insertion: .modifier(
+              active: MirrorTurn(degrees: -90), identity: MirrorTurn(degrees: 0)),
+            removal: .modifier(active: MirrorTurn(degrees: 90), identity: MirrorTurn(degrees: 0))
+          ))
+    }
+    .animation(.easeInOut(duration: 0.4), value: faceID)
+  }
+}
+
+private struct MirrorTurn: ViewModifier {
+  var degrees: Double
+  func body(content: Content) -> some View {
+    content
+      .rotation3DEffect(.degrees(degrees), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
+      .opacity(abs(degrees) >= 89 ? 0 : 1)
+  }
+}
+
+/// The small flip control and its count (D48, D121).
+private struct FlipControl: View {
+  var count: String
+  var action: () -> Void
+
+  var body: some View {
+    VStack(spacing: 2) {
+      Button(action: action) {
+        Image(systemName: "arrow.left.arrow.right")
+          .font(.system(size: 11, weight: .semibold))
+          .foregroundColor(.white.opacity(0.8))
+          .frame(width: 26, height: 20)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("Flip")
+      Text(count)
+        .font(.system(size: 9).monospacedDigit())
+        .foregroundColor(.white.opacity(0.55))
+        .fixedSize()
+        .accessibilityIdentifier("flip-count")
+    }
+    .padding(.trailing, 10)
   }
 }
 

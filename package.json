@@ -8,6 +8,7 @@
     "build:app": "sh scripts/build-app.sh",
     "test": "npm run build:app && node --test --test-concurrency=1 \"test/**/*.test.js\"",
     "lint": "swift format lint --strict --recursive Sources Tests && npm run scope",
+    "install:chrome-host": "node scripts/install-chrome-host.js",
     "scope": "node scripts/lint-features.js && node scripts/scope-check.js features/*.feature"
   },
   "devDependencies": {

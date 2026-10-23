@@ -7,11 +7,12 @@ const { runFeatures } = require('gherkin-node-test');
 
 runFeatures(path.join(__dirname, '..', 'features'), {
   'music-panel': require('./steps/music-panel.steps'),
+  'music-sources': require('./steps/music-sources.steps'),
 }, {
   wip: [
     'around-the-clock',
-    'music-panel',
-    'music-sources',
+    // The shelf-item row of the drag outline waits for the shelf (P4).
+    { feature: 'music-panel', scenarios: ['Dragging <what> far from the island keeps it open until let go'] },
     'new-song-notice',
     'shelf-captures-and-files',
     'shelf-notes-and-reminders',
