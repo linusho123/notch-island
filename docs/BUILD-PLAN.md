@@ -59,6 +59,28 @@ opus, both reviewers sonnet, head reviewer and verifier opus, fixer sonnet;
 the gate inherits the session's model, so pass `models: { gate: "opus" }` to
 pin it.
 
+## Sharing the Mac (ruled by the visionary 2026-10-23, from P3 on)
+
+The visionary keeps using this Mac for other work while a phase runs, so
+nothing may need them hands-off by default:
+
+- **Screen-free work runs any time:** building, reviewing, unit tests
+  (`swift test`), lint and scope. No agent moves the pointer, clicks, types
+  into another app or brings a window forward outside a UI run.
+- **UI runs wait for an idle window:** every acceptance run (the builder's
+  and reviewers' scenario and mutation runs, the verifier's, the gate) goes
+  through `scripts/when-idle.sh`, which starts the command only after **3
+  minutes** with no keyboard or trackpad input (`HIDIdleTime`), on AC power,
+  lid open, screen awake and unlocked. Agents wait for it; they never ask the
+  visionary to step away.
+- **Instant stop:** while a UI run is going, any keyboard or trackpad input
+  that the harness did not make stops the run within about a second, returns
+  the pointer to where the visionary left it, and marks the run void (exit
+  code distinct from a failure). A void run is retried at the next idle
+  window and never counts as red or green.
+- **Built first in P3:** the waiter and the input guard, failing-test-first,
+  before any P3 UI run. Until they exist, no UI run starts.
+
 ## Acceptance bars, every phase
 
 - **Far-side assertions.** Then steps read what macOS or the other app itself
