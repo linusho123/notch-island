@@ -1,28 +1,6 @@
 import AppKit
 import Foundation
-
-/// What the system's shared now-playing channel shows: one app at a time.
-struct ChannelInfo: Equatable {
-  var bundleID: String?
-  var pid: pid_t
-  var title: String?
-  var artist: String?
-  var duration: TimeInterval?
-  /// The elapsed time the channel reported, and the wall-clock time it holds for.
-  var elapsed: TimeInterval?
-  var timestamp: TimeInterval?
-  var rate: Double
-  var playing: Bool
-  /// Wall-clock time of the read.
-  var readAt: TimeInterval
-
-  /// The position now, carried on from the channel's timestamp while it plays.
-  func position(atWallClock now: TimeInterval) -> TimeInterval? {
-    guard let elapsed else { return nil }
-    guard playing, rate > 0, let timestamp else { return elapsed }
-    return elapsed + rate * max(0, now - timestamp)
-  }
-}
+import IslandCore
 
 /// The door into the system now-playing service, which IINA publishes to and
 /// which has no other door into IINA (DESIGN). macOS 15.4 and later deny the
@@ -32,13 +10,14 @@ struct ChannelInfo: Equatable {
 /// service tells it something changed. Confined to the IINA part, so a closed
 /// gap costs one source.
 final class NowPlayingChannel {
-  /// Called on the main thread with each change of the channel.
-  var onChange: ((ChannelInfo) -> Void)?
-  private(set) var info: ChannelInfo?
+  /// Called on the main thread with each change of the channel; nil when the
+  /// channel is no longer known (the adapter ended).
+  var onChange: ((ChannelInfo?) -> Void)?
+  var info: ChannelInfo? { model.info }
+  private var model = ChannelModel()
 
   private var process: Process?
   private var input: FileHandle?
-  private var buffer = Data()
 
   private static let script = """
     use DynaLoader;
@@ -70,13 +49,7 @@ final class NowPlayingChannel {
       DispatchQueue.main.async { self?.take(data) }
     }
     process.terminationHandler = { [weak self] _ in
-      DispatchQueue.main.async {
-        guard let self else { return }
-        self.process = nil
-        self.input = nil
-        // The adapter died: start it again in a moment.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.start() }
-      }
+      DispatchQueue.main.async { self?.adapterEnded() }
     }
     do {
       try process.run()
@@ -86,6 +59,32 @@ final class NowPlayingChannel {
     }
     self.process = process
     input = inPipe.fileHandleForWriting
+    model.started(at: ProcessInfo.processInfo.systemUptime)
+  }
+
+  /// The adapter died: the channel is no longer known, so what was read from
+  /// it (IINA) has no face. It starts again after a back-off, and not at all
+  /// once it keeps failing or says it cannot work.
+  private func adapterEnded() {
+    process = nil
+    input = nil
+    let (effects, decision) = model.ended(at: ProcessInfo.processInfo.systemUptime)
+    apply(effects)
+    switch decision {
+    case .restart(let delay):
+      DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.start() }
+    case .giveUp:
+      NSLog("notch-island: the now-playing adapter keeps failing; IINA is not followed")
+    }
+  }
+
+  private func apply(_ effects: [ChannelEffect]) {
+    for effect in effects {
+      switch effect {
+      case .changed(let info): onChange?(info)
+      case .dead: break  // the adapter exits next; the model gives up on it
+      }
+    }
   }
 
   /// Send a command to the app the channel shows now.
@@ -97,28 +96,7 @@ final class NowPlayingChannel {
   func seek(to seconds: TimeInterval) { send(String(format: "seek %.3f", max(0, seconds))) }
 
   private func take(_ data: Data) {
-    buffer.append(data)
-    while let newline = buffer.firstIndex(of: 0x0A) {
-      let line = buffer[buffer.startIndex..<newline]
-      buffer.removeSubrange(buffer.startIndex...newline)
-      guard
-        let object = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
-        object["type"] as? String == "nowPlaying"
-      else { continue }
-      let pid = (object["pid"] as? NSNumber)?.int32Value ?? 0
-      let info = ChannelInfo(
-        bundleID: pid > 0 ? NSRunningApplication(processIdentifier: pid)?.bundleIdentifier : nil,
-        pid: pid,
-        title: object["title"] as? String,
-        artist: object["artist"] as? String,
-        duration: (object["duration"] as? NSNumber)?.doubleValue,
-        elapsed: (object["elapsed"] as? NSNumber)?.doubleValue,
-        timestamp: (object["timestamp"] as? NSNumber)?.doubleValue,
-        rate: (object["rate"] as? NSNumber)?.doubleValue ?? 0,
-        playing: (object["playing"] as? NSNumber)?.boolValue ?? false,
-        readAt: (object["now"] as? NSNumber)?.doubleValue ?? Date().timeIntervalSince1970)
-      self.info = info
-      onChange?(info)
-    }
+    apply(
+      model.take(data) { NSRunningApplication(processIdentifier: $0)?.bundleIdentifier })
   }
 }
