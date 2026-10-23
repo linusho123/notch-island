@@ -659,9 +659,12 @@ case "pointer":
   let p = pointer()
   emit(["x": p.x, "y": p.y])
 case "nudge":
-  // nudge: one tagged move to where the pointer already is, so the input
-  // guard can show it sees the harness's own events. Nothing moves.
-  post(.mouseMoved, pointer())
+  // nudge: a tagged move one point aside and back, so the input guard can
+  // show it sees the harness's own events (a move to where the pointer
+  // already is never reaches an event tap).
+  let p = pointer()
+  warp(to: CGPoint(x: p.x + 1, y: p.y))
+  warp(to: p)
   emit(["ok": true])
 case "idle":
   emit(["idleMs": hidIdleMs().map { $0 as Any } ?? NSNull()])
