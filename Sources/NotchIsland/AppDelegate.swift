@@ -52,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       for part in self?.parts.values.map({ $0 }) ?? [] { part.refresh() }
     }
     wing.islandOpen = { [weak island] in island?.isOpen ?? false }
-    wing.fullscreen = { [weak self] in self?.contextGuard.isFullscreen ?? false }
+    wing.fullscreen = { [weak self] in self?.contextGuard.fullscreenNow() ?? false }
     wing.home = { [weak island] in island?.home }
     island.onOpenChanged = { [weak self] open in if open { self?.wing.foldNow() } }
     contextGuard.onFullscreenChanged = { [weak self] full in if full { self?.wing.foldNow() } }
