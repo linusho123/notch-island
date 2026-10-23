@@ -327,14 +327,13 @@ final class QuickTimeSource: SourcePart {
   /// Skip goes to QuickTime as a press of its own skip control (D46): the
   /// system's next-track command, which QuickTime answers itself.
   func skip() {
-    sendIfQuickTimeIsOnTheChannel("next")
+    send(QuickTimeCommand.skip(on: channel.info))
     refresh(after: 0.3)
   }
 
-  /// A system command reaches whichever app the channel shows; sent only when
-  /// that is QuickTime Player, so no other app is ever skipped.
-  private func sendIfQuickTimeIsOnTheChannel(_ command: String) {
-    guard channel.info.shows(Self.bundleID) else { return }
+  /// The command IslandCore chose, if any (none when QuickTime is not on the channel).
+  private func send(_ command: String?) {
+    guard let command else { return }
     channel.send(command)
   }
 
@@ -350,7 +349,7 @@ final class QuickTimeSource: SourcePart {
       }
       switch backAction(reading: read) {
       case .previousSong:
-        DispatchQueue.main.async { self.sendIfQuickTimeIsOnTheChannel("previous") }
+        DispatchQueue.main.async { self.send(QuickTimeCommand.back(on: self.channel.info)) }
       case .restartSong:
         _ = runAppleScript(
           QuickTimeScripts.command("set current time of front document to 0"),

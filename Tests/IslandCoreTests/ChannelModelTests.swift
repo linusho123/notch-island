@@ -105,3 +105,22 @@ struct ChannelRoutingTests {
     #expect(!none.shows("com.apple.QuickTimePlayerX"))
   }
 }
+
+/// WHAT the island sends QuickTime through the channel (P2 fix S8b).
+struct QuickTimeCommandTests {
+  func info(_ bundle: String?) -> ChannelInfo? {
+    ChannelInfo(
+      bundleID: bundle, pid: 1, title: "t", artist: nil, duration: nil, elapsed: nil,
+      timestamp: nil, rate: 1, playing: true, readAt: 0)
+  }
+
+  @Test func quickTimeSkipSendsNextAndBackSendsPreviousOnlyWhenQuickTimeIsOnTheChannel() {
+    let qt = info("com.apple.QuickTimePlayerX")
+    #expect(QuickTimeCommand.skip(on: qt) == "next")
+    #expect(QuickTimeCommand.back(on: qt) == "previous")
+    for other in [info("com.colliderli.iina"), info(nil), nil] {
+      #expect(QuickTimeCommand.skip(on: other) == nil)
+      #expect(QuickTimeCommand.back(on: other) == nil)
+    }
+  }
+}
