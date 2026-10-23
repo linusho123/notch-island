@@ -960,6 +960,52 @@ case "now-playing-stand-in":
   emit(["ok": true, "pid": Int(getpid())])
   fflush(stdout)
   RunLoop.main.run(until: Date().addingTimeInterval(num(2)))
+case "menu-stand-in":
+  // menu-stand-in seconds title...: an app of the harness's own, in front,
+  // whose menu bar holds its app menu and the given menus, so a scenario
+  // knows what the menu bar beside the notch shows. Ends after `seconds`.
+  let app = NSApplication.shared
+  app.setActivationPolicy(.regular)
+  let bar = NSMenu()
+  let appItem = NSMenuItem()
+  appItem.submenu = NSMenu(title: "stand-in")
+  appItem.submenu?.addItem(
+    withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
+  bar.addItem(appItem)
+  for title in args.dropFirst(2) {
+    let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+    item.submenu = NSMenu(title: title)
+    item.submenu?.addItem(withTitle: "Nothing", action: nil, keyEquivalent: "")
+    bar.addItem(item)
+  }
+  app.mainMenu = bar
+  line(["pid": Int(getpid())])
+  DispatchQueue.main.asyncAfter(deadline: .now() + num(1)) { exit(0) }
+  DispatchQueue.main.async { app.activate(ignoringOtherApps: true) }
+  app.run()
+case "move-window":
+  // move-window pid x y: put an app's front window's top-left corner at
+  // (x, y), as dragging its title bar would (onto another screen, say).
+  requireTrust()
+  let app = appElement(pid_t(num(1)))
+  guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement], let w = windows.first
+  else { fail("no window to move") }
+  var p = CGPoint(x: num(2), y: num(3))
+  let value = AXValueCreate(.cgPoint, &p)!
+  let r = AXUIElementSetAttributeValue(w, kAXPositionAttribute as CFString, value)
+  emit(["ok": r == .success, "frame": frameOf(w).map(rectJSON) ?? NSNull()])
+case "menu-items":
+  // menu-items pid title: the items of one of an app's menu bar menus, read
+  // without opening it (an app's own idea of its commands: Pause or Resume).
+  requireTrust()
+  let app = appElement(pid_t(num(1)))
+  guard let bar = attr(app, kAXMenuBarAttribute),
+    let items = attr(bar as! AXUIElement, kAXChildrenAttribute) as? [AXUIElement],
+    let menuItem = items.first(where: { attr($0, kAXTitleAttribute) as? String == arg(2) }),
+    let menu = (attr(menuItem, kAXChildrenAttribute) as? [AXUIElement])?.first,
+    let entries = attr(menu, kAXChildrenAttribute) as? [AXUIElement]
+  else { fail("no menu \(arg(2)) in the menu bar of \(arg(1))") }
+  emit(["items": entries.map { describe($0, depth: 0) }])
 case "make-movie":
   // make-movie path seconds [sound]
   makeMovie(path: arg(1), seconds: Int(num(2)), withSound: CommandLine.arguments.count > 4)

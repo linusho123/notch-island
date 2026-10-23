@@ -157,6 +157,68 @@ async function audioFile(track) {
   return out;
 }
 
+/**
+ * The stand-in cover art: a PNG made here (an orange square with a dark
+ * band), put on the test playlist's tracks so the island has real cover art
+ * to show (new-song-notice.feature: "the cover art").
+ */
+function coverPNG() {
+  const zlib = require('node:zlib');
+  const file = path.join(testAudio, 'cover.png');
+  if (fs.existsSync(file)) return file;
+  fs.mkdirSync(testAudio, { recursive: true });
+  const size = 300;
+  const rows = [];
+  for (let y = 0; y < size; y++) {
+    const row = Buffer.alloc(1 + size * 3);
+    for (let x = 0; x < size; x++) {
+      const band = y > 120 && y < 180;
+      row[1 + x * 3] = band ? 40 : 255;
+      row[2 + x * 3] = band ? 30 : 122;
+      row[3 + x * 3] = band ? 90 : 0;
+    }
+    rows.push(row);
+  }
+  const crc = (buf) => {
+    let c = ~0;
+    for (const b of buf) { c ^= b; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xedb88320 & -(c & 1)); }
+    return ~c >>> 0;
+  };
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const sum = Buffer.alloc(4); sum.writeUInt32BE(crc(body));
+    return Buffer.concat([len, body, sum]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(size, 0); header.writeUInt32BE(size, 4);
+  header[8] = 8; header[9] = 2; // 8-bit RGB
+  fs.writeFileSync(file, Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', header), chunk('IDAT', zlib.deflateSync(Buffer.concat(rows))), chunk('IEND', Buffer.alloc(0)),
+  ]));
+  return file;
+}
+
+/** Every track of the test playlist carries the stand-in cover art. */
+async function ensureArtwork() {
+  const cover = coverPNG();
+  const missing = await osa(`tell application "Music"
+    set n to 0
+    repeat with t in tracks of user playlist ${q(PLAYLIST)}
+      if (count of artworks of t) is 0 then set n to n + 1
+    end repeat
+    return n
+  end tell`);
+  if (missing === '0') return;
+  await osa(`set img to (read (POSIX file ${q(cover)}) as «class PNGf»)
+  tell application "Music"
+    repeat with t in tracks of user playlist ${q(PLAYLIST)}
+      if (count of artworks of t) is 0 then set data of artwork 1 of t to img
+    end repeat
+  end tell`);
+}
+
 let ready = false;
 
 async function playlistIsGood() {
@@ -220,6 +282,7 @@ async function ensurePlaylist() {
     }
     if (!(await playlistIsGood())) throw new Error(`could not build the test playlist "${PLAYLIST}" in Music`);
   }
+  await ensureArtwork();
   ready = true;
 }
 

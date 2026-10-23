@@ -8,6 +8,7 @@ const { runFeatures } = require('gherkin-node-test');
 runFeatures(path.join(__dirname, '..', 'features'), {
   'music-panel': require('./steps/music-panel.steps'),
   'music-sources': require('./steps/music-sources.steps'),
+  'new-song-notice': require('./steps/new-song-notice.steps'),
 }, {
   wip: [
     'around-the-clock',

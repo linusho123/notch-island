@@ -16,6 +16,7 @@ const standIns = require('../support/stand-ins');
 const registry = require('../support/registry');
 const players = require('../support/players');
 const procs = require('../support/procs');
+const scenes = require('../support/scenes');
 const { root, testBundleID } = require('../support/paths');
 const { osa } = music;
 
@@ -53,13 +54,8 @@ async function playing(w, title, position = 0) {
   w.defer(() => music.pause().catch(() => {}));
 }
 
-async function plainNotch(w) {
-  const pid = await ensureIsland(w);
-  await pointerAway();
-  const n = await notch();
-  await island.waitFor(pid, (v) => island.isPlainNotch(v, n), 3000,
-    'the island is not closed to the plain notch');
-}
+// The new-song wing a Given's own song pops folds within four seconds (D115).
+const plainNotch = (w) => scenes.plainNotch(w);
 
 /** Rest the pointer on the notch: glide onto it and hold still. */
 async function rest(w, ms) {
@@ -424,33 +420,7 @@ module.exports = (reg) => {
   });
 
   reg.define(/^IINA is playing a movie fullscreen, the menu bar is hidden and the notch area is black$/, async (w) => {
-    await ensureIsland(w);
-    const running = (await osa('tell application "System Events" to get name of every process whose bundle identifier is "com.colliderli.iina"')).trim();
-    assert.equal(running, '', 'IINA is already running; quit it before the tests so they never touch it');
-    const media = path.join(root, 'build', 'test-media');
-    fs.mkdirSync(media, { recursive: true });
-    const movie = path.join(media, 'test-movie.mov');
-    if (!fs.existsSync(movie)) await harness.makeMovie(movie, 180);
-    const iina = procs.start('IINA', '/Applications/IINA.app/Contents/MacOS/IINA', [movie]);
-    w.defer(() => procs.stop(iina));
-    await island.until(async () => (await harness.windows(iina.pid).catch(() => [])).some((x) => x.frame && x.frame.w > 300),
-      15000, 'IINA never showed the movie');
-    await harness.activate(iina.pid);
-    await sleep(500);
-    await harness.fullscreen(iina.pid);
-    await island.until(async () => (await harness.windows(iina.pid)).some((x) => x.fullScreen), 10000,
-      'IINA did not go fullscreen');
-    await pointerAway();
-    await sleep(1500); // the space animation
-    const { notch: n, frame } = await harness.builtIn();
-    // A real screenshot of the menu bar strip either side of the notch: black,
-    // with no app menu drawn there. (macOS's own screen-capture indicator may
-    // light a dot on the right while the shot is taken, so the right side is
-    // held to its mean.)
-    const left = await harness.regionStats(frame.x, 0, n.x - frame.x, n.h);
-    const right = await harness.regionStats(n.x + n.w, 0, frame.x + frame.w - n.x - n.w, n.h);
-    assert.ok(left.max < 0.12 && right.mean < 0.06,
-      `the menu bar strip is not black (brightest ${left.max.toFixed(2)} left, mean ${right.mean.toFixed(2)} right): the menu bar shows`);
+    await scenes.iinaFullscreen(w);
   });
 
   reg.define(/^Apple Music is playing "Wonderwall"$/, async (w) => {
