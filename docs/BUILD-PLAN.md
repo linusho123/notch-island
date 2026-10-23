@@ -39,8 +39,9 @@ the phase that binds its last one; each phase lists both.
 5. **Gate — the aBDD workstack, three legs, all must exit 0:**
    - **Acceptance criteria:** `caffeinate -i npm test` (build, bundle, the
      feature suite under the `wip` ratchet) with the Mac **plugged in and the
-     lid open** (lid closed on battery is Clamshell Sleep and stalls the run;
-     check `pmset -g log` before blaming code).
+     lid open**, started through `scripts/when-idle.sh` (from P3 on; see
+     Sharing the Mac). Lid closed on battery is Clamshell Sleep and stalls
+     the run; check `pmset -g log` before blaming code.
    - **Unit tests:** `swift test` — the builder adds unit tests for the logic
      below the island's surface (layout of the wing in a gap, the hub's
      ordering and counts, the shelf's ageing and stacking clocks, the back
