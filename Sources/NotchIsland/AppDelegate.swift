@@ -140,8 +140,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       return
     case .lastSong(let song):
       // Reopen the app it came from, resuming where it was (D31, D117).
-      let part = song.sourceID.flatMap { parts[$0] } ?? parts[.appleMusic]
-      part?.reopen(song, at: hub.resumeAt)
+      // A song never starts another source (D124): a Chrome song whose tab is
+      // gone opens its page in Chrome, and only a youtube.com or soundcloud.com one.
+      let route = LastSongRouting.route(
+        song, liveParts: Set(parts.keys),
+        closedTabKnown: song.sourceID.map { chrome.canReopen($0) } ?? false,
+        resumeAt: hub.resumeAt)
+      switch route {
+      case .part(let id): parts[id]?.reopen(song, at: hub.resumeAt)
+      case .openPage(let url): chrome.open(url)
+      case .nothing: break
+      }
     case .current:
       if page.isPlaying { shownPart?.pause() } else { shownPart?.play() }
     }

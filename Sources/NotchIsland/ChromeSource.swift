@@ -77,6 +77,7 @@ final class ChromeBridge {
     }
     connection?.closeFile()
     buffer = Data()
+    closed = [:]  // tab ids belong to one Chrome session
     let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
     handle.readabilityHandler = { [weak self] h in
       let data = h.availableData
@@ -166,9 +167,24 @@ final class ChromeBridge {
     try? connection.write(contentsOf: data + Data([0x0A]))
   }
 
+  /// Whether the extension, connected now, still holds this closed tab.
+  func canReopen(_ id: SourceID) -> Bool {
+    connection != nil && closed.keys.contains { SourceID.chromeTab($0) == id }
+  }
+
+  /// Open a page in Chrome, launching it if it is not running (D117).
+  func open(_ url: URL) {
+    guard
+      let chrome = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.google.Chrome")
+    else { return }
+    let config = NSWorkspace.OpenConfiguration()
+    config.activates = true
+    NSWorkspace.shared.open([url], withApplicationAt: chrome, configuration: config) { _, _ in }
+  }
+
   /// Reopen a closed tab where it left off (D117); false if it is not known.
   func reopen(tab: Int, at position: TimeInterval?) -> Bool {
-    guard closed[tab] != nil else { return false }
+    guard connection != nil, closed[tab] != nil else { return false }
     send("reopen", tab: tab, position: position)
     closed[tab] = nil
     return true

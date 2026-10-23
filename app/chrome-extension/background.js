@@ -33,7 +33,7 @@ function send() {
     if (!t.counted || !t.media) continue;
     list.push({
       tab: id, site: t.site, title: t.media.title, artist: t.media.artist, duration: t.media.duration,
-      position: t.media.position, playing: !t.media.paused, at: t.media.at,
+      position: t.media.position, playing: !t.media.paused, at: t.media.at, url: t.url,
     });
   }
   const gone = [...closed].map(([id, c]) => ({ tab: id, ...c }));
