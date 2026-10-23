@@ -253,16 +253,20 @@ async function play(title, position = 0) {
 const FIRST_PLAYLIST = 'notch-island test, Wonderwall first';
 
 /**
- * Play a stand-in track as the first and only song in Music's queue: a second
- * test playlist holding just that track of the test playlist.
+ * Play a stand-in track as the first song in Music's queue, nothing before
+ * it: a second test playlist holding that track of the test playlist and the
+ * ones after it (so a skip forward is told apart from a back).
  */
 async function playFirstInQueue(title) {
   await ensurePlaylist();
   await orderedQueue();
+  const from = TRACKS.findIndex((t) => t.title === title);
+  const copies = TRACKS.slice(from).map((t) =>
+    `duplicate (first track of user playlist ${q(PLAYLIST)} whose name is ${q(t.title)}) to user playlist ${q(FIRST_PLAYLIST)}`);
   await osa(`tell application "Music"
     if not (exists user playlist ${q(FIRST_PLAYLIST)}) then make new user playlist with properties {name:${q(FIRST_PLAYLIST)}}
     delete every track of user playlist ${q(FIRST_PLAYLIST)}
-    duplicate (first track of user playlist ${q(PLAYLIST)} whose name is ${q(title)}) to user playlist ${q(FIRST_PLAYLIST)}
+    ${copies.join('\n')}
     play user playlist ${q(FIRST_PLAYLIST)}
   end tell`);
   await until(async () => {
