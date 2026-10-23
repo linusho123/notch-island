@@ -14,7 +14,6 @@ runFeatures(path.join(__dirname, '..', 'features'), {
     'around-the-clock',
     // The shelf-item row of the drag outline waits for the shelf (P4).
     { feature: 'music-panel', scenarios: ['Dragging <what> far from the island keeps it open until let go'] },
-    'new-song-notice',
     'shelf-captures-and-files',
     'shelf-notes-and-reminders',
   ],
