@@ -10,6 +10,7 @@
 // No Then reads the test input the Givens feed.
 const assert = require('node:assert/strict');
 const harness = require('../support/harness');
+const { showsFaceWithCount } = require('../support/looks');
 const island = require('../support/island');
 const music = require('../support/music');
 const players = require('../support/players');
@@ -189,6 +190,7 @@ async function unmute(tab) {
 
 /** Click the flip control once and wait for the count to move on. */
 async function flipOnce(w) {
+  w.faceSeen = null; // the card turns: the face seen before no longer holds
   const view = await island.look(w.island.pid);
   const before = view.count?.value;
   const c = center(button(view, 'Flip').frame);
@@ -725,11 +727,13 @@ module.exports = (reg) => {
   });
 
   reg.define(/^the visionary sees the count "(\d of \d)"$/, async (w, count) => {
-    await island.waitFor(w.island.pid, (v) => v.count?.value === count, 2000, `the count does not read "${count}"`);
+    await island.waitFor(w.island.pid, (v) => showsFaceWithCount(v, w.faceSeen, count), 2000,
+      `the card does not show ${w.faceSeen ? `"${w.faceSeen}" with ` : ''}the count "${count}" in one look`);
   });
 
   reg.define(/^the visionary sees the count "(\d of \d)" beside the flip control$/, async (w, count) => {
-    const view = await island.waitFor(w.island.pid, (v) => v.count?.value === count, 2000, `the count does not read "${count}"`);
+    const view = await island.waitFor(w.island.pid, (v) => showsFaceWithCount(v, w.faceSeen, count), 2000,
+      `the card does not show ${w.faceSeen ? `"${w.faceSeen}" with ` : ''}the count "${count}" in one look`);
     const flip = button(view, 'Flip').frame;
     const c = view.count.frame;
     const gap = Math.hypot((c.x + c.w / 2) - (flip.x + flip.w / 2), (c.y + c.h / 2) - (flip.y + flip.h / 2));
@@ -754,6 +758,7 @@ module.exports = (reg) => {
     }
     await openOnMusicPage(w);
     await island.waitFor(w.island.pid, (v) => v.title?.value === want, 3000, `the card does not show "${want}"`);
+    w.faceSeen = want; // the count is read in the same look as this face
   });
 
   reg.define(/^the visionary never sees ("Wonderwall"|"Lecture 4: Fourier Series"|"rehearsal\.mkv") again when flipping the card$/, async (w, left) => {
