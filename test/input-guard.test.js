@@ -41,3 +41,11 @@ test('scripts/when-idle.sh starts the node waiter with the command', () => {
   assert.match(sh, /exec node .*when-idle\.js" "\$@"/);
   assert.ok(fs.statSync(path.join(root, 'scripts', 'when-idle.sh')).mode & 0o111, 'not executable');
 });
+
+test('the waiter names the post stamp file for the guard and the run, as the guard reads it', () => {
+  const waiter = fs.readFileSync(path.join(root, 'scripts', 'when-idle.js'), 'utf8');
+  assert.match(core, /postStampVariable = "NOTCH_ISLAND_POST_STAMP"/);
+  assert.match(waiter, /process\.env\.NOTCH_ISLAND_POST_STAMP = /);
+  assert.match(helper, /func postTagged\(_ e: CGEvent\) \{[^}]*stampPost\(\)/);
+  assert.match(helper, /lastPostedMs: lastStampedPostMs\(\)/);
+});

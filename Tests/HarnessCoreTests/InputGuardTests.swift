@@ -72,4 +72,17 @@ struct InputGuardTests {
     #expect(!InputGuard.idleShowsRealInput(hidIdleMs: 1800, msSinceHarnessEvent: 2000))
     #expect(InputGuard.idleShowsRealInput(hidIdleMs: 1000, msSinceHarnessEvent: 2000))
   }
+
+  // The harness stamps the time of each event just before it posts it. An
+  // event that resets the idle clock but reaches the tap late (a busy Mac)
+  // or never (the first event of a fresh process is sometimes dropped) is
+  // still the harness's: the quiet counts from the later of the two.
+  @Test func theQuietCountsFromTheHarnesssLastPostEvenIfTheTapNeverSawIt() {
+    #expect(
+      InputGuard.msSinceHarnessEvent(now: 10_000, lastSeenMs: 1000, lastPostedMs: 9990) == 10)
+    #expect(
+      InputGuard.msSinceHarnessEvent(now: 10_000, lastSeenMs: 9000, lastPostedMs: 2000) == 1000)
+    #expect(
+      InputGuard.msSinceHarnessEvent(now: 10_000, lastSeenMs: 1000, lastPostedMs: nil) == 9000)
+  }
 }

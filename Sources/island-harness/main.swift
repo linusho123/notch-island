@@ -244,7 +244,25 @@ func post(_ type: CGEventType, _ p: CGPoint, _ button: CGMouseButton = .left, cl
 /// so the input guard can tell it from the visionary's real input.
 func postTagged(_ e: CGEvent) {
   e.setIntegerValueField(.eventSourceUserData, value: InputGuard.tag)
+  stampPost()
   e.post(tap: .cghidEventTap)  // tagged-post
+}
+
+/// Tell the waiter's input guard, before the event goes out, that the
+/// harness is posting one now (InputGuard.msSinceHarnessEvent).
+func stampPost() {
+  guard let file = ProcessInfo.processInfo.environment[InputGuard.postStampVariable] else {
+    return
+  }
+  try? String(now()).write(toFile: file, atomically: true, encoding: .utf8)
+}
+
+/// The last post the harness stamped, if any.
+func lastStampedPostMs() -> Double? {
+  guard let file = ProcessInfo.processInfo.environment[InputGuard.postStampVariable],
+    let text = try? String(contentsOfFile: file, encoding: .utf8)
+  else { return nil }
+  return Double(text.trimmingCharacters(in: .whitespacesAndNewlines))
 }
 
 /// The system-wide left button, as macOS reads it.
@@ -635,7 +653,8 @@ func runInputGuard() -> Never {
   guardLastHarnessMs = now()
   Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
     guard let idle = hidIdleMs() else { return }
-    let since = now() - guardLastHarnessMs
+    let since = InputGuard.msSinceHarnessEvent(
+      now: now(), lastSeenMs: guardLastHarnessMs, lastPostedMs: lastStampedPostMs())
     if InputGuard.idleShowsRealInput(hidIdleMs: idle, msSinceHarnessEvent: since) {
       reportRealInput(["signal": "idle", "hidIdleMs": idle, "sinceHarnessMs": since])
     }

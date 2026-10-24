@@ -26,6 +26,14 @@ if (!command.length) {
   process.exit(2);
 }
 
+// The harness stamps each event it posts into this file just before posting
+// it; the guard counts the harness's quiet from it as well as from what its
+// tap saw (an event can tickle the idle clock and reach the tap late or not
+// at all). Both inherit the name.
+const postStamp = path.join(os.tmpdir(), `notch-island-posted-${process.pid}`);
+process.env.NOTCH_ISLAND_POST_STAMP = postStamp;
+process.on('exit', () => { try { fs.rmSync(postStamp, { force: true }); } catch { /* gone */ } });
+
 function log(message) {
   console.error(message);
   try { fs.appendFileSync(logFile, `${new Date().toISOString()} ${message}\n`); } catch { /* no log */ }

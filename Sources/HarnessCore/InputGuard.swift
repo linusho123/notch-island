@@ -56,4 +56,18 @@ public enum InputGuard {
   public static func idleShowsRealInput(hidIdleMs: Double, msSinceHarnessEvent: Double) -> Bool {
     hidIdleMs + idleSlackMs < msSinceHarnessEvent
   }
+
+  /// The file the harness stamps each event's time into just before it posts
+  /// it (milliseconds since 1970), named by the waiter for the run.
+  public static let postStampVariable = "NOTCH_ISLAND_POST_STAMP"
+
+  /// The quiet since the harness's last event: from the later of the last
+  /// one the tap saw and the last one the harness stamped as posted. An event
+  /// can reset the idle clock and reach the tap late (a busy Mac) or not at
+  /// all (a fresh process's first event is sometimes dropped).
+  public static func msSinceHarnessEvent(now: Double, lastSeenMs: Double, lastPostedMs: Double?)
+    -> Double
+  {
+    now - max(lastSeenMs, lastPostedMs ?? lastSeenMs)
+  }
 }
