@@ -687,10 +687,17 @@ module.exports = (reg) => {
   reg.define(/^the visionary sees the wing stay out the whole time, never folding in between$/, (w) => {
     const first = w.songs[0].start;
     const last = w.songs[w.songs.length - 1].start;
-    const during = w.samples.filter((s) => s.t >= first && s.t <= last + 3500);
+    // The song starts here are estimated from Music's position, some hundreds
+    // of milliseconds off the island's own; the wing folds 4 s after the
+    // island's last start, so only 3 s after this one is it certainly out.
+    const during = w.samples.filter((s) => s.t >= first && s.t <= last + 3000);
     assert.ok(during.length > 20, 'too few looks at the island');
-    const folded = during.find((s) => !wingOut(s.view));
-    assert.ok(!folded, `${Math.round(folded?.t - first)} ms after the first of the songs the wing was not out`);
+    // A fold is a slide of 0.3 s. A single look finding the window already
+    // at a new song's width around the last song's drawing is Accessibility
+    // reporting a layout a frame behind the window, not a fold.
+    const folded = during.findIndex((s, i) => !wingOut(s.view) && during.slice(i + 1, i + 3).every((x) => !wingOut(x.view))
+      && i + 2 < during.length);
+    assert.ok(folded < 0, `${Math.round(during[folded]?.t - first)} ms after the first of the songs the wing was not out for three looks running: ${JSON.stringify(during.slice(folded, folded + 3).map((s) => s.view.wing && [s.view.wing.frame, s.view.wing.title, Boolean(s.view.wing.art)]))}`);
   });
 
   reg.define(/^the visionary sees the title in the wing change with each new song$/, (w) => {

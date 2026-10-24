@@ -190,7 +190,7 @@ async function waitFor(pid, pred, ms, message) {
       return pred(last) ? last : null;
     }, ms, message);
   } catch (e) {
-    e.message += `\n  island last showed: ${JSON.stringify({ open: last?.open, page: last?.page, texts: last?.texts, buttons: last?.buttons?.map((b) => `${b.label}${b.enabled ? '' : '(greyed)'}`), frames: last?.frames })}`;
+    e.message += `\n  island last showed: ${JSON.stringify({ open: last?.open, page: last?.page, texts: last?.texts, buttons: last?.buttons?.map((b) => `${b.label}${b.enabled ? '' : '(greyed)'}`), frames: last?.frames, wing: last?.wing })}`;
     throw e;
   }
 }
