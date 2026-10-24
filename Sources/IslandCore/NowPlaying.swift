@@ -60,6 +60,9 @@ public struct SourceReport: Equatable, Sendable {
   /// The position the app reported, and when it was read.
   public var position: TimeInterval?
   public var readAt: TimeInterval
+  /// The source joined while this song was already playing unheard (a muted
+  /// preview unmuted): no new song (D122).
+  public var joinedMidSong = false
 
   public init(song: Song?, state: PlayerState, position: TimeInterval?, readAt: TimeInterval) {
     self.song = song

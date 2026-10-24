@@ -4,7 +4,7 @@
 // to the exact tab, focuses that tab (D26), and reopens a closed tab where it
 // left off (D117).
 importScripts('rules.js');
-const { siteOf, counts, reopenURL } = self.notchIslandRules;
+const { siteOf, counts, reopenURL, silentSong } = self.notchIslandRules;
 
 const HOST = 'local.notch_island';
 const tabs = new Map(); // tab id -> { url, site, media, counted, windowId }
@@ -45,6 +45,7 @@ function send() {
     list.push({
       tab: id, site: t.site, title: t.media.title, artist: t.media.artist, duration: t.media.duration,
       position: t.media.position, playing: !t.media.paused, at: t.media.at, url: t.url,
+      joinedMidSong: Boolean(t.silentTitle) && t.silentTitle === t.media.title,
     });
   }
   const gone = [...closed].map(([id, c]) => ({ tab: id, ...c }));
@@ -60,6 +61,7 @@ async function update(tabId, patch) {
   t.site = siteOf(t.url || '');
   t.windowId = tab && tab.windowId;
   t.counted = counts({ url: t.url || '', tab, media: t.media, wasCounted: t.counted });
+  t.silentTitle = silentSong({ counted: t.counted, media: t.media, silentTitle: t.silentTitle });
   if (!t.site) tabs.delete(tabId); else tabs.set(tabId, t);
   send();
 }

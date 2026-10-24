@@ -167,12 +167,10 @@ final class ChromeBridge {
       let song = Song(
         title: tab.title, artist: tab.artist, source: tab.site, trackID: nil,
         duration: tab.duration, sourceID: part.id, location: tab.url)
-      part.onEvent?(
-        part.id,
-        .report(
-          SourceReport(
-            song: song, state: tab.playing ? .playing : .paused, position: tab.position,
-            readAt: now)))
+      var report = SourceReport(
+        song: song, state: tab.playing ? .playing : .paused, position: tab.position, readAt: now)
+      report.joinedMidSong = tab.joinedMidSong
+      part.onEvent?(part.id, .report(report))
       part.onEvent?(part.id, .artwork(nil))
     }
   }

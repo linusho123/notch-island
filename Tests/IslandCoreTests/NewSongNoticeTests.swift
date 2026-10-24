@@ -16,6 +16,17 @@ private func playing(_ title: String, at position: TimeInterval = 0, readAt: Tim
 
 /// When a new song starts (D115, D78): the hub hands the notice to the island.
 struct NewSongDetectorTests {
+  @Test func aSongThatJoinsMidSongIsNoNewSong() {
+    // A muted preview, unmuted: it joins the card as a source, and no wing
+    // pops (D122); its next song is a new one.
+    var d = NewSongDetector()
+    var joined = playing("Lecture 5", at: 0.4)
+    joined.joinedMidSong = true
+    #expect(d.take(SourceID(rawValue: "tab"), joined) == nil)
+    #expect(d.take(SourceID(rawValue: "tab"), playing("Lecture 5", at: 1.4, readAt: 101)) == nil)
+    #expect(d.take(SourceID(rawValue: "tab"), playing("Lecture 6", at: 0, readAt: 200)) == 200)
+  }
+
   @Test func theNextSongPlayingInASourceIsANewSong() {
     var d = NewSongDetector()
     _ = d.take(.appleMusic, playing("Wonderwall", at: 290))

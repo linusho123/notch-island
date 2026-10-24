@@ -31,7 +31,7 @@ public struct NewSongDetector: Sendable {
     let key = Key(title: song.title, artist: song.artist, trackID: song.trackID)
     let before = lastPlayed[id]
     lastPlayed[id] = key
-    if before == key { return nil }
+    if before == key || report.joinedMidSong { return nil }
     let position = report.position
     if before == nil, let position, position > Self.freshStart { return nil }
     return report.readAt - min(max(position ?? 0, 0), Self.maxBackDate)

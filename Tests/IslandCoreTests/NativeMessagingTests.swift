@@ -41,5 +41,10 @@ struct NativeMessagingTests {
     #expect(tab?.playing == true)
     #expect(ChromeTab.parse(["tab": 8, "site": "News", "title": "clip"]) == nil)
     #expect(ChromeTab.parse(["site": "YouTube"]) == nil)
+    #expect(tab?.joinedMidSong == false)
+    let unmuted = ChromeTab.parse([
+      "tab": 9, "site": "YouTube", "title": "Lecture 5", "playing": true, "joinedMidSong": true,
+    ])
+    #expect(unmuted?.joinedMidSong == true)
   }
 }
