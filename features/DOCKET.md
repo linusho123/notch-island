@@ -1181,3 +1181,11 @@ D133 2026-10-22 [I>V]
   touches: D117 D132 D79
 # P2 head review question V3; the reviewer's recommended interval: Music announces track and state changes but not playhead moves
 # roads not taken: keep as built, off by the size of a seek made inside Music
+
+D134 2026-10-24 [I>V]
+  resp:  a new-song wing shows only if it can come out within the first second of the song starting; when the menu bar cannot be read in time or the app in front leaves no room, nothing pops for that song, and an app switch later never brings out a wing that had not shown [I>V]
+  ->     structural
+  serves: N2 N5
+  touches: D78 D114 D115
+# P3 head review question Q1; the reviewer's recommended option, so a wing always feels tied to the song change
+# roads not taken: as built, the wing shows for whatever is left of its four seconds once there is room; a briefly unreadable menu bar may show it up to about seven tenths of a second late while an app switch never brings one out
