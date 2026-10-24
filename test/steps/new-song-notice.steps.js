@@ -85,7 +85,9 @@ function sampler(w) {
       } catch { /* a look that failed is no look */ }
     }
   })();
-  return { samples, stop: async () => { running = false; await done; return samples; } };
+  const stop = async () => { running = false; await done; return samples; };
+  w.defer(stop); // a Then that does not stop it: it ends with the scenario
+  return { samples, stop };
 }
 
 // ------------------------------------------------- when a song starts, far side
@@ -128,7 +130,8 @@ async function standInInFront(w, menus) {
   const out = path.join(os.tmpdir(), `notch-island-stand-in-${process.pid}-${Date.now()}.out`);
   fs.writeFileSync(out, '');
   w.defer(() => fs.rmSync(out, { force: true }));
-  execFileSync('open', ['-n', '-a', paths.menuStandInApp, '--stdout', out, '--args', 'menu-stand-in', '900', ...menus],
+  execFileSync('open', ['-n', '-a', paths.menuStandInApp, '--stdout', out,
+    '--env', `NOTCH_ISLAND_OWNER_PID=${process.pid}`, '--args', 'menu-stand-in', '900', ...menus],
     { timeout: 20000 });
   const pid = await island.until(() => {
     const m = /"pid"\s*:\s*(\d+)/.exec(fs.readFileSync(out, 'utf8'));
@@ -340,8 +343,12 @@ function fileFor(name) {
 
 // ---------------------------------------------------------------- the Thens
 
-/** The wing as it was first seen out after the song started, from the sampler. */
+/**
+ * The wing as it was first seen out after the song started, from the
+ * sampler, which keeps looking until the second after the start is over.
+ */
 async function firstWingAfterStart(w) {
+  await sleep(Math.max(0, w.started + 1100 - Date.now()));
   const samples = await w.sampler.stop();
   return samples.find((s) => s.t >= w.started - 100 && wingOut(s.view)) || null;
 }

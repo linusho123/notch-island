@@ -981,6 +981,13 @@ case "menu-stand-in":
   app.mainMenu = bar
   line(["pid": Int(getpid())])
   DispatchQueue.main.asyncAfter(deadline: .now() + num(1)) { exit(0) }
+  // Opened through LaunchServices it is no child of the test run: it ends
+  // with the run that opened it (NOTCH_ISLAND_OWNER_PID), voided or not.
+  if let owner = ProcessInfo.processInfo.environment["NOTCH_ISLAND_OWNER_PID"].flatMap(Int32.init) {
+    Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+      if kill(owner, 0) != 0 { exit(0) }
+    }
+  }
   DispatchQueue.main.async { app.activate(ignoringOtherApps: true) }
   app.run()
 case "move-window":
