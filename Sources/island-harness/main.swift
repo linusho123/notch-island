@@ -1044,7 +1044,7 @@ case "hit":
   AXUIElementGetPid(el, &pid)
   emit(["pid": Int(pid), "element": describe(el, depth: 0)])
 case "status-stand-in":
-  // status-stand-in seconds title: a status item of the harness's own in the
+  // status-stand-in seconds title [fromRight]: a status item of the harness's own in the
   // menu bar, right of the notch where macOS puts a new one, that prints
   // {"clicked"} each time it is clicked. Ends after `seconds` or with the
   // run that started it (NOTCH_ISLAND_OWNER_PID).
@@ -1054,7 +1054,14 @@ case "status-stand-in":
     @objc func clicked(_ sender: Any?) { line(["clicked": true, "t": now()]) }
   }
   let clicks = Clicks()
+  // Where macOS should put it, in points from the screen's right edge
+  // (its preferred position, kept per autosave name): next to the notch.
+  if args.count > 3, let fromRight = Double(args[3]) {
+    let key = "NSStatusItem Preferred Position NotchIslandStandIn"
+    UserDefaults.standard.set(fromRight, forKey: key)
+  }
   let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+  item.autosaveName = "NotchIslandStandIn"
   item.button?.title = arg(2)
   item.button?.target = clicks
   item.button?.action = #selector(Clicks.clicked(_:))

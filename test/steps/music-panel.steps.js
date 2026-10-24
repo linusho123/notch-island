@@ -1034,17 +1034,19 @@ module.exports = (reg) => {
     assert.ok(help && help.frame, "Chrome's menu bar shows no Help menu");
     assert.ok(help.frame.x + help.frame.w <= n.x, "Chrome's Help menu is not left of the notch");
     w.help = help.frame;
-    // A status item of the harness's own (never Meter's, which is only read),
-    // where a panel as wide as the open one would have reached into the strip.
+    // A status item of the harness's own right of the notch (macOS places it;
+    // never Meter's, which is only read), asked about by macOS's hit test.
     w.status = await motion.statusStandIn(w);
     const f = w.status.frame;
-    const reach = (OPEN_PANEL_WIDTH - n.w) / 2;
     assert.ok(f.x >= n.x + n.w - 0.5, `the status item (x ${f.x}) is not right of the notch`);
-    assert.ok(f.x < n.x + n.w + reach,
-      `the status item (x ${f.x}) lies beyond where a full-width panel would reach, so it proves nothing`);
-    // Meter's readings and the other status items beside the notch: read once, never clicked.
+    // Every status item where a panel as wide as the open one would reach into
+    // the strip (Meter's readings among them): their frames read once, never
+    // clicked, never asked about again.
+    const reach = (OPEN_PANEL_WIDTH - n.w) / 2;
     w.beside = (await harness.extras()).map((i) => i.frame)
       .filter((r) => r && r.w > 0 && r.y < g.stripBottom && r.x < n.x + n.w + reach && r.x + r.w > n.x - reach);
+    assert.ok(w.beside.some((r) => r.x >= n.x + n.w - 0.5),
+      'no status item sits right of the notch where a full-width panel would reach, so the scenario proves nothing');
     await plainNotch(w);
   });
 

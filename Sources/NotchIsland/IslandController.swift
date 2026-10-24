@@ -117,7 +117,9 @@ final class IslandController: NSObject, NSMenuDelegate {
     }
   }
 
-  private static func host(_ hosting: NSView, in root: NSView) {
+  private static func host<V: View>(_ hosting: NSHostingView<V>, in root: NSView) {
+    // The motion sizes the windows; the content never pushes them larger.
+    hosting.sizingOptions = []
     hosting.translatesAutoresizingMaskIntoConstraints = false
     root.addSubview(hosting)
     NSLayoutConstraint.activate([
@@ -185,8 +187,8 @@ final class IslandController: NSObject, NSMenuDelegate {
   private func startMotion(open: Bool) {
     motion.retarget(
       to: open ? 1 : 0, curve: open ? IslandMotion.opening : IslandMotion.closing, at: now)
-    if displayLink == nil {
-      let link = rootView.displayLink(target: self, selector: #selector(frame(_:)))
+    if displayLink == nil, let screen = contextGuard.homeScreen {
+      let link = screen.displayLink(target: self, selector: #selector(frame(_:)))
       link.add(to: .main, forMode: .common)
       displayLink = link
     }

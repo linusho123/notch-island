@@ -64,6 +64,14 @@ async function realGap() {
 /** The wing is out: a window in the strip left of the notch, its art drawn. */
 const wingOut = (v) => Boolean(v.wing && v.wing.art);
 
+/**
+ * The wing has come all the way out (D139: it slides out of the notch's
+ * edge): everything it shows lies inside it.
+ */
+const within = (e, f) => e.x >= f.x - 0.5 && e.x + e.w <= f.x + f.w + 0.5;
+const wingFullyOut = (v) => wingOut(v) && within(v.wing.art.frame, v.wing.frame)
+  && (!v.wing.titleFrame || within(v.wing.titleFrame, v.wing.frame));
+
 /** The wing hangs in the menu bar strip of the built-in screen, its right edge at the notch. */
 async function assertWingPlaced(view) {
   const n = await notch();
@@ -605,7 +613,7 @@ module.exports = (reg) => {
   // Thens ----------------------------------------------------------------
 
   reg.define(/^the visionary sees the cover art and "(Champagne Su…|Champagne Supernova)" in a wing left of the notch$/, async (w, title) => {
-    const view = await waitView(w, (v) => wingOut(v) && v.wing.title === title, Math.max(500, w.started + 1500 - Date.now()),
+    const view = await waitView(w, (v) => wingFullyOut(v) && v.wing.title === title, Math.max(500, w.started + 1500 - Date.now()),
       `no wing with "${title}" by 1.5 s after the song started`);
     assert.equal(view.wing.art.label, 'Cover art', `the wing shows ${view.wing.art.label}, not the cover art`);
     await assertWingPlaced(view);
@@ -614,7 +622,7 @@ module.exports = (reg) => {
   });
 
   reg.define(/^the visionary sees the cover art alone in a wing left of the notch, with no title$/, async (w) => {
-    const view = await waitView(w, wingOut, Math.max(500, w.started + 1500 - Date.now()),
+    const view = await waitView(w, wingFullyOut, Math.max(500, w.started + 1500 - Date.now()),
       'no wing by 1.5 s after the song started');
     assert.equal(view.wing.art.label, 'Cover art', `the wing shows ${view.wing.art.label}, not the cover art`);
     assert.equal(view.wing.title, null, `the wing shows a title, "${view.wing.title}"`);

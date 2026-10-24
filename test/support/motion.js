@@ -58,8 +58,11 @@ function nearest(samples, t) {
  * A status item of the harness's own, right of the notch where macOS puts a
  * new one: it counts its clicks. Returns its frame, from Accessibility.
  */
-async function statusStandIn(world, title = 'NI 42%') {
-  const child = spawn(harnessBinary, ['status-stand-in', '900', title], {
+async function statusStandIn(world, title = 'NI') {
+  // Asked for just right of the notch, where a panel wider than it would reach.
+  const { notch: n, screen } = await geometry();
+  const fromRight = screen.x + screen.w - (n.x + n.w + 6);
+  const child = spawn(harnessBinary, ['status-stand-in', '900', title, String(fromRight)], {
     stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, NOTCH_ISLAND_OWNER_PID: String(process.pid) },
   });
   const lines = [];

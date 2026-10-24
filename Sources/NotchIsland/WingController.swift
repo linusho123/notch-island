@@ -204,6 +204,8 @@ final class WingController: NSObject {
   override init() {
     super.init()
     let hosting = NSHostingView(rootView: WingView(model: model))
+    // The motion sizes the window; the content never pushes it wider.
+    hosting.sizingOptions = []
     panel.contentView = hosting
     NSWorkspace.shared.notificationCenter.addObserver(
       forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
@@ -341,8 +343,13 @@ final class WingController: NSObject {
   private func move(out: Bool) {
     motion.retarget(
       to: out ? 1 : 0, curve: out ? IslandMotion.opening : IslandMotion.closing, at: now)
-    if displayLink == nil, let view = panel.contentView {
-      let link = view.displayLink(target: self, selector: #selector(frame(_:)))
+    // The link follows the home screen, not the wing's window, which is not
+    // on screen yet when the wing starts out.
+    if displayLink == nil,
+      let home = home(),
+      let screen = NSScreen.screens.first(where: { $0.frame == home.screen })
+    {
+      let link = screen.displayLink(target: self, selector: #selector(frame(_:)))
       link.add(to: .main, forMode: .common)
       displayLink = link
     }
