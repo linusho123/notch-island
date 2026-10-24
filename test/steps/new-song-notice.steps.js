@@ -317,11 +317,15 @@ const SOURCES = {
     async given(w, first) {
       await ensureIsland(w);
       await music.pause().catch(() => {});
-      const [one] = await iinaParts();
+      const [one, two] = await iinaParts();
       assert.equal(path.basename(one.file), first);
+      // IINA resumes the second part where an earlier run left it unless its
+      // saved position is gone too, and then the song starts a minute in.
+      players.forgetIINAResume(two.file);
       // From twenty seconds before its end: it plays on into the second part
       // after the rest of the Given.
       await players.playInIINA(w, one.file, one.seconds - 20);
+      w.iinaFiles.push(two.file);
       await roomInFront(w);
       await plainNotch(w);
     },
