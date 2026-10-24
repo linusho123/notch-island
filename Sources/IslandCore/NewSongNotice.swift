@@ -153,12 +153,23 @@ public enum MenuBarGap {
 /// each new song while it is out holding it four seconds more (D115, D44).
 public struct WingHold: Sendable {
   public static let seconds: TimeInterval = 4
+  /// A wing comes out within this long of its song's start, or not at all (D134).
+  public static let comeWindow: TimeInterval = 1
   public private(set) var foldAt: TimeInterval?
+  public private(set) var startedAt: TimeInterval?
 
   public init() {}
 
   public mutating func songStarted(at time: TimeInterval) {
     foldAt = time + Self.seconds
+    startedAt = time
+  }
+
+  /// Whether a wing not yet out may still come out for the last song (D134).
+  /// A later app switch or a late read never brings one out.
+  public func mayCome(at time: TimeInterval) -> Bool {
+    guard let startedAt else { return false }
+    return time <= startedAt + Self.comeWindow
   }
 
   public mutating func fold() { foldAt = nil }

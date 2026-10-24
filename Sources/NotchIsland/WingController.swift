@@ -174,7 +174,9 @@ struct WingView: View {
 /// Shows the wing for a new song while the island is closed and nothing is
 /// fullscreen, holds it four seconds after the last song started, updates it
 /// in place on fast skips, and folds it when the island opens, an app goes
-/// fullscreen, or an app switch leaves no room (D115, D44, D28, D125).
+/// fullscreen, or an app switch leaves no room (D115, D44, D28, D125). A wing
+/// comes out within the first second of its song or not at all (D134): an app
+/// switch lays out a wing already out, and never brings out one that had not.
 final class WingController {
   private let panel = WingPanel()
   private let model = WingModel()
@@ -208,10 +210,11 @@ final class WingController {
 
   /// Measure the gap and show the wing. A menu bar that cannot be read at
   /// that moment (an app coming to the front) is read again shortly, while
-  /// the wing is still due, rather than dropping the notice.
+  /// the song's first second lasts (D134).
   private func measureForNotice(title: String, image: NSImage?, tries: Int) {
     measure { [weak self] gap in
       guard let self, self.hold.isOut(at: self.now), self.current?.title == title else { return }
+      guard self.model.out || self.hold.mayCome(at: self.now) else { return }
       if gap == nil, tries > 1 {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
           self.measureForNotice(title: title, image: image, tries: tries - 1)
@@ -228,12 +231,12 @@ final class WingController {
     fold()
   }
 
-  /// Another app came to the front: lay the wing out again in its gap, and
-  /// show one still due that found no room (or no readable menu bar) before.
+  /// Another app came to the front: lay a wing that is out again in its gap
+  /// (folding it when none is left). One that had not come out stays away (D134).
   private func relayout() {
-    guard let current, model.out || hold.isOut(at: now) else { return }
+    guard let current, model.out else { return }
     measure { [weak self] gap in
-      guard let self, self.model.out || self.hold.isOut(at: self.now) else { return }
+      guard let self, self.model.out else { return }
       self.show(title: current.title, image: current.image, gap: gap)
     }
   }
@@ -255,6 +258,7 @@ final class WingController {
       ($0 as NSString).size(withAttributes: [.font: font]).width.rounded(.up)
     }
     guard WingHold.pops(fit: fit, islandOpen: islandOpen(), fullscreen: fullscreen()),
+      model.out || hold.mayCome(at: now),
       let width = fit.width, let home = home()
     else {
       #if ISLAND_TEST_INPUT

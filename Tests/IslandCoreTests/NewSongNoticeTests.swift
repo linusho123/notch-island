@@ -312,6 +312,19 @@ struct WingHoldTests {
     #expect(!hold.isOut(at: 29 + 4.01))
   }
 
+  @Test func aWingComesOutWithinTheFirstSecondOfItsSongOrNotAtAll() {
+    var hold = WingHold()
+    #expect(!hold.mayCome(at: 0))
+    hold.songStarted(at: 10)
+    #expect(hold.mayCome(at: 10.0))
+    #expect(hold.mayCome(at: 10.95))
+    #expect(!hold.mayCome(at: 11.05))
+    #expect(!hold.mayCome(at: 12))
+    hold.songStarted(at: 20)
+    #expect(hold.mayCome(at: 20.5))
+    #expect(!hold.mayCome(at: 22))
+  }
+
   @Test func notOutBeforeAnySong() {
     #expect(!WingHold().isOut(at: 0))
   }
