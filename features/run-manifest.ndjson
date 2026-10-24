@@ -107,29 +107,29 @@
 {"file":"music-sources.feature","title":"With Apple Music, QuickTime Player and a youtube.com tab in Chrome playing, the newest shows the count 1 of 3 [2]","status":"passed"}
 {"file":"music-sources.feature","title":"With nothing before it, back twice within the first 3 seconds on the island goes to Apple Music [2]","status":"passed"}
 {"file":"music-sources.feature","title":"With nothing next after it, skip on the island goes to QuickTime Player [1]","status":"passed"}
-{"file":"new-song-notice.feature","title":"2 songs starting about a second apart keep the wing out [1]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"20 songs starting about a second apart keep the wing out [3]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"5 songs starting about a second apart keep the wing out [2]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"A new song in Apple Music brings the wing out within a second [1]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"A new song in Apple Music out through \"JBL Flip 5\" brings the wing out within a second [2]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"A new song in IINA brings the wing out within a second [5]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"A new song in Music brings the wing out within a second [7]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"A new song in QuickTime Player brings the wing out within a second [6]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"A new song in a soundcloud.com tab in Chrome brings the wing out within a second [4]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"A new song in a youtube.com playlist in Chrome brings the wing out within a second [3]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"A new song in fullscreen pops no wing","status":"unbound"}
-{"file":"new-song-notice.feature","title":"A new song slides a small wing out left of the notch","status":"unbound"}
-{"file":"new-song-notice.feature","title":"Moving onto the notch while the wing is out opens the full panel","status":"unbound"}
-{"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, art too wide [4]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, menus reach it [5]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"The new-song notice finds room: the art alone [3]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"The new-song notice finds room: the title shortened [2]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"The new-song notice finds room: the whole title [1]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"The wings checked 1 minute after a new song starts [4]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"The wings checked 1 second after a new song starts [1]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"The wings checked 3.5 seconds after a new song starts [2]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"The wings checked 4.5 seconds after a new song starts [3]","status":"unbound"}
-{"file":"new-song-notice.feature","title":"With an external monitor connected, the wing still pops at the built-in notch","status":"unbound"}
+{"file":"new-song-notice.feature","title":"2 songs starting about a second apart keep the wing out [1]","status":"passed"}
+{"file":"new-song-notice.feature","title":"20 songs starting about a second apart keep the wing out [3]","status":"passed"}
+{"file":"new-song-notice.feature","title":"5 songs starting about a second apart keep the wing out [2]","status":"passed"}
+{"file":"new-song-notice.feature","title":"A new song in Apple Music brings the wing out within a second [1]","status":"passed"}
+{"file":"new-song-notice.feature","title":"A new song in Apple Music out through \"JBL Flip 5\" brings the wing out within a second [2]","status":"passed"}
+{"file":"new-song-notice.feature","title":"A new song in IINA brings the wing out within a second [5]","status":"passed"}
+{"file":"new-song-notice.feature","title":"A new song in Music brings the wing out within a second [7]","status":"passed"}
+{"file":"new-song-notice.feature","title":"A new song in QuickTime Player brings the wing out within a second [6]","status":"passed"}
+{"file":"new-song-notice.feature","title":"A new song in a soundcloud.com tab in Chrome brings the wing out within a second [4]","status":"passed"}
+{"file":"new-song-notice.feature","title":"A new song in a youtube.com playlist in Chrome brings the wing out within a second [3]","status":"passed"}
+{"file":"new-song-notice.feature","title":"A new song in fullscreen pops no wing","status":"passed"}
+{"file":"new-song-notice.feature","title":"A new song slides a small wing out left of the notch","status":"passed"}
+{"file":"new-song-notice.feature","title":"Moving onto the notch while the wing is out opens the full panel","status":"passed"}
+{"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, art too wide [4]","status":"passed"}
+{"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, menus reach it [5]","status":"passed"}
+{"file":"new-song-notice.feature","title":"The new-song notice finds room: the art alone [3]","status":"passed"}
+{"file":"new-song-notice.feature","title":"The new-song notice finds room: the title shortened [2]","status":"passed"}
+{"file":"new-song-notice.feature","title":"The new-song notice finds room: the whole title [1]","status":"passed"}
+{"file":"new-song-notice.feature","title":"The wings checked 1 minute after a new song starts [4]","status":"passed"}
+{"file":"new-song-notice.feature","title":"The wings checked 1 second after a new song starts [1]","status":"passed"}
+{"file":"new-song-notice.feature","title":"The wings checked 3.5 seconds after a new song starts [2]","status":"passed"}
+{"file":"new-song-notice.feature","title":"The wings checked 4.5 seconds after a new song starts [3]","status":"passed"}
+{"file":"new-song-notice.feature","title":"With an external monitor connected, the wing still pops at the built-in notch","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A capture 10 seconds after the previous one joins it [1]","status":"unbound"}
 {"file":"shelf-captures-and-files.feature","title":"A capture 30 seconds after the previous one joins it [5]","status":"unbound"}
 {"file":"shelf-captures-and-files.feature","title":"A capture 59 seconds after the previous one joins it [2]","status":"unbound"}
