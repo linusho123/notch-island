@@ -203,8 +203,21 @@ final class WingController {
     guard !islandOpen(), !fullscreen(), home() != nil else { return }
     current = (title, image)
     hold.songStarted(at: startedAt)
+    measureForNotice(title: title, image: image, tries: 6)
+  }
+
+  /// Measure the gap and show the wing. A menu bar that cannot be read at
+  /// that moment (an app coming to the front) is read again shortly, while
+  /// the wing is still due, rather than dropping the notice.
+  private func measureForNotice(title: String, image: NSImage?, tries: Int) {
     measure { [weak self] gap in
-      guard let self, self.hold.isOut(at: self.now) else { return }
+      guard let self, self.hold.isOut(at: self.now), self.current?.title == title else { return }
+      if gap == nil, tries > 1 {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+          self.measureForNotice(title: title, image: image, tries: tries - 1)
+        }
+        return
+      }
       self.show(title: title, image: image, gap: gap)
     }
   }
@@ -215,10 +228,12 @@ final class WingController {
     fold()
   }
 
+  /// Another app came to the front: lay the wing out again in its gap, and
+  /// show one still due that found no room (or no readable menu bar) before.
   private func relayout() {
-    guard model.out, let current else { return }
+    guard let current, model.out || hold.isOut(at: now) else { return }
     measure { [weak self] gap in
-      guard let self, self.model.out else { return }
+      guard let self, self.model.out || self.hold.isOut(at: self.now) else { return }
       self.show(title: current.title, image: current.image, gap: gap)
     }
   }
