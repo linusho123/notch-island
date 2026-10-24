@@ -72,6 +72,14 @@ final class IslandController: NSObject, NSMenuDelegate {
   /// Called when the island opens, and every two seconds while it stays open,
   /// so what it shows is read fresh from the source.
   var onOpenRefresh: () -> Void = {}
+  /// Called when the island opens or closes.
+  var onOpenChanged: (Bool) -> Void = { _ in }
+  var isOpen: Bool { machine.state == .open }
+  /// The built-in notch and its screen (AppKit coordinates), while placed.
+  var home: (notch: CGRect, screen: CGRect)? {
+    guard let notchRect, let screen = contextGuard.homeScreen else { return nil }
+    return (notchRect, screen.frame)
+  }
   private var pressStartedOnIsland = false
   private let contextGuard: ContextGuard
   private var notchRect: CGRect?
@@ -171,6 +179,7 @@ final class IslandController: NSObject, NSMenuDelegate {
       model.isOpen = isOpen
       applyFrame()
       watchPointerWhileOpen(isOpen)
+      onOpenChanged(isOpen)
     }
     deadlineTimer?.invalidate()
     deadlineTimer = nil

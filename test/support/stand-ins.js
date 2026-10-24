@@ -21,7 +21,12 @@ const VIDEOS = {
 };
 const TRACKS = {
   'late-night-mix': { title: 'late night mix', seconds: 1200 },
+  'sunrise-mix': { title: 'sunrise mix', seconds: 1200 },
 };
+/** A youtube.com playlist: its videos in order, played on one after another. */
+const PLAYLISTS = { 'PL-lectures': ['lecture-4', 'lecture-5'] };
+/** soundcloud.com's "next up": the track that plays on in the same page. */
+const NEXT_UP = { 'late-night-mix': 'sunrise-mix' };
 const NEWS_CLIP = { title: 'Morning headlines', seconds: 300 };
 
 /** A self-signed certificate for the stand-in hosts (the test Chrome ignores its issuer). */
@@ -55,6 +60,13 @@ function watchPage(id, url) {
   const v = VIDEOS[id];
   if (!v) return null;
   const t = Number(String(url.searchParams.get('t') || '0').replace(/s$/, '')) || 0;
+  // In a playlist, the next video's watch page opens when this one ends.
+  const list = url.searchParams.get('list');
+  const order = PLAYLISTS[list] || [];
+  const next = order[order.indexOf(id) + 1];
+  const onEnd = order.includes(id) && next
+    ? `m.addEventListener('ended', () => { location.assign(${JSON.stringify(`/watch?v=${next}&list=${list}`)}); });`
+    : '';
   return page(`${v.title} - YouTube`, `${session(v.title, 'notch-island stand-in')}
 <h1>${esc(v.title)}</h1>
 <video id="player" src="/media/${id}.mov#t=${t}" autoplay playsinline></video>
@@ -62,6 +74,7 @@ function watchPage(id, url) {
   const m = document.getElementById('player');
   m.addEventListener('playing', nowPlaying);
   m.addEventListener('loadedmetadata', () => { if (${t} > 0 && m.currentTime < ${t} - 1) m.currentTime = ${t}; });
+  ${onEnd}
 </script>`);
 }
 
@@ -91,6 +104,15 @@ function trackPage(id) {
   m.addEventListener('playing', nowPlaying);
   const h = /t=(\\d+):(\\d\\d)/.exec(location.hash);
   if (h) m.addEventListener('loadedmetadata', () => { m.currentTime = Number(h[1]) * 60 + Number(h[2]); }, { once: true });
+  ${NEXT_UP[id] ? `// Next up: the following track plays on in the same page, as on the real site.
+  m.addEventListener('ended', () => {
+    const next = ${JSON.stringify({ id: NEXT_UP[id], title: TRACKS[NEXT_UP[id]].title })};
+    document.title = next.title + ' | Listen online for free on SoundCloud';
+    document.querySelector('h1').textContent = next.title;
+    if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: next.title, artist: 'notch-island stand-in' });
+    m.src = '/media/' + next.id + '.wav';
+    m.play();
+  }, { once: true });` : ''}
 </script>`);
 }
 
@@ -176,11 +198,11 @@ function resolverRules(port) {
 }
 
 const urls = {
-  watch: (id) => `https://www.youtube.com/watch?v=${id}`,
+  watch: (id, list) => `https://www.youtube.com/watch?v=${id}${list ? `&list=${list}` : ''}`,
   home: () => 'https://www.youtube.com/',
   track: (id) => `https://soundcloud.com/notch-island-stand-in/${id}`,
   news: (withSound) => `https://www.example-news.com/${withSound ? 'with-sound' : 'muted'}`,
   gmail: () => 'https://mail.google.com/mail/u/0/#inbox',
 };
 
-module.exports = { start, resolverRules, urls, VIDEOS, TRACKS };
+module.exports = { start, resolverRules, urls, VIDEOS, TRACKS, PLAYLISTS };

@@ -39,8 +39,12 @@ let package = Package(
     // The acceptance harness's own helper, never bundled into the app: reads
     // the island and the menu bar through Accessibility, drives the pointer,
     // and reads the screens.
+    // What the harness's input guard decides, unit-tested: its own posted
+    // events from the visionary's real input (Sharing the Mac).
+    .target(name: "HarnessCore"),
     .executableTarget(
       name: "island-harness",
+      dependencies: ["HarnessCore"],
       linkerSettings: [
         .linkedFramework("AppKit"),
         .linkedFramework("ApplicationServices"),
@@ -48,11 +52,17 @@ let package = Package(
         .linkedFramework("ScreenCaptureKit"),
         .linkedFramework("CoreAudio"),
         .linkedFramework("MediaPlayer"),
+        .linkedFramework("IOKit"),
       ]
     ),
     .testTarget(
       name: "IslandCoreTests",
       dependencies: ["IslandCore", .product(name: "Testing", package: "swift-testing")],
+      linkerSettings: [.unsafeFlags(["-L", toolsLib, "-Xlinker", "-rpath", "-Xlinker", toolsLib])]
+    ),
+    .testTarget(
+      name: "HarnessCoreTests",
+      dependencies: ["HarnessCore", .product(name: "Testing", package: "swift-testing")],
       linkerSettings: [.unsafeFlags(["-L", toolsLib, "-Xlinker", "-rpath", "-Xlinker", toolsLib])]
     ),
   ],

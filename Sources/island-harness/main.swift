@@ -2,6 +2,8 @@ import AVFoundation
 import AppKit
 import ApplicationServices
 import CoreAudio
+import HarnessCore
+import IOKit
 import MediaPlayer
 import ScreenCaptureKit
 
@@ -235,7 +237,32 @@ func post(_ type: CGEventType, _ p: CGPoint, _ button: CGMouseButton = .left, cl
       mouseEventSource: nil, mouseType: type, mouseCursorPosition: p, mouseButton: button)
   else { fail("could not make a pointer event") }
   e.setIntegerValueField(.mouseEventClickState, value: clicks)
-  e.post(tap: .cghidEventTap)
+  postTagged(e)
+}
+
+/// Every event the harness posts goes out here, tagged as the harness's own,
+/// so the input guard can tell it from the visionary's real input.
+func postTagged(_ e: CGEvent) {
+  e.setIntegerValueField(.eventSourceUserData, value: InputGuard.tag)
+  stampPost()
+  e.post(tap: .cghidEventTap)  // tagged-post
+}
+
+/// Tell the waiter's input guard, before the event goes out, that the
+/// harness is posting one now (InputGuard.msSinceHarnessEvent).
+func stampPost() {
+  guard let file = ProcessInfo.processInfo.environment[InputGuard.postStampVariable] else {
+    return
+  }
+  try? String(now()).write(toFile: file, atomically: true, encoding: .utf8)
+}
+
+/// The last post the harness stamped, if any.
+func lastStampedPostMs() -> Double? {
+  guard let file = ProcessInfo.processInfo.environment[InputGuard.postStampVariable],
+    let text = try? String(contentsOfFile: file, encoding: .utf8)
+  else { return nil }
+  return Double(text.trimmingCharacters(in: .whitespacesAndNewlines))
 }
 
 /// The system-wide left button, as macOS reads it.
@@ -282,8 +309,9 @@ func scroll(dy: Int32, wheel: Bool) {
   if wheel {
     let e = CGEvent(
       scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: dy, wheel2: 0, wheel3: 0)
-    e?.setIntegerValueField(.scrollWheelEventIsContinuous, value: 0)
-    e?.post(tap: .cghidEventTap)
+    guard let e else { return }
+    e.setIntegerValueField(.scrollWheelEventIsContinuous, value: 0)
+    postTagged(e)
     return
   }
   // A two-finger scroll: a gesture that begins, changes and ends.
@@ -292,12 +320,13 @@ func scroll(dy: Int32, wheel: Bool) {
     let e = CGEvent(
       scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1,
       wheel1: i == steps ? 0 : dy / Int32(steps), wheel2: 0, wheel3: 0)
-    e?.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+    guard let e else { continue }
+    e.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
     let phase: Int64 = i == 0 ? 1 : (i == steps ? 4 : 2)  // began, changed, ended
-    e?.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
-    e?.setIntegerValueField(
+    e.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
+    e.setIntegerValueField(
       .scrollWheelEventPointDeltaAxis1, value: Int64(i == steps ? 0 : dy / Int32(steps)))
-    e?.post(tap: .cghidEventTap)
+    postTagged(e)
     sleepMs(12)
   }
 }
@@ -514,6 +543,127 @@ func captureCheck(_ rect: CGRect, islandPid: Int) -> Never {
   exit(0)
 }
 
+// MARK: Sharing the Mac
+
+/// The system's idle clock: milliseconds since the last keyboard or pointer
+/// input of any kind (IOHIDSystem's HIDIdleTime).
+func hidIdleMs() -> Double? {
+  let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOHIDSystem"))
+  guard service != 0 else { return nil }
+  defer { IOObjectRelease(service) }
+  guard
+    let value = IORegistryEntryCreateCFProperty(
+      service, "HIDIdleTime" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue()
+      as? NSNumber
+  else { return nil }
+  return value.doubleValue / 1e6
+}
+
+/// What the waiter needs to know besides input, power and the lid: whether
+/// the built-in display sleeps, the screen is locked, the screen saver runs.
+func sessionJSON() -> [String: Any] {
+  var ids = [CGDirectDisplayID](repeating: 0, count: 16)
+  var count: UInt32 = 0
+  CGGetOnlineDisplayList(16, &ids, &count)
+  let builtIn = ids.prefix(Int(count)).first { CGDisplayIsBuiltin($0) != 0 } ?? CGMainDisplayID()
+  let session = (CGSessionCopyCurrentDictionary() as? [String: Any]) ?? [:]
+  let saver = NSWorkspace.shared.runningApplications.contains {
+    $0.bundleIdentifier == "com.apple.ScreenSaver.Engine"
+      || $0.executableURL?.lastPathComponent == "ScreenSaverEngine"
+  }
+  return [
+    "displayAsleep": CGDisplayIsAsleep(builtIn) != 0,
+    "locked": (session["CGSSessionScreenIsLocked"] as? Bool) ?? false,
+    "onConsole": (session[kCGSessionOnConsoleKey as String] as? Bool) ?? true,
+    "screenSaver": saver,
+  ]
+}
+
+func line(_ value: [String: Any]) {
+  emit(value)
+  fflush(stdout)
+}
+
+/// The input guard's state; globals, as the tap's C callback captures nothing.
+var guardTap: CFMachPort?
+var guardLastHarnessMs = now()
+var guardSawHarness = false
+
+func inputKind(_ type: UInt32) -> String {
+  switch type {
+  case 10, 11, 12: return "keyboard"
+  case 1, 2, 3, 4, 5, 6, 7, 25, 26, 27: return "pointer"
+  case 22: return "scroll"
+  case 14: return "media or special key"
+  default: return "trackpad"
+  }
+}
+
+func reportRealInput(_ fields: [String: Any]) -> Never {
+  var report = fields
+  report["real"] = true
+  report["t"] = now()
+  line(report)
+  exit(0)
+}
+
+/// input-guard: a listen-only tap on every event of the session. Prints
+/// {"ready"} once the tap is up, {"harness"} the first time it sees one of
+/// the harness's own tagged events, and {"real", ...} (then exits) the moment
+/// it sees keyboard, pointer or trackpad input the harness did not post, or
+/// the idle clock shows input no tap could see. Never a key code.
+func runInputGuard() -> Never {
+  let callback: CGEventTapCallBack = { _, type, event, _ in
+    if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+      if let tap = guardTap { CGEvent.tapEnable(tap: tap, enable: true) }
+      return Unmanaged.passUnretained(event)
+    }
+    let raw = type.rawValue
+    var subtype: Int?
+    if raw == 14 { subtype = NSEvent(cgEvent: event).map { Int($0.subtype.rawValue) } }
+    let userData = event.getIntegerValueField(.eventSourceUserData)
+    switch InputGuard.origin(type: raw, userData: userData, subtype: subtype) {
+    case .harness:
+      guardLastHarnessMs = now()
+      if !guardSawHarness {
+        guardSawHarness = true
+        line(["harness": true, "t": now()])
+      }
+    case .real:
+      reportRealInput([
+        "signal": "tap", "type": Int(raw), "kind": inputKind(raw),
+        "sourcePid": Int(event.getIntegerValueField(.eventSourceUnixProcessID)),
+      ])
+    case .notInput:
+      break
+    }
+    return Unmanaged.passUnretained(event)
+  }
+  guard
+    let tap = CGEvent.tapCreate(
+      tap: .cgSessionEventTap, place: .headInsertEventTap, options: .listenOnly,
+      eventsOfInterest: CGEventMask.max, callback: callback, userInfo: nil)
+  else {
+    fail("the input guard could not open an event tap (Accessibility or Input Monitoring)", code: 3)
+  }
+  guardTap = tap
+  let source = CFMachPortCreateRunLoopSource(nil, tap, 0)
+  CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
+  CGEvent.tapEnable(tap: tap, enable: true)
+  guardLastHarnessMs = now()
+  Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+    guard let idle = hidIdleMs() else { return }
+    let since = InputGuard.msSinceHarnessEvent(
+      now: now(), lastSeenMs: guardLastHarnessMs, lastPostedMs: lastStampedPostMs())
+    if InputGuard.idleShowsRealInput(hidIdleMs: idle, msSinceHarnessEvent: since) {
+      reportRealInput(["signal": "idle", "hidIdleMs": idle, "sinceHarnessMs": since])
+    }
+  }
+  line(["ready": true, "t": now()])
+  RunLoop.main.run()
+  exit(0)
+}
+
 // MARK: Commands
 
 switch command {
@@ -527,6 +677,20 @@ case "keyboardfocus":
 case "pointer":
   let p = pointer()
   emit(["x": p.x, "y": p.y])
+case "nudge":
+  // nudge: a tagged move one point aside and back, so the input guard can
+  // show it sees the harness's own events (a move to where the pointer
+  // already is never reaches an event tap).
+  let p = pointer()
+  warp(to: CGPoint(x: p.x + 1, y: p.y))
+  warp(to: p)
+  emit(["ok": true])
+case "idle":
+  emit(["idleMs": hidIdleMs().map { $0 as Any } ?? NSNull()])
+case "session":
+  emit(sessionJSON())
+case "input-guard":
+  runInputGuard()
 case "trusted":
   emit(["trusted": AXIsProcessTrusted()])
 case "windows":
@@ -591,8 +755,9 @@ case "arrive-and-click":
 case "key":
   // key keycode: press and release one key (53 is Escape).
   let code = CGKeyCode(num(1))
-  CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true)?.post(tap: .cghidEventTap)
-  CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false)?.post(tap: .cghidEventTap)
+  for down in [true, false] {
+    if let e = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down) { postTagged(e) }
+  }
   emit(["ok": true])
 case "tree":
   // tree pid: everything under an app's Accessibility element, windows or
@@ -662,7 +827,7 @@ case "media-key":
     let event = NSEvent.otherEvent(
       with: .systemDefined, location: .zero, modifierFlags: flags, timestamp: 0,
       windowNumber: 0, context: nil, subtype: 8, data1: data1, data2: -1)
-    event?.cgEvent?.post(tap: .cghidEventTap)
+    if let e = event?.cgEvent { postTagged(e) }
     sleepMs(30)
   }
   emit(["ok": true])
@@ -814,6 +979,59 @@ case "now-playing-stand-in":
   emit(["ok": true, "pid": Int(getpid())])
   fflush(stdout)
   RunLoop.main.run(until: Date().addingTimeInterval(num(2)))
+case "menu-stand-in":
+  // menu-stand-in seconds title...: an app of the harness's own, in front,
+  // whose menu bar holds its app menu and the given menus, so a scenario
+  // knows what the menu bar beside the notch shows. Ends after `seconds`.
+  let app = NSApplication.shared
+  app.setActivationPolicy(.regular)
+  let bar = NSMenu()
+  let appItem = NSMenuItem()
+  appItem.submenu = NSMenu(title: "stand-in")
+  appItem.submenu?.addItem(
+    withTitle: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
+  bar.addItem(appItem)
+  for title in args.dropFirst(2) {
+    let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+    item.submenu = NSMenu(title: title)
+    item.submenu?.addItem(withTitle: "Nothing", action: nil, keyEquivalent: "")
+    bar.addItem(item)
+  }
+  app.mainMenu = bar
+  line(["pid": Int(getpid())])
+  DispatchQueue.main.asyncAfter(deadline: .now() + num(1)) { exit(0) }
+  // Opened through LaunchServices it is no child of the test run: it ends
+  // with the run that opened it (NOTCH_ISLAND_OWNER_PID), voided or not.
+  if let owner = ProcessInfo.processInfo.environment["NOTCH_ISLAND_OWNER_PID"].flatMap(Int32.init) {
+    Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+      if kill(owner, 0) != 0 { exit(0) }
+    }
+  }
+  DispatchQueue.main.async { app.activate(ignoringOtherApps: true) }
+  app.run()
+case "move-window":
+  // move-window pid x y: put an app's front window's top-left corner at
+  // (x, y), as dragging its title bar would (onto another screen, say).
+  requireTrust()
+  let app = appElement(pid_t(num(1)))
+  guard let windows = attr(app, kAXWindowsAttribute) as? [AXUIElement], let w = windows.first
+  else { fail("no window to move") }
+  var p = CGPoint(x: num(2), y: num(3))
+  let value = AXValueCreate(.cgPoint, &p)!
+  let r = AXUIElementSetAttributeValue(w, kAXPositionAttribute as CFString, value)
+  emit(["ok": r == .success, "frame": frameOf(w).map(rectJSON) ?? NSNull()])
+case "menu-items":
+  // menu-items pid title: the items of one of an app's menu bar menus, read
+  // without opening it (an app's own idea of its commands: Pause or Resume).
+  requireTrust()
+  let app = appElement(pid_t(num(1)))
+  guard let bar = attr(app, kAXMenuBarAttribute),
+    let items = attr(bar as! AXUIElement, kAXChildrenAttribute) as? [AXUIElement],
+    let menuItem = items.first(where: { attr($0, kAXTitleAttribute) as? String == arg(2) }),
+    let menu = (attr(menuItem, kAXChildrenAttribute) as? [AXUIElement])?.first,
+    let entries = attr(menu, kAXChildrenAttribute) as? [AXUIElement]
+  else { fail("no menu \(arg(2)) in the menu bar of \(arg(1))") }
+  emit(["items": entries.map { describe($0, depth: 0) }])
 case "make-movie":
   // make-movie path seconds [sound]
   makeMovie(path: arg(1), seconds: Int(num(2)), withSound: CommandLine.arguments.count > 4)

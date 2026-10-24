@@ -7,7 +7,7 @@
 // visionary rules on launching it (see the P2 report).
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { siteOf, counts, reopenURL, pickMedia } = require('../app/chrome-extension/rules');
+const { siteOf, counts, reopenURL, pickMedia, silentSong } = require('../app/chrome-extension/rules');
 
 const sounding = { paused: false, muted: false, volume: 1, ended: false };
 
@@ -58,4 +58,17 @@ test('the page\'s main player is the one that sounds, not a muted hover preview 
   assert.equal(pickMedia([paused, played]), played);
   assert.equal(pickMedia([paused]), paused);
   assert.equal(pickMedia([]), null);
+});
+
+test('a song that played unheard before its tab counted joined mid-song, until the next song (D122)', () => {
+  const playing = { paused: false, title: 'Lecture 5' };
+  // Playing muted, not counted: the song is playing unheard.
+  assert.equal(silentSong({ counted: false, media: playing, silentTitle: null }), 'Lecture 5');
+  // Unmuted, it counts: the same song carries on as joined mid-song.
+  assert.equal(silentSong({ counted: true, media: playing, silentTitle: 'Lecture 5' }), 'Lecture 5');
+  // The next song in the tab started heard.
+  assert.equal(silentSong({ counted: true, media: { paused: false, title: 'Lecture 6' }, silentTitle: 'Lecture 5' }), null);
+  // A tab that counts from its first sound never played unheard.
+  assert.equal(silentSong({ counted: true, media: playing, silentTitle: null }), null);
+  assert.equal(silentSong({ counted: false, media: null, silentTitle: 'Lecture 5' }), null);
 });

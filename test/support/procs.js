@@ -36,6 +36,18 @@ function start(name, file, args = [], opts = {}) {
   return handle;
 }
 
+/**
+ * Take on a process the harness had LaunchServices start (`open`), so it is
+ * stopped like one it spawned: only while it is that same process.
+ */
+function adopt(name, pid) {
+  const started = startTimeOf(pid);
+  if (!started) throw new Error(`${name} (pid ${pid}) is not running`);
+  const handle = { pid, started, name, child: null, exited: false };
+  spawned.set(pid, handle);
+  return handle;
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** End a process the harness started: terminate, then kill if it lingers. */
@@ -61,4 +73,4 @@ onCleanup(() => {
   }
 });
 
-module.exports = { start, stop, alive, sleep };
+module.exports = { start, adopt, stop, alive, sleep };

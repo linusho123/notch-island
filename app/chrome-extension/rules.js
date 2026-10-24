@@ -55,7 +55,18 @@
     return list.find(sounding) || list.find(playing) || list.find((m) => m.currentTime > 0) || list[0] || null;
   }
 
-  const api = { siteOf, counts, reopenURL, pickMedia };
+  /**
+   * The song a tab plays unheard, kept while it carries on once the tab
+   * counts: a muted preview unmuted joins the card mid-song, and that is no
+   * new song, so no wing pops (D122). Null once another song plays.
+   */
+  function silentSong({ counted, media, silentTitle }) {
+    if (!media) return null;
+    if (!counted) return media.paused ? silentTitle : media.title;
+    return media.title === silentTitle ? silentTitle : null;
+  }
+
+  const api = { siteOf, counts, reopenURL, pickMedia, silentSong };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.notchIslandRules = api;
 })(typeof self !== 'undefined' ? self : globalThis);

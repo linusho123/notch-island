@@ -4,7 +4,7 @@
 // to the exact tab, focuses that tab (D26), and reopens a closed tab where it
 // left off (D117).
 importScripts('rules.js');
-const { siteOf, counts, reopenURL } = self.notchIslandRules;
+const { siteOf, counts, reopenURL, silentSong } = self.notchIslandRules;
 
 const HOST = 'local.notch_island';
 const tabs = new Map(); // tab id -> { url, site, media, counted, windowId }
@@ -12,8 +12,18 @@ const closed = new Map(); // tab id -> { url, position, title }
 let port = null;
 let attempts = 0; // reconnects since the host last stayed up
 let connectedAt = 0;
+let triedAt = 0;
+
+// Chrome suspends this worker after about 30 s idle, and a pending setTimeout
+// dies with it. So a reconnect also rides on a repeating alarm, which wakes
+// the worker, and on any tab event; neither rests on a timer kept in memory.
+function ensureConnected(minGap) {
+  if (port || Date.now() - triedAt < minGap) return;
+  connect();
+}
 
 function connect() {
+  triedAt = Date.now();
   try {
     port = chrome.runtime.connectNative(HOST);
   } catch {
@@ -23,6 +33,10 @@ function connect() {
   port.onMessage.addListener(onCommand);
   connectedAt = Date.now();
   port.onDisconnect.addListener(() => {
+    // Chrome sets lastError ("Native host has exited.") while this runs; read
+    // it, so Chrome does not log it as an unchecked error. The island being
+    // quit is expected; the back-off below handles it.
+    void chrome.runtime.lastError;
     port = null;
     // The host ends at once while the island is quit: wait longer each time
     // (5 s, 10 s, ... up to 5 minutes) rather than start a host every 5 s.
@@ -41,6 +55,7 @@ function send() {
     list.push({
       tab: id, site: t.site, title: t.media.title, artist: t.media.artist, duration: t.media.duration,
       position: t.media.position, playing: !t.media.paused, at: t.media.at, url: t.url,
+      joinedMidSong: Boolean(t.silentTitle) && t.silentTitle === t.media.title,
     });
   }
   const gone = [...closed].map(([id, c]) => ({ tab: id, ...c }));
@@ -56,19 +71,23 @@ async function update(tabId, patch) {
   t.site = siteOf(t.url || '');
   t.windowId = tab && tab.windowId;
   t.counted = counts({ url: t.url || '', tab, media: t.media, wasCounted: t.counted });
+  t.silentTitle = silentSong({ counted: t.counted, media: t.media, silentTitle: t.silentTitle });
   if (!t.site) tabs.delete(tabId); else tabs.set(tabId, t);
   send();
 }
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
+  ensureConnected(5000);
   if (msg.type === 'media' && sender.tab) update(sender.tab.id, { media: msg.media });
 });
 
 chrome.tabs.onUpdated.addListener((tabId, change) => {
+  ensureConnected(5000);
   if ('mutedInfo' in change || 'audible' in change || 'url' in change) update(tabId, {});
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
+  ensureConnected(5000);
   const t = tabs.get(tabId);
   tabs.delete(tabId);
   if (t && t.counted && t.media) {
@@ -102,6 +121,13 @@ async function requery() {
       if (siteOf(tab.url || '')) chrome.tabs.sendMessage(tab.id, { type: 'command', command: 'report' }).catch(() => {});
     }
   } catch { /* no tabs to ask */ }
+}
+
+if (chrome.alarms) {
+  chrome.alarms.create('reconnect', { periodInMinutes: 0.5 });
+  chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'reconnect') ensureConnected(0);
+  });
 }
 
 connect();

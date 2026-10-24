@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var hub: NowPlayingHub
   private let store: LastSongStore
   private let chrome: ChromeBridge
+  /// When a new song starts, and the wing that tells of it (D115, D78).
+  private var detector = NewSongDetector()
+  private let wing = WingController()
 
   override init() {
     let directory =
@@ -48,14 +51,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     island.onOpenRefresh = { [weak self] in
       for part in self?.parts.values.map({ $0 }) ?? [] { part.refresh() }
     }
+    wing.islandOpen = { [weak island] in island?.isOpen ?? false }
+    wing.fullscreen = { [weak self] in self?.contextGuard.fullscreenNow() ?? false }
+    wing.home = { [weak island] in island?.home }
+    island.onOpenChanged = { [weak self] open in if open { self?.wing.foldNow() } }
+    contextGuard.onFullscreenChanged = { [weak self] full in if full { self?.wing.foldNow() } }
 
     let iina = IINASource(channel: channel)
-    let sources: [SourcePart] = [AppleMusicSource(), iina, QuickTimeSource(channel: channel)]
+    let quickTime = QuickTimeSource(channel: channel)
+    let sources: [SourcePart] = [AppleMusicSource(), iina, quickTime]
     for part in sources {
       parts[part.id] = part
       part.onEvent = { [weak self] id, event in self?.take(id, event) }
     }
-    channel.onChange = { info in iina.take(info) }
+    channel.onChange = { info in
+      iina.take(info)
+      // QuickTime tells nothing itself, but it publishes what it plays to the
+      // now-playing channel: a change there is read at once, so a new file's
+      // wing is out within a second (D78), on top of the once-a-second read.
+      if info?.bundleID == QuickTimeSource.bundleID { quickTime.refresh() }
+    }
     chrome.onTabPart = { [weak self] part in
       self?.parts[part.id] = part
       part.onEvent = { [weak self] id, event in self?.take(id, event) }
@@ -95,9 +110,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let now = ProcessInfo.processInfo.systemUptime
     var keep = false
     switch event {
-    case .report(let report): keep = hub.update(id, report)
-    case .hidden: hub.hide(id)
-    case .left: keep = hub.leave(id, at: now) || hub.resumeAt != nil
+    case .report(let report):
+      keep = hub.update(id, report)
+      if let started = detector.take(id, report), let title = report.song?.title {
+        // The part hands over the song's art right after its report: the
+        // notice goes out once that has arrived.
+        DispatchQueue.main.async { [weak self] in
+          guard let self else { return }
+          self.wing.notify(title: title, image: self.artwork[id] ?? nil, startedAt: started)
+        }
+      }
+    case .hidden:
+      hub.hide(id)
+      detector.hidden(id)
+    case .left:
+      detector.forget(id)
+      keep = hub.leave(id, at: now) || hub.resumeAt != nil
     case .artwork(let image): artwork[id] = image
     }
     #if ISLAND_TEST_INPUT

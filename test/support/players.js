@@ -202,17 +202,23 @@ async function playFileInMusic(w, file) {
   await run('open', ['-a', 'Music', file]);
   const base = path.basename(file);
   w.defer(() => removeFileTracks(base, fs.statSync(file).size));
-  await until(async () => {
-    const out = await music.osa(`tell application "Music"
+  await until(async () => path.basename(await musicFile()) === base, 15000, `Music did not play "${base}"`);
+}
+
+/**
+ * The file Music plays now, from Music itself: its current track's location
+ * (read in two steps, as `POSIX path of` is not Music's to answer), or ""
+ * when it plays nothing or no file.
+ */
+async function musicFile() {
+  return music.osa(`tell application "Music"
       if player state is not playing then return ""
       try
         set l to location of current track
         return POSIX path of l
       end try
       return ""
-    end tell`);
-    return path.basename(out) === base;
-  }, 15000, `Music did not play "${base}"`);
+    end tell`).catch(() => '');
 }
 
 /**
@@ -248,6 +254,6 @@ async function removeFileTracks(base, size) {
 
 module.exports = {
   movie, mp3, wav, seconds, nowPlaying, playInIINA, quitIINA, iinaState, forgetIINAResume,
-  playInQuickTime, quickTimeState, quitQuickTime, playFileInMusic, removeFileTracks, until, running,
+  playInQuickTime, quickTimeState, quitQuickTime, playFileInMusic, musicFile, removeFileTracks, until, running,
   IINA_ID, QUICKTIME_ID, MEDIA,
 };

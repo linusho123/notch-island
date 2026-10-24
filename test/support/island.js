@@ -104,7 +104,27 @@ function parse(windows, notch) {
   if (panel && music && inside(music.frame, panel)) page = 'music';
   else if (panel && shelf && inside(shelf.frame, panel)) page = 'shelf';
   const labelled = (name) => all.find((e) => e.description === name && visible(e)) || null;
+  // The new-song wing: a window of the island's that lies in the menu bar
+  // strip and ends at the notch's left edge, with what is drawn in it.
+  const wingWindow = windows.find((w) => w.frame && w.frame.x < notch.x - 1
+    && w.frame.x + w.frame.w <= notch.x + 1 && w.frame.y >= notch.y - 1
+    && w.frame.y + w.frame.h <= notch.y + notch.h + 1) || null;
+  let wing = null;
+  if (wingWindow) {
+    const own = (wingWindow.elements || []).filter((e) => e.frame && inside(e.frame, wingWindow.frame));
+    const title = own.find((e) => e.identifier === 'wing-title') || null;
+    const art = own.find((e) => e.identifier === 'wing-art') || null;
+    wing = {
+      frame: wingWindow.frame,
+      title: title ? String(title.value ?? '') : null,
+      titleFrame: title && title.frame,
+      art: art && { label: art.description, frame: art.frame },
+      // Everything drawn in the wing that is neither the art nor the title.
+      others: own.filter((e) => e !== title && e !== art && e.role !== 'AXWindow' && e.role !== 'AXGroup'),
+    };
+  }
   return {
+    wing,
     frames,
     panel,
     open: Boolean(panel),

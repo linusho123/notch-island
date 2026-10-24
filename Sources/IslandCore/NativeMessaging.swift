@@ -52,10 +52,13 @@ public struct ChromeTab: Equatable, Sendable {
   public var position: TimeInterval?
   public var playing: Bool
   public var url: String?
+  /// The song played unheard (muted) before the tab counted: it joined the
+  /// card mid-song, which is no new song (D122).
+  public var joinedMidSong: Bool
 
   public init(
     tab: Int, site: String, title: String, artist: String?, duration: TimeInterval?,
-    position: TimeInterval?, playing: Bool, url: String?
+    position: TimeInterval?, playing: Bool, url: String?, joinedMidSong: Bool = false
   ) {
     self.tab = tab
     self.site = site
@@ -65,6 +68,7 @@ public struct ChromeTab: Equatable, Sendable {
     self.position = position
     self.playing = playing
     self.url = url
+    self.joinedMidSong = joinedMidSong
   }
 
   /// Read one tab out of the extension's message; anything malformed, or a
@@ -81,6 +85,7 @@ public struct ChromeTab: Equatable, Sendable {
       duration: (d["duration"] as? NSNumber)?.doubleValue,
       position: (d["position"] as? NSNumber)?.doubleValue,
       playing: (d["playing"] as? Bool) ?? false,
-      url: (d["url"] as? String).map { String($0.prefix(2000)) })
+      url: (d["url"] as? String).map { String($0.prefix(2000)) },
+      joinedMidSong: (d["joinedMidSong"] as? Bool) ?? false)
   }
 }

@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import IslandCore
 
@@ -43,6 +44,13 @@ enum TestInput {
       return OutputDevice(name: name, isBuiltIn: device["builtIn"] as? Bool ?? false)
     }
 
+    /// The free gap left of the notch, in points, standing in for the one
+    /// measured from the menu bar (a gap of an exact width, BUILD-PLAN
+    /// acceptance bars). Read at each notice; absent, the measured gap.
+    static var leftGap: CGFloat? {
+      (read()?["leftGap"] as? NSNumber).map { CGFloat($0.doubleValue) }
+    }
+
     /// Where the island and its Chrome host meet, when the scratch data
     /// folder's path is too long for a socket. Read once, at launch.
     static let chromeSocket: String? = read()?["chromeSocket"] as? String
@@ -86,6 +94,7 @@ enum TestInput {
     static let unregisterLoginAndExit = false
     static var leftButtonReading: Bool? { nil }
     static var outputDevice: OutputDevice? { nil }
+    static var leftGap: CGFloat? { nil }
     static let chromeSocket: String? = nil
     static func onChange(_ action: @escaping () -> Void) {}
   #endif
