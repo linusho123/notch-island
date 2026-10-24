@@ -4,6 +4,9 @@
 // when every one of its steps is bound and green; wip only shrinks.
 const path = require('node:path');
 const { runFeatures } = require('gherkin-node-test');
+const { assertInIdleRun } = require('./support/require-idle');
+
+assertInIdleRun();
 
 runFeatures(path.join(__dirname, '..', 'features'), {
   'music-panel': require('./steps/music-panel.steps'),
