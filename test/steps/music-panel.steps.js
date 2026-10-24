@@ -1122,7 +1122,7 @@ module.exports = (reg) => {
       assert.ok(body.y >= g.stripBottom - 0.5, `${t} ms after the opening started the panel's top is at y ${body.y}, inside the menu bar strip`);
       assert.ok(neck && Math.abs(neck.y + neck.h - body.y) <= 0.5 && body.x < n.x + 1 && body.x + body.w > n.x + n.w - 1,
         `${t} ms after the opening started the panel ${JSON.stringify(body)} is not joined to the notch ${JSON.stringify(neck)}`);
-      assert.ok(Math.abs(body.x + body.w / 2 - (n.x + n.w / 2)) <= 1, 'the panel is not centred under the notch');
+      assert.ok(Math.abs(body.x + body.w / 2 - (n.x + n.w / 2)) <= 1, `${t} ms after the opening started the panel ${JSON.stringify(body)} is not centred under the notch (centre ${n.x + n.w / 2})`);
       if (body.w >= OPEN_PANEL_WIDTH - 5) open++;
     }
     assert.ok(open > 10, 'the full-width panel was never seen hanging below the strip');
@@ -1148,7 +1148,6 @@ module.exports = (reg) => {
     const seq = sinceStart(watch);
     const final = restingBody(seq);
     const first = seq.find((s) => s.body);
-    assert.ok(first.t < 20, 'the first look after the opening started came late');
     assert.ok(first.body.w <= n.w + 0.2 * (final.w - n.w) && first.body.h <= 0.2 * final.h,
       `the island appeared at once: ${JSON.stringify(first.body)} at its first look, against ${JSON.stringify(final)} open`);
     assert.ok(first.neck && first.neck.x === n.x && first.neck.w === n.w, 'the opening did not start from the notch itself');

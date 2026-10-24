@@ -59,7 +59,17 @@ module.exports = {
   extras: async () => (await h('extras')).items,
   frontmost: () => h('frontmost'),
   keyboardFocus: () => h('keyboardfocus'),
-  activate: (pid) => h('activate', pid),
+  // A just-launched app is not yet registered with macOS for a moment.
+  activate: async (pid) => {
+    for (let i = 0; ; i++) {
+      try {
+        return await h('activate', pid);
+      } catch (e) {
+        if (i >= 20 || !/no such app/.test(e.message)) throw e;
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    }
+  },
   fullscreen: (pid) => h('fullscreen', pid),
   pointer: () => h('pointer'),
   move: (x, y) => h('move', x, y),
