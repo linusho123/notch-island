@@ -90,14 +90,24 @@ func attr(_ el: AXUIElement, _ name: String) -> AnyObject? {
   return value
 }
 
+/// A window's frame from its position and its size, which Accessibility gives
+/// in two reads: a window that moves and resizes every display frame (the
+/// island, in motion) can change between them, giving a frame it never had.
+/// The position is read again after the size; a change means start over.
 func frameOf(_ el: AXUIElement) -> CGRect? {
-  guard let p = attr(el, kAXPositionAttribute), let s = attr(el, kAXSizeAttribute) else {
-    return nil
-  }
   var point = CGPoint.zero
   var size = CGSize.zero
-  AXValueGetValue(p as! AXValue, .cgPoint, &point)
-  AXValueGetValue(s as! AXValue, .cgSize, &size)
+  for _ in 0..<5 {
+    guard let p = attr(el, kAXPositionAttribute), let s = attr(el, kAXSizeAttribute) else {
+      return nil
+    }
+    var again = CGPoint.zero
+    AXValueGetValue(p as! AXValue, .cgPoint, &point)
+    AXValueGetValue(s as! AXValue, .cgSize, &size)
+    guard let q = attr(el, kAXPositionAttribute) else { return nil }
+    AXValueGetValue(q as! AXValue, .cgPoint, &again)
+    if again == point { break }
+  }
   return CGRect(origin: point, size: size)
 }
 
