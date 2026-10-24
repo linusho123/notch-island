@@ -691,11 +691,12 @@ module.exports = (reg) => {
   reg.define(/^the visionary sees the wing fold back 4 seconds after the last song started$/, async (w) => {
     const n = await notch();
     const last = w.songs[w.songs.length - 1].start;
-    const out = w.samples.filter((s) => s.t >= last + 3300 && s.t <= last + 3500);
-    assert.ok(out.length && out.every((s) => wingOut(s.view)), 'the wing was not out 3.5 s after the last song started');
-    const after = w.samples.filter((s) => s.t >= last + 4500);
+    const out = w.samples.filter((s) => s.t >= last + 3300 && s.t <= last + 3800);
+    assert.ok(out.length && out.every((s) => wingOut(s.view)), 'the wing was not out through 3.8 s after the last song started');
+    // The fold takes 0.2 s and the hide 0.22 s after the 4 s are up.
+    const after = w.samples.filter((s) => s.t >= last + 4400);
     assert.ok(after.length && after.every((s) => island.isPlainNotch(s.view, n)),
-      'the wing was still out 4.5 s after the last song started');
+      'the wing was still out 4.4 s after the last song started');
   });
 
   reg.define(/^the visionary sees the island open downward into the full panel showing "Champagne Supernova"$/, async (w) => {
