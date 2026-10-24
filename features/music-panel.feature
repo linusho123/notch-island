@@ -7,18 +7,18 @@ Feature: The music panel
   closing when the pointer slips off, and never closes in the middle of a
   drag. A right-click offers one thing only: Quit.
 
-  @D18 @D51
+  @D18 @D51 @D137
   Scenario: Resting the pointer on the notch opens the music panel
     Given Apple Music is playing "Wonderwall" by Oasis and the island is closed to the plain notch
     When the visionary rests the trackpad pointer on the notch for about 0.15 seconds
-    Then the visionary sees the island open downward showing "Wonderwall" and "Oasis"
+    Then the visionary sees the island start opening downward by the end of the rest, then showing "Wonderwall" and "Oasis" once it has settled
     And the visionary sees three buttons on it: back, pause and skip
 
-  @D51
+  @D51 @D137
   Scenario Outline: Resting the pointer on the notch for <rest> opens the island
     Given Apple Music is playing "Wonderwall" and the island is closed to the plain notch
     When the visionary rests the pointer on the notch for <rest>
-    Then the visionary sees the island open on the music page
+    Then the visionary sees the island start opening by the end of the rest, then settle on the music page
 
     Examples:
       | rest              |
@@ -31,11 +31,11 @@ Feature: The music panel
     When the visionary sweeps the pointer from Chrome's Help menu across the notch to the Wi-Fi icon without resting
     Then the visionary sees the notch stay plain the whole way across, with nothing opening
 
-  @D74
+  @D74 @D137
   Scenario: Clicking the closed notch opens the island at once
     Given Apple Music is playing "Wonderwall" and the island is closed to the plain notch
     When the visionary clicks the notch the moment the pointer reaches it
-    Then the visionary sees the island open at once on the music page, without waiting for a rest
+    Then the visionary sees the island start opening at once, without waiting for a rest, then settle on the music page
 
   @D74 @D52
   Scenario: An island opened by a click closes as after a hover
@@ -225,3 +225,42 @@ Feature: The music panel
     And Apple Music is playing "Wonderwall"
     When the visionary rests the pointer on the notch
     Then the visionary sees the music panel open showing "Wonderwall"
+
+  @D135 @D136
+  Scenario: The open island stays as wide as the notch inside the menu bar
+    Given Apple Music is playing "Wonderwall" and the island is closed to the plain notch
+    And Chrome is in front with its Help menu left of the notch, and a status item sits right of the notch as Meter's readings do
+    When the visionary rests the pointer on the notch, the island opens, and later the pointer leaves it
+    Then the visionary sees the island no wider than the notch inside the menu bar strip at every moment while it opens, stays open and closes
+    And the visionary sees Chrome's Help menu and the status item right of the notch uncovered the whole time
+    And the visionary sees the full-width panel only below the menu bar strip, joined to the notch
+
+  @D137 @D138
+  Scenario: Opening springs out of the notch and settles
+    Given Apple Music is playing "Wonderwall" and the island is closed to the plain notch
+    When the visionary rests the pointer on the notch
+    Then the visionary sees the island grow out of the notch's own shape over about 0.4 seconds rather than appear at once
+    And the visionary sees its edges pass their resting places by at most 4 points before settling
+
+  @D137
+  Scenario Outline: The island checked <after> after it starts opening
+    Given Apple Music is playing "Wonderwall" and the island is closed to the plain notch
+    When the visionary rests the pointer on the notch and the island starts opening
+    Then the visionary sees <state> <after> after the opening started
+
+    Examples:
+      | after       | state                                                                                     |
+      | 0.1 seconds | the island partway grown, larger than the notch and smaller than the open panel            |
+      | 0.6 seconds | the island at its full open size showing "Wonderwall" and "Oasis"                          |
+
+  @D137 @D138
+  Scenario Outline: The island checked <after> after it starts closing
+    Given the island is open over "Wonderwall" because the pointer is on it
+    When the visionary moves the pointer off the island and its grace runs out
+    Then the visionary sees <state> <after> after the closing started
+    And the visionary sees the island never smaller than the notch, and never larger than the open panel, on its way back
+
+    Examples:
+      | after       | state                                                                  |
+      | 0.1 seconds | the island partway shrunk, smaller than the open panel and larger than the notch |
+      | 0.5 seconds | the plain notch                                                        |

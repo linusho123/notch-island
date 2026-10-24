@@ -316,6 +316,36 @@ screen shows a fullscreen app; head-review should-fixes S4 (stand-in menu bar
 calibration), S5 (Apple Music art read inside the one-second budget), S6, S8,
 S9; QuickTime's ~0.6 s latency margin to watch.
 
+## P3.5 — The island's shape and motion (quick, asked by the visionary)
+
+**Contract:** the new and reworded scenarios of `music-panel.feature` (the
+neck, the opening spring, the opened and closing checks; the three rest/click
+rewords on the fence's Sanctioned changes) and `new-song-notice.feature` (the
+wing slides out and back).
+**Rulings:** D135/D136 (inside the menu bar strip never wider than the notch;
+the panel only below it), D137/D138 (spring out of the notch in about 0.4 s,
+at most 4 points of overshoot, shrink back in about 0.3 s without bounce;
+opening starts at the end of the rest), D139 (the wing slides the same way).
+**Builds:** the drawn island as one shape whose menu-bar part is the notch's
+width, with curved shoulders into the panel below; click-through everywhere
+outside the drawn shape (the shoulders' corners included); the open, close
+and wing motions driven frame by frame from the island's own state, so a
+re-hover mid-close reverses smoothly; content fade-in on settle. No code from
+vorssaint-utils (GPL-3.0).
+**Far-side checks:** the drawn shape's frames sampled from Accessibility and
+pixels during the motion, against the menu bar items' own frames (a test
+status item right of the notch; never Meter itself, which is only read);
+timing from the harness's own clock against those samples.
+**Reviewer B's risk:** a mid-motion frame that covers a menu or status item,
+a bounce that pushes the neck wider than the notch, clicks swallowed in the
+transparent shoulder corners, a reversal mid-close that jumps, the motion's
+cost against D79's ceiling.
+**Quick path (the visionary's request):** one builder, one combined review
+(contract and the risk above) instead of two, head review only if that review
+finds a must-fix, then the full gate once at the end.
+**Register:** no feature leaves wip; the reworded and new scenarios bind in
+`music-panel` (out of wip apart from its P4 shelf-drag row) and `new-song-notice`, so they gate at once.
+
 ## P4 — The shelf: captures and files
 
 **Contract:** `shelf-captures-and-files.feature` (20 scenarios, 11 outlines),

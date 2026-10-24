@@ -1189,3 +1189,48 @@ D134 2026-10-24 [I>V]
   touches: D78 D114 D115
 # P3 head review question Q1; the reviewer's recommended option, so a wing always feels tied to the song change
 # roads not taken: as built, the wing shows for whatever is left of its four seconds once there is room; a briefly unreadable menu bar may show it up to about seven tenths of a second late while an app switch never brings one out
+
+D135 2026-10-24 [I>V]
+  pre:   Apple Music is playing "Wonderwall", Chrome is in front with its Help menu left of the notch, and a status item such as Meter's CPU, GPU and RAM readings sits right of it [I>V]
+  trig:  the visionary rests the pointer on the notch and the island opens, stays open and closes [I>V]
+  resp:  inside the menu bar strip the island is never wider than the notch, at every moment of opening, staying open and closing; the full-width panel hangs only below the menu bar strip, joined to the notch by curved shoulders, so every app menu and status item beside the notch stays uncovered and clickable [I>V]
+  serves: N5 N1
+  sib:   D136
+  touches: D18 D24 D70 D113 D114
+# P3.5 ruling: the visionary saw the open panel covering Meter's CPU and part of its GPU reading; picked the notch-wide neck among three rendered shapes
+# roads not taken: a detached card below the menu bar with a small gap; a panel only as wide as the notch
+
+D136 2026-10-24 [I>V] !
+  pre:   the island is opening, open or closing, with a status item right of the notch and an app menu left of it [I>V]
+  trig:  any moment of the opening, the open time or the closing [I>V]
+  resp:  some part of the island inside the menu bar strip reaches wider than the notch and covers part of a status item or an app menu [I>V]
+  serves: N5
+  touches: D135
+
+D137 2026-10-24 [I>V]
+  pre:   Apple Music is playing "Wonderwall" and the island is closed to the plain notch [I>V]
+  trig:  the visionary rests the pointer on the notch or clicks it, and later the pointer leaves the island past its grace [I>V]
+  resp:  the opening starts by the end of the rest, or at once on a click, and grows out of the notch's own shape to the full open size over about four tenths of a second with a small spring, its edges passing their resting places by at most four points, the music page's content fading in as it settles; closing starts when the grace runs out and shrinks back into the notch over about three tenths of a second with no bounce, never smaller than the notch [I>V]
+  why:   the visionary asked for an opening like the open-source vorssaint-utils island; its springs grow in about four tenths of a second with a little bounce and shrink in about three tenths without, which the interviewer offered and the visionary picked; the four-point limit is the interviewer's, so a bounce stays a hint [I>V]
+  serves: N1 N5
+  sib:   D138
+  touches: D18 D51 D52 D74 D128 D129 D135
+# rule 7: D128's rest and D74's at-once click now mean the opening STARTS then; recorded on the fence as sanctioned rewords of the scenarios that bind them
+# GPL note: vorssaint-utils is GPL-3.0; only its feel is matched, none of its code is copied
+# roads not taken: a smooth grow and shrink with no bounce, about three tenths of a second each way; the spring for the panel only, the wing keeping its slide
+
+D138 2026-10-24 [I>V] !
+  pre:   the island is closed or open [I>V]
+  trig:  it opens or closes, or the new-song wing comes out or folds [I>V]
+  resp:  it appears or vanishes at once instead of growing out of or shrinking into the notch, or a bounce carries an edge more than four points past its resting place [I>V]
+  serves: N1 N2
+  touches: D137
+
+D139 2026-10-24 [I>V]
+  pre:   the island is closed and Chrome is in front, leaving `135` points free between its Help menu and the notch [I>V]
+  trig:  a new song starts and its wing comes out, then folds four seconds later [I>V]
+  resp:  the wing grows leftward out of the notch's left edge with the same spring as the opening, never reaching past its free gap even mid-bounce, and folds back into the notch's edge the same way the island closes instead of vanishing [I>V]
+  serves: N2 N5
+  sib:   D138
+  touches: D114 D115 D134 D137
+# the `135` points is the Chrome gap measured for D67

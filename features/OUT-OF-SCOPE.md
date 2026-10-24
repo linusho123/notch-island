@@ -32,6 +32,8 @@ assumption above.
 
 ## Roads not taken
 
+- **The open island's shape.** Rejected: a detached card just below the menu bar with a small gap (it would not read as one island), and a panel only as wide as the notch (the music page gets cramped). I picked the notch-wide neck, because the open panel was covering Meter's CPU and part of its GPU reading. (D135, 2026-10-24)
+- **How the island moves.** Rejected: a smooth grow and shrink with no bounce, and the spring for the open panel only while the wing kept its old slide. I picked a spring out and a quick, bounce-free shrink back, for both, similar to vorssaint-utils. (D137, D139, 2026-10-24)
 - **Chrome tracking deferred (reversed).** How the island learns what a Chrome tab is playing was first held for the technology-preferences step; it is no longer deferred, since I answered "make it so" there and it is the build agent's choice, recorded in DESIGN.md. (D6 reversed by D97, 2026-10-18)
 - **Reminders.** A timed reminder that pops the island out when due; a quiet marker on the closed island while a reminder is open. A reminder sits on the shelf until checked off and never draws attention, keeping incoming alerts declined. (D2, 2026-10-18)
 - **Players for downloaded files.** IINA and Music only, QuickTime never followed; any app that reports it is playing media. The file counts whichever of IINA, QuickTime Player or Music plays it, and my default apps stay as they are. (D5, 2026-10-18)
@@ -88,3 +90,9 @@ assumption above.
 - **Editing a note past the cap.** The cap applying only when a note is first written. Typing stops at the cap when editing too. (D123, 2026-10-19)
 - **When the app ignores a click.** The island showing the app's real state plus a small shake; leaving it to the build. The island always shows the app's real state and never its own guess, with no shake or message. (D124, 2026-10-19)
 - **A companion Chrome extension.** Ruling out any browser extension; leaving it as the build agent's own call. The island may rely on a small companion Chrome extension, installed once by me, to follow youtube.com and soundcloud.com tabs. (D126, 2026-10-19)
+
+## Sanctioned changes
+
+- `features/music-panel.feature`, "Resting the pointer on the notch opens the music panel" — direction: rewords. The Then now reads that the island starts opening downward by the end of the rest and shows "Wonderwall" and "Oasis" once it has settled, because the opening is now an animation that starts at the end of the rest. (D137, 2026-10-24)
+- `features/music-panel.feature`, "Resting the pointer on the notch for <rest> opens the island" — direction: rewords. The Then now reads that the island starts opening by the end of the rest, then settles on the music page; the rest's timing is met by the opening starting. (D137, 2026-10-24)
+- `features/music-panel.feature`, "Clicking the closed notch opens the island at once" — direction: rewords. The Then now reads that the island starts opening at once, without waiting for a rest, then settles on the music page. (D137, 2026-10-24)

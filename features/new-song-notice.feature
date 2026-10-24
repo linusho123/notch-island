@@ -98,3 +98,12 @@ Feature: The new-song notice
     When "Champagne Supernova" starts in Apple Music
     Then the visionary sees the notch area stay black, with no wing beside it
     And the visionary sees the movie play on, uninterrupted
+
+  @D139 @D138
+  Scenario: The wing slides out of the notch's left edge and back in
+    Given the island is closed and Apple Music is near the end of "Wonderwall" with "Champagne Supernova" next
+    And Chrome is in front, leaving 135 points free between its Help menu and the notch
+    When "Wonderwall" ends and "Champagne Supernova" starts
+    Then the visionary sees the wing grow leftward out of the notch's left edge over about 0.4 seconds rather than appear at once
+    And the visionary sees the wing never reach past its 135-point gap, even mid-bounce
+    And the visionary sees the wing slide back into the notch's edge when it folds, rather than vanish
