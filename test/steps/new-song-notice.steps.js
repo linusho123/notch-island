@@ -199,6 +199,22 @@ async function champagneStarts(w) {
   w.startedTitle = 'Champagne Supernova';
 }
 
+/**
+ * A positive control for the rows that show no wing: in this very session,
+ * with room in front, a song start pops a wing, and it folds again. Without
+ * it a row where nothing pops would pass on an island that never pops.
+ */
+async function popControl(w, what) {
+  await roomInFront(w);
+  await wonderwallClosed(w);
+  await champagneStarts(w);
+  await waitView(w, wingOut, Math.max(500, w.started + 1500 - Date.now()),
+    `positive control: with room in front a song start popped no wing, so "${what}" would prove nothing`);
+  await w.sampler.stop();
+  await scenes.plainNotch(w);
+  await playing(w, 'Wonderwall', 30);
+}
+
 /** The wing is out for Champagne Supernova (with room for its whole title). */
 async function wingOutForChampagne(w) {
   await roomInFront(w);
@@ -457,6 +473,10 @@ module.exports = (reg) => {
     await roomInFront(w);
     await wonderwallClosed(w);
     await champagneStarts(w);
+    // Positive control: the wing of this very start came out (the rows that
+    // follow look for it gone, or never there, later on).
+    await waitView(w, wingOut, Math.max(500, w.started + 1500 - Date.now()),
+      'positive control: the wing never came out after the song started, so its absence later proves nothing');
     await w.sampler.stop();
   });
 
@@ -486,10 +506,11 @@ module.exports = (reg) => {
       await roomInFront(w);
       island.feed(w, { leftGap: 45 });
     } else if (left.startsWith('is too narrow')) {
-      await roomInFront(w);
+      await popControl(w, 'a gap too narrow for the art');
       island.feed(w, { leftGap: 25 });
     } else {
       // A real menu bar full of menus up to the notch.
+      await popControl(w, 'a menu bar full of menus');
       await standInInFront(w, Array.from({ length: 40 }, (_, i) => `Menu ${i + 1}`));
       const { gap } = await realGap();
       assert.ok(gap < 20, `the stand-in's menus leave ${gap} points free left of the notch`);
@@ -522,6 +543,7 @@ module.exports = (reg) => {
   });
 
   reg.define(/^IINA is playing a movie fullscreen, the menu bar is hidden and the notch area is black$/, async (w) => {
+    await popControl(w, 'a fullscreen movie');
     await scenes.iinaFullscreen(w);
   });
 
