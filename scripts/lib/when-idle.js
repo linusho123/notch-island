@@ -159,7 +159,7 @@ function signalGroup(pid, signal) {
  * visionary's input stopped it, { guardError } when the guard was not up to
  * guarding it (the command then never runs, or is stopped), or { code }.
  */
-async function runGuarded({ command, guardCommand, harness, restore, log = console.error, readyMs = 5000, stopGraceMs = 10000, onSpawn = () => {} }) {
+async function runGuarded({ command, guardCommand, harness, restore, log = console.error, readyMs = 5000, stopGraceMs = 10000, settleMs = 400, onSpawn = () => {} }) {
   const left = await harness.pointer(); // where the visionary left it
   const guard = startGuard(guardCommand);
   try {
@@ -182,11 +182,17 @@ async function runGuarded({ command, guardCommand, harness, restore, log = conso
       child.on('exit', (code, signal) => { exit = { code: code ?? (signal ? 128 : 1), signal }; resolve(); });
       child.on('error', (e) => { exit = { code: 127, error: e.message }; resolve(); });
     });
-    const outcome = await Promise.race([
+    let outcome = await Promise.race([
       exited.then(() => 'done'),
       guard.until(() => guard.state.real || guard.state.exited).then(() => (guard.state.real ? 'real' : 'guard-died')),
     ]);
-    if (outcome === 'done') return { void: false, code: exit.code };
+    if (outcome === 'done') {
+      // The exit may have won the race against input that landed with it: give
+      // the guard a moment to report it before calling the run clean.
+      await guard.until(() => guard.state.real, settleMs);
+      if (!guard.state.real) return { void: false, code: exit.code };
+      outcome = 'real';
+    }
 
     // Stop at once: the whole process group, so no harness helper posts
     // another event; then give the pointer back.

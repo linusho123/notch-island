@@ -231,6 +231,33 @@ function fakeHarness() {
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'when-idle-'));
 
+test('input that lands just as the command exits still voids the run (P3 fix S7)', async () => {
+  const dir = tmp();
+  const guard = fakeGuardScript(dir, [[0, { ready: true }], [20, { harness: true }], [300, { real: true, signal: 'tap', type: 5 }]]);
+  const r = await w.runGuarded({
+    command: [process.execPath, '-e', '0'], // exits at once: the exit wins the race
+    guardCommand: [process.execPath, guard],
+    harness: fakeHarness(),
+    restore: () => {},
+    log: () => {},
+  });
+  assert.equal(r.void, true, `the run was not voided: ${JSON.stringify(r)}`);
+});
+
+test('a command that exits with no input after it is not voided (P3 fix S7)', async () => {
+  const dir = tmp();
+  const guard = fakeGuardScript(dir, [[0, { ready: true }], [20, { harness: true }]]);
+  const r = await w.runGuarded({
+    command: [process.execPath, '-e', '0'],
+    guardCommand: [process.execPath, guard],
+    harness: fakeHarness(),
+    restore: () => {},
+    log: () => {},
+  });
+  assert.equal(r.void, false);
+  assert.equal(r.code, 0);
+});
+
 test('real input stops the run within about a second, puts the pointer back and voids it', async () => {
   const dir = tmp();
   const marker = path.join(dir, 'terminated');
