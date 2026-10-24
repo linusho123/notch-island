@@ -55,17 +55,17 @@ final class PointerTrackingView: NSView {
 /// the opening and closing frame by frame, pages between music and shelf,
 /// and offers the right-click Quit.
 ///
-/// The island is drawn as one shape in two windows (D135): the neck, exactly
-/// the notch's width, inside the menu bar strip, and the body hanging below
-/// the strip, joined to the neck by curved shoulders. Nothing of the island
-/// lies in the strip beside the notch, so every app menu and status item
-/// there stays uncovered and clickable; the body lets clicks through its
-/// transparent shoulder corners.
+/// The island is drawn in two windows (D140, D136): the plain notch, over the
+/// camera housing and never larger, and the card, a window of its own below
+/// the menu bar strip that is sized to the card every frame of its motion.
+/// Nothing of the island lies in the strip beside the notch or in the gap
+/// between the notch and the card, so clicks there reach what is under them
+/// by construction; the card window lets clicks through its rounded corners.
 final class IslandController: NSObject, NSMenuDelegate {
-  private let neckPanel = IslandPanel()
-  private let bodyPanel = IslandPanel()
+  private let notchPanel = IslandPanel()
+  private let cardPanel = IslandPanel()
   private let rootView = PointerTrackingView()
-  private let bodyRoot = PointerTrackingView()
+  private let cardRoot = PointerTrackingView()
   /// The opening's progress, 0 (the plain notch) to 1 (the open panel).
   private var motion = MotionValue(at: 0)
   private var displayLink: CADisplayLink?
@@ -104,12 +104,12 @@ final class IslandController: NSObject, NSMenuDelegate {
     machine = HoverMachine(timing: timing)
     self.contextGuard = contextGuard
     super.init()
-    Self.host(FirstClickHostingView(rootView: NeckView(model: model)), in: rootView)
-    Self.host(FirstClickHostingView(rootView: BodyView(model: model)), in: bodyRoot)
-    neckPanel.contentView = rootView
-    bodyPanel.contentView = bodyRoot
+    Self.host(FirstClickHostingView(rootView: NotchView()), in: rootView)
+    Self.host(FirstClickHostingView(rootView: CardView(model: model)), in: cardRoot)
+    notchPanel.contentView = rootView
+    cardPanel.contentView = cardRoot
     rootView.onPointer = { [weak self] in self?.pointerChanged() }
-    bodyRoot.onPointer = { [weak self] in self?.pointerChanged() }
+    cardRoot.onPointer = { [weak self] in self?.pointerChanged() }
     monitor = NSEvent.addLocalMonitorForEvents(
       matching: [.leftMouseDown, .leftMouseUp, .rightMouseDown, .scrollWheel]
     ) { [weak self] event in
@@ -138,8 +138,8 @@ final class IslandController: NSObject, NSMenuDelegate {
     else {
       notchRect = nil
       shape = nil
-      neckPanel.orderOut(nil)
-      bodyPanel.orderOut(nil)
+      notchPanel.orderOut(nil)
+      cardPanel.orderOut(nil)
       return
     }
     notchRect = notch
@@ -149,10 +149,12 @@ final class IslandController: NSObject, NSMenuDelegate {
     let strip = max(notch.height, screen.frame.maxY - screen.visibleFrame.maxY)
     let local = CGRect(
       x: notch.minX, y: screen.frame.maxY - notch.maxY, width: notch.width, height: notch.height)
-    shape = IslandShape(notch: local, stripBottom: local.minY + strip, openBody: BodyView.openSize)
-    model.notchSize = notch.size
+    let shape = IslandShape(
+      notch: local, stripBottom: local.minY + strip, openCard: CardView.openSize)
+    self.shape = shape
+    notchPanel.setFrame(appKit(shape.notch), display: true)
     applyShape()
-    neckPanel.orderFrontRegardless()
+    notchPanel.orderFrontRegardless()
   }
 
   /// A top-left based rect of the shape in AppKit's global coordinates.
@@ -163,19 +165,17 @@ final class IslandController: NSObject, NSMenuDelegate {
 
   private var progress: Double { motion.sample(at: now).x }
 
-  /// Lay the two windows out for the motion's progress now, and show the
-  /// content once the opening has settled.
+  /// Size the card's window to the card for the motion's progress now (the
+  /// notch's window never changes), and show the content once the opening
+  /// has settled.
   private func applyShape() {
     guard let shape else { return }
-    let p = progress
-    neckPanel.setFrame(appKit(shape.neck(progress: p)), display: true)
-    if let body = shape.body(progress: p) {
-      bodyPanel.setFrame(appKit(body), display: true)
-      if !bodyPanel.isVisible { bodyPanel.orderFrontRegardless() }
-      if !model.bodyShown { model.bodyShown = true }
-    } else {
-      if bodyPanel.isVisible { bodyPanel.orderOut(nil) }
-      if model.bodyShown { model.bodyShown = false }
+    if let card = shape.card(progress: progress) {
+      cardPanel.setFrame(appKit(card), display: true)
+      if !cardPanel.isVisible { cardPanel.orderFrontRegardless() }
+      _ = pointerInside()
+    } else if cardPanel.isVisible {
+      cardPanel.orderOut(nil)
     }
     let content =
       machine.state == .open && motion.swing(at: now) < IslandMotion.contentSwing
@@ -209,18 +209,19 @@ final class IslandController: NSObject, NSMenuDelegate {
 
   /// Whether the pointer is on the island's drawn shape as it stands now. The
   /// top edge counts: the pointer pushed against the top of the screen is on
-  /// the notch. Over the body, the window lets clicks through wherever the
-  /// shape is not drawn (the shoulders' corners).
+  /// the notch. Over the card's window, the window lets clicks through where
+  /// the card is not drawn (its rounded corners); this is asked again on
+  /// every pointer event and every frame of the motion, so it is never stale
+  /// for a pointer that stays put while the card moves under it.
   private func pointerInside() -> (CGPoint, Bool) {
     let p = Self.pointerLocation()
     guard let shape, let screenFrame else { return (p, false) }
     let local = CGPoint(x: p.x, y: screenFrame.maxY - p.y)
     let progress = progress
-    let radius = model.bodyShown ? 0 : NotchGeometry.closedBottomRadius
-    let inside = shape.contains(local, progress: progress, neckBottomRadius: radius)
-    if let body = shape.body(progress: progress), body.contains(local) {
-      bodyPanel.ignoresMouseEvents = !inside
-    }
+    let inside = shape.contains(local, progress: progress)
+    let overCardWindow = shape.card(progress: progress)?.contains(local) ?? false
+    let passThrough = overCardWindow && !inside
+    if cardPanel.ignoresMouseEvents != passThrough { cardPanel.ignoresMouseEvents = passThrough }
     return (p, inside)
   }
 
@@ -363,7 +364,7 @@ final class IslandController: NSObject, NSMenuDelegate {
   }
 
   private func isIsland(_ window: NSWindow?) -> Bool {
-    window === neckPanel || window === bodyPanel
+    window === notchPanel || window === cardPanel
   }
 
   /// The right-click menu has one item, Quit (D86). Quitting stops the island

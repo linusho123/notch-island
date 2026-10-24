@@ -131,120 +131,100 @@ public enum IslandMotion {
   }
 }
 
-/// The island drawn as one shape (D135): a neck exactly as wide as the notch
-/// filling the menu bar strip, and below the strip the panel, joined to the
-/// neck by curved shoulders. Rects here are top-left based (y grows down).
+/// The island's shape (D140, D136): the plain notch, and below the menu bar
+/// strip a card of its own, centred under the notch, its top edge `gap`
+/// points below the notch's bottom edge, with nothing drawn between them.
+/// Opening, the card grows down out of the notch: it starts as a sliver as
+/// wide as the notch at the strip's bottom edge and each of its four edges
+/// travels to its open place, so it widens only below the strip and the
+/// only part of the island inside the strip is the notch. Closing, it
+/// shrinks back up into the notch the same way. Rects here are top-left
+/// based (y grows down).
 public struct IslandShape: Equatable, Sendable {
   /// The camera housing.
   public var notch: CGRect
   /// The menu bar strip's bottom edge (at least the notch's).
   public var stripBottom: CGFloat
-  /// The open panel's size below the strip, shoulders included.
-  public var openBody: CGSize
+  /// The open card's size.
+  public var openCard: CGSize
 
-  public static let shoulderRadius: CGFloat = 10
-  public static let topCornerRadius: CGFloat = 12
-  public static let bottomRadius: CGFloat = 22
+  /// The space between the notch's bottom edge and the open card's top (D140: about 8).
+  public static let gap: CGFloat = 8
+  /// The card's corner radius, all four corners.
+  public static let cornerRadius: CGFloat = 22
 
-  public init(notch: CGRect, stripBottom: CGFloat, openBody: CGSize) {
+  public init(notch: CGRect, stripBottom: CGFloat, openCard: CGSize) {
     self.notch = notch
     self.stripBottom = max(stripBottom, notch.maxY)
-    self.openBody = openBody
+    self.openCard = openCard
   }
 
-  /// The neck: the notch's own width, never more, down to the strip's bottom
-  /// while anything hangs below it; the notch itself when closed.
-  public func neck(progress p: Double) -> CGRect {
-    let bottom = p > 0 ? stripBottom : notch.maxY
-    return CGRect(x: notch.minX, y: notch.minY, width: notch.width, height: bottom - notch.minY)
+  /// The open card where it rests: centred under the notch, `gap` below it,
+  /// and never inside the menu bar strip.
+  public var openFrame: CGRect {
+    let top = max(notch.maxY + Self.gap, stripBottom)
+    return CGRect(
+      x: notch.midX - openCard.width / 2, y: top, width: openCard.width, height: openCard.height)
   }
 
-  /// The part below the strip, centred under the notch: nothing while closed.
-  public func body(progress p: Double) -> CGRect? {
-    let w = IslandMotion.length(closed: notch.width, open: openBody.width, progress: p)
-    let h = IslandMotion.length(closed: 0, open: openBody.height, progress: p)
-    guard h >= 0.5 else { return nil }
-    return CGRect(x: notch.midX - w / 2, y: stripBottom, width: w, height: h)
+  /// Where the card starts from and shrinks back to: the notch's width, no
+  /// height, at the strip's bottom edge right under the notch.
+  public var closedFrame: CGRect {
+    CGRect(x: notch.minX, y: stripBottom, width: notch.width, height: 0)
   }
 
-  /// The body's outline in its own coordinates (origin top-left, y down):
-  /// the neck's continuation at the top, concave shoulders out to the panel's
-  /// top edge, rounded outer corners.
-  public static func bodyPath(size: CGSize, neckWidth: CGFloat) -> CGPath {
-    let path = CGMutablePath()
-    let w = size.width
-    let h = size.height
-    let side = max(0, (w - neckWidth) / 2)
-    let nl = side
-    let nr = w - side
-    let rs = min(shoulderRadius, side, h / 3)
-    let rc = min(topCornerRadius, max(0, side - rs), max(0, (h - rs) / 3))
-    let rb = min(bottomRadius, w / 2, max(0, h - rs - rc))
-    path.move(to: CGPoint(x: nl, y: 0))
-    path.addLine(to: CGPoint(x: nr, y: 0))
-    if rs > 0 {
-      path.addArc(
-        center: CGPoint(x: nr + rs, y: 0), radius: rs, startAngle: .pi, endAngle: .pi / 2,
-        clockwise: true)
-    }
-    path.addLine(to: CGPoint(x: w - rc, y: rs))
-    if rc > 0 {
-      path.addArc(
-        center: CGPoint(x: w - rc, y: rs + rc), radius: rc, startAngle: -.pi / 2, endAngle: 0,
-        clockwise: false)
-    }
-    path.addLine(to: CGPoint(x: w, y: h - rb))
-    if rb > 0 {
-      path.addArc(
-        center: CGPoint(x: w - rb, y: h - rb), radius: rb, startAngle: 0, endAngle: .pi / 2,
-        clockwise: false)
-    }
-    path.addLine(to: CGPoint(x: rb, y: h))
-    if rb > 0 {
-      path.addArc(
-        center: CGPoint(x: rb, y: h - rb), radius: rb, startAngle: .pi / 2, endAngle: .pi,
-        clockwise: false)
-    }
-    path.addLine(to: CGPoint(x: 0, y: rs + rc))
-    if rc > 0 {
-      path.addArc(
-        center: CGPoint(x: rc, y: rs + rc), radius: rc, startAngle: .pi, endAngle: 3 * .pi / 2,
-        clockwise: false)
-    }
-    path.addLine(to: CGPoint(x: nl - rs, y: rs))
-    if rs > 0 {
-      path.addArc(
-        center: CGPoint(x: nl - rs, y: 0), radius: rs, startAngle: .pi / 2, endAngle: 0,
-        clockwise: true)
-    }
-    path.closeSubpath()
-    return path
+  /// The card at progress `p`: each edge travels from its closed place to its
+  /// open one, passing it by at most `IslandMotion.maxOvershoot`; nothing
+  /// while closed.
+  public func card(progress p: Double) -> CGRect? {
+    let from = closedFrame
+    let to = openFrame
+    let top = IslandMotion.length(closed: from.minY, open: to.minY, progress: p)
+    let bottom = IslandMotion.length(closed: from.maxY, open: to.maxY, progress: p)
+    let half = IslandMotion.length(closed: from.width / 2, open: to.width / 2, progress: p)
+    guard bottom - top >= 0.5 else { return nil }
+    return CGRect(x: notch.midX - half, y: top, width: 2 * half, height: bottom - top)
   }
 
-  /// Whether `p` (top-left based) is on the drawn shape at progress `progress`.
-  /// The top edge counts, one point past it too: the pointer pushed against
-  /// the top of the screen is on the notch.
-  public func contains(_ p: CGPoint, progress: Double, neckBottomRadius: CGFloat) -> Bool {
-    let neck = neck(progress: progress)
-    let neckHit = CGRect(x: neck.minX, y: neck.minY - 1, width: neck.width, height: neck.height + 1)
-    if neckHit.contains(p) {
-      // Rounded bottom corners of the closed notch.
-      let r = min(neckBottomRadius, neck.width / 2, neck.height)
-      guard r > 0, p.y > neck.maxY - r else { return true }
+  /// Everything drawn at progress `p`: the notch, then the card if any.
+  public func parts(progress p: Double) -> [CGRect] {
+    [notch] + (card(progress: p).map { [$0] } ?? [])
+  }
+
+  /// The card's outline in its own coordinates: a rect with all four corners
+  /// rounded, the radius held to what the size allows mid-motion.
+  public static func cardPath(size: CGSize) -> CGPath {
+    let r = max(0, min(cornerRadius, size.width / 2, size.height / 2))
+    return CGPath(
+      roundedRect: CGRect(origin: .zero, size: size), cornerWidth: r, cornerHeight: r,
+      transform: nil)
+  }
+
+  /// Whether `p` (top-left based) is on the drawn shape at `progress`: the
+  /// notch with its rounded bottom corners, its top edge counted one point
+  /// past (the pointer pushed against the top of the screen is on the
+  /// notch), or inside the card's rounded rect. Nothing else: not the gap,
+  /// not the strip beside the notch, not the card's corners.
+  public func contains(_ p: CGPoint, progress: Double) -> Bool {
+    let notchHit = CGRect(
+      x: notch.minX, y: notch.minY - 1, width: notch.width, height: notch.height + 1)
+    if notchHit.contains(p) {
+      let r = min(NotchGeometry.closedBottomRadius, notch.width / 2, notch.height)
+      guard r > 0, p.y > notch.maxY - r else { return true }
       let cx: CGFloat
-      if p.x < neck.minX + r {
-        cx = neck.minX + r
-      } else if p.x > neck.maxX - r {
-        cx = neck.maxX - r
+      if p.x < notch.minX + r {
+        cx = notch.minX + r
+      } else if p.x > notch.maxX - r {
+        cx = notch.maxX - r
       } else {
         return true
       }
       let dx = p.x - cx
-      let dy = p.y - (neck.maxY - r)
+      let dy = p.y - (notch.maxY - r)
       return dx * dx + dy * dy <= r * r
     }
-    guard let body = body(progress: progress), body.contains(p) else { return false }
-    let local = CGPoint(x: p.x - body.minX, y: p.y - body.minY)
-    return Self.bodyPath(size: body.size, neckWidth: notch.width).contains(local)
+    guard let card = card(progress: progress), card.contains(p) else { return false }
+    let local = CGPoint(x: p.x - card.minX, y: p.y - card.minY)
+    return Self.cardPath(size: card.size).contains(local)
   }
 }
