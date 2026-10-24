@@ -195,7 +195,28 @@ final class WingController {
     panel.contentView = hosting
     NSWorkspace.shared.notificationCenter.addObserver(
       forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
-    ) { [weak self] _ in self?.relayout() }
+    ) { [weak self] _ in
+      self?.relayout()
+      self?.recheckFullscreen()
+    }
+    NSWorkspace.shared.notificationCenter.addObserver(
+      forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
+    ) { [weak self] _ in self?.recheckFullscreen() }
+  }
+
+  /// A wing already out when its app goes fullscreen folds at once (D125):
+  /// macOS reports the space change before the animation into fullscreen ends,
+  /// so fullscreen is read again a few times, only while the wing is out.
+  private func recheckFullscreen() {
+    guard model.out else { return }
+    for delay in WingHold.fullscreenRechecks {
+      DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+        guard let self,
+          WingHold.foldsForFullscreen(wingOut: self.model.out, fullscreen: self.fullscreen())
+        else { return }
+        self.foldNow()
+      }
+    }
   }
 
   private var now: TimeInterval { ProcessInfo.processInfo.systemUptime }

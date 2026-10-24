@@ -325,6 +325,19 @@ struct WingHoldTests {
     #expect(!hold.mayCome(at: 22))
   }
 
+  @Test func aWingAlreadyOutFoldsAtOnceWhenAnAppGoesFullscreen() {
+    #expect(WingHold.foldsForFullscreen(wingOut: true, fullscreen: true))
+    #expect(!WingHold.foldsForFullscreen(wingOut: true, fullscreen: false))
+    #expect(!WingHold.foldsForFullscreen(wingOut: false, fullscreen: true))
+  }
+
+  @Test func theFullscreenRecheckIsFewAndBoundedInsideAboutOneAndAHalfSeconds() {
+    let delays = WingHold.fullscreenRechecks
+    #expect(delays.count >= 3 && delays.count <= 6)
+    #expect(delays == delays.sorted())
+    #expect(delays.first! > 0 && delays.last! <= 1.5)
+  }
+
   @Test func notOutBeforeAnySong() {
     #expect(!WingHold().isOut(at: 0))
   }

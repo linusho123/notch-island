@@ -179,6 +179,16 @@ public struct WingHold: Sendable {
     return time < foldAt
   }
 
+  /// After a space or app change while a wing is out, fullscreen is read again
+  /// at these delays (seconds) and no more: macOS reports the change before the
+  /// space's animation into fullscreen ends (D125). Never a loop.
+  public static let fullscreenRechecks: [TimeInterval] = [0.25, 0.6, 1.0, 1.5]
+
+  /// Whether a wing already out must fold at once for a fullscreen app (D125).
+  public static func foldsForFullscreen(wingOut: Bool, fullscreen: Bool) -> Bool {
+    wingOut && fullscreen
+  }
+
   /// Whether a new song pops the wing at all: only while the island is
   /// closed and no app is fullscreen (D125), and only with room for the art.
   public static func pops(fit: WingFit, islandOpen: Bool, fullscreen: Bool) -> Bool {
