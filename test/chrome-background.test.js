@@ -124,3 +124,61 @@ test('when the host ends, the extension reads chrome.runtime.lastError so Chrome
   listeners[listeners.length - 1]();
   assert.ok(read >= 1, 'onDisconnect never read chrome.runtime.lastError');
 });
+
+// MV3: Chrome suspends the service worker after ~30 s idle, and a setTimeout
+// pending then is lost. A reconnect must not rest on one (P3 fix: the
+// extension did not reconnect after the island restarted).
+function loadSuspendable() {
+  let now = 1000000;
+  const ports = [];
+  const disconnects = [];
+  const listeners = {};
+  const evt = (name) => ({ addListener: (f) => { listeners[name] = f; } });
+  const created = [];
+  const chrome = {
+    runtime: {
+      connectNative: () => {
+        const p = { onMessage: { addListener() {} }, onDisconnect: { addListener: (f) => disconnects.push(f) }, postMessage() {} };
+        ports.push(p);
+        return p;
+      },
+      onMessage: evt('runtimeMessage'),
+    },
+    tabs: { get: async () => ({}), onUpdated: evt('updated'), onRemoved: evt('removed'), query: async () => [] },
+    alarms: { create: (name, info) => { created.push([name, info]); }, onAlarm: evt('alarm') },
+    windows: {},
+  };
+  const sandbox = { chrome, console, URL, Date: { now: () => now }, setTimeout: () => 1 }; // timers are lost
+  sandbox.self = sandbox;
+  sandbox.importScripts = (f) => vm.runInContext(fs.readFileSync(path.join(DIR, f), 'utf8'), sandbox);
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(DIR, 'background.js'), 'utf8'), sandbox);
+  return { ports, disconnects, listeners, created, advance: (ms) => { now += ms; } };
+}
+
+test('a lost reconnect timer does not strand the extension: an alarm reconnects it', () => {
+  const w = loadSuspendable();
+  assert.equal(w.ports.length, 1);
+  assert.ok(w.created.some(([, info]) => info && info.periodInMinutes && info.periodInMinutes <= 1), 'no repeating alarm is set');
+  w.advance(60000);
+  w.disconnects[0](); // the island restarted; the setTimeout dies with the worker
+  w.advance(40000);
+  assert.ok(w.listeners.alarm, 'no alarm listener');
+  w.listeners.alarm({ name: 'reconnect' });
+  assert.equal(w.ports.length, 2, 'the alarm did not reconnect');
+  w.listeners.alarm({ name: 'reconnect' });
+  assert.equal(w.ports.length, 2, 'an alarm reconnected while connected');
+});
+
+test('a tab event reconnects a disconnected extension, at most once every 5 s', () => {
+  const w = loadSuspendable();
+  w.advance(60000);
+  w.disconnects[0]();
+  w.advance(6000);
+  w.listeners.updated(7, { audible: true });
+  assert.equal(w.ports.length, 2, 'a tab event did not reconnect');
+  w.disconnects[1]();
+  w.advance(1000);
+  w.listeners.updated(7, { audible: true });
+  assert.equal(w.ports.length, 2, 'reconnected within 5 s of the last try');
+});
