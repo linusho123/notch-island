@@ -26,7 +26,15 @@ const { helpers } = require('./music-panel.steps');
 const { ensureIsland, playing, rest, openOnMusicPage, button, pointerAway, RULED_REST_MS } = helpers;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const JBL = { name: 'JBL Flip 5', builtIn: false };
-const plainNotch = (w) => scenes.plainNotch(w);
+/**
+ * The island closed to the plain notch after the Given's own song started:
+ * first the second in which that song's own wing may still come out, so it
+ * is not taken for the When's.
+ */
+const plainNotch = async (w) => {
+  await sleep(1200);
+  await scenes.plainNotch(w);
+};
 
 // ------------------------------------------------------------ the far side
 
@@ -286,15 +294,16 @@ const SOURCES = {
       await music.pause().catch(() => {});
       const [one] = await iinaParts();
       assert.equal(path.basename(one.file), first);
-      // From ten seconds before its end: it plays on into the second part.
-      await players.playInIINA(w, one.file, one.seconds - 10);
+      // From twenty seconds before its end: it plays on into the second part
+      // after the rest of the Given.
+      await players.playInIINA(w, one.file, one.seconds - 20);
       await roomInFront(w);
       await plainNotch(w);
     },
     async when(w, second) {
       w.sampler = sampler(w);
       const { start } = await startedPer(players.nowPlaying,
-        (np) => np.bundleID === players.IINA_ID && np.title === second && np.playing && np.elapsed < 5, 20000,
+        (np) => np.bundleID === players.IINA_ID && np.title === second && np.playing && np.elapsed < 5, 30000,
         `IINA did not go on to "${second}"`);
       w.started = start;
     },
