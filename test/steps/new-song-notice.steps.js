@@ -302,10 +302,27 @@ const SOURCES = {
     },
     async when(w, second) {
       w.sampler = sampler(w);
-      const { start } = await startedPer(players.nowPlaying,
-        (np) => np.bundleID === players.IINA_ID && np.title === second && np.playing && np.elapsed < 5, 30000,
-        `IINA did not go on to "${second}"`);
-      w.started = start;
+      // IINA's own entry on the now-playing service: when it names the second
+      // part, the start is the read less its elapsed time. IINA sometimes
+      // carries the first part's clock over into the second part's entry;
+      // then the start is taken at the end of the last read that did not name
+      // it yet (the earliest it can have been, so the island is held to more).
+      const end = Date.now() + 30000;
+      let last = null;
+      let lastRead = Date.now();
+      for (;;) {
+        const t0 = Date.now();
+        const np = await players.nowPlaying().catch(() => null);
+        const t1 = Date.now();
+        if (np && np.bundleID === players.IINA_ID && np.title === second && np.playing) {
+          w.started = np.elapsed < 5 ? (t0 + t1) / 2 - 1000 * np.elapsed : lastRead;
+          break;
+        }
+        last = np;
+        lastRead = t1;
+        if (t1 > end) throw new Error(`IINA did not go on to "${second}" (it says ${JSON.stringify(last)})`);
+        await sleep(20);
+      }
     },
   },
   'QuickTime Player': {
