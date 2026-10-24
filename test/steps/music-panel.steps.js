@@ -17,6 +17,7 @@ const registry = require('../support/registry');
 const players = require('../support/players');
 const procs = require('../support/procs');
 const scenes = require('../support/scenes');
+const motion = require('../support/motion');
 const { root, testBundleID } = require('../support/paths');
 const { osa } = music;
 
@@ -26,6 +27,8 @@ const mmss = (t) => {
   return m * 60 + s;
 };
 const center = (f) => ({ x: f.x + f.w / 2, y: f.y + f.h / 2 });
+/** The open panel's width (D135: the full-width panel hangs below the strip). */
+const OPEN_PANEL_WIDTH = 460;
 
 // ---------------------------------------------------------------- helpers
 
@@ -122,28 +125,44 @@ async function assertFocusKept(w) {
   assert.equal(keyed.length, 0, 'an island window is the focused or main window of its app');
 }
 
+/**
+ * The island opens on the music page. With a deadline, the opening must have
+ * STARTED by then (D137: the rest's timing is met by the opening starting,
+ * the part below the menu bar strip seen growing); it then settles on the
+ * music page.
+ */
 async function openOnMusicPage(w, deadline = null) {
   const pid = w.island.pid;
   let view;
-  if (deadline === null) {
-    view = await island.waitFor(pid, (v) => v.open && v.page === 'music', 1500,
-      'the island did not open on the music page');
-  } else {
-    // Looks back to back; the open island must have been seen by the deadline
+  if (deadline !== null) {
+    // Looks back to back; the opening must have been seen by the deadline
     // (the rest plus REST_SLACK_MS), not merely sometime after it.
     for (;;) {
       view = await island.look(pid);
       const late = Date.now() - deadline;
-      if (view.open && view.page === 'music') {
-        assert.ok(late <= 0, `the island opened on the music page ${Math.round(late)} ms after the allowed time for a rest of ${w.restMs ?? RULED_REST_MS} ms`);
+      if (view.open) {
+        assert.ok(late <= 0, `the island started opening ${Math.round(late)} ms after the allowed time for a rest of ${w.restMs ?? RULED_REST_MS} ms`);
         break;
       }
-      assert.ok(late <= 0, `the island is not open ${Math.round(late)} ms after the allowed time for a rest of ${w.restMs ?? RULED_REST_MS} ms`);
+      assert.ok(late <= 0, `the island has not started opening ${Math.round(late)} ms after the allowed time for a rest of ${w.restMs ?? RULED_REST_MS} ms`);
     }
   }
+  view = await island.waitFor(pid, (v) => v.open && v.page === 'music', 1500,
+    'the island did not settle on the music page');
   await assertHangsFromNotch(view);
   await assertFocusKept(w);
   return view;
+}
+
+/**
+ * "At once" on a click (D74, D137): the opening starts within 200 ms of the
+ * click, well before a rest would have, the part below the strip growing.
+ */
+function assertOpeningStartedOnClick(w) {
+  const first = w.afterClick.find((s) => s.view.open);
+  assert.ok(first, 'the island did not start opening on the click');
+  const ms = first.t - w.clickedAt;
+  assert.ok(ms < 200, `the island took ${Math.round(ms)} ms to start opening after the click, as long as a rest`);
 }
 
 /** Rest on the notch and wait for the island to open, as a Given. */
@@ -436,6 +455,12 @@ module.exports = (reg) => {
 
   reg.define(/^the visionary rests the pointer on the notch$/, async (w) => {
     w.restMs = RULED_REST_MS;
+    const pid = await ensureIsland(w);
+    // The opening is watched frame by frame meanwhile, for the Thens that
+    // look at its motion (D137, D138).
+    w.opening = motion.watchWhile(pid, 1500, { start: 'open' }, async () => {});
+    w.defer(() => Promise.resolve(w.opening).catch(() => {}));
+    await sleep(80);
     await rest(w, RULED_REST_MS);
   });
 
@@ -613,7 +638,7 @@ module.exports = (reg) => {
 
   // Thens ----------------------------------------------------------------
 
-  reg.define(/^the visionary sees the island open downward showing "([^"]+)" and "([^"]+)"$/, async (w, title, artist) => {
+  reg.define(/^the visionary sees the island start opening downward by the end of the rest, then showing "([^"]+)" and "([^"]+)" once it has settled$/, async (w, title, artist) => {
     const view = await openOnMusicPage(w, restDeadline(w));
     await island.waitFor(w.island.pid, (v) => v.texts.includes(title) && v.texts.includes(artist), 1000,
       `the island does not show "${title}" and "${artist}"`);
@@ -634,12 +659,13 @@ module.exports = (reg) => {
       `the island drew something during the sweep, first with the pointer at x ${opened[0]?.pointer.x}: ${JSON.stringify(opened[0]?.view.frames)}`);
   });
 
-  reg.define(/^the visionary sees the island open at once on the music page, without waiting for a rest$/, async (w) => {
-    const first = w.afterClick.find((s) => s.view.open && s.view.page === 'music');
-    assert.ok(first, 'the island did not open on the click');
-    const ms = first.t - w.clickedAt;
-    assert.ok(ms < 200, `the island took ${Math.round(ms)} ms to open after the click, as long as a rest`);
+  reg.define(/^the visionary sees the island start opening at once, without waiting for a rest, then settle on the music page$/, async (w) => {
+    await assertOpeningStartedOnClick(w);
     await openOnMusicPage(w);
+  });
+
+  reg.define(/^the visionary sees the island start opening by the end of the rest, then settle on the music page$/, async (w) => {
+    await openOnMusicPage(w, restDeadline(w));
   });
 
   reg.define(/^the visionary sees the island close back to the plain notch$/, async (w) => {
@@ -782,9 +808,7 @@ module.exports = (reg) => {
     if (result === 'the island open on the music page') {
       await openOnMusicPage(w, restDeadline(w));
     } else if (result.startsWith('the island open at once')) {
-      const first = w.afterClick.find((s) => s.view.open && s.view.page === 'music');
-      assert.ok(first, 'the island did not open on the click');
-      assert.ok(first.t - w.clickedAt < 200, `the island took ${Math.round(first.t - w.clickedAt)} ms to open`);
+      await assertOpeningStartedOnClick(w);
       await openOnMusicPage(w);
     } else {
       await shelfFromBelow(w);
@@ -993,6 +1017,223 @@ module.exports = (reg) => {
     assert.equal(closed.length, 0, 'the island closed while the dot was still held far away');
     await harness.release();
   });
+  // The island's shape and motion (P3.5, D135-D138) --------------------------
+  // Every Then reads the island's window frames as Accessibility and the
+  // window server give them, sampled fast by the harness while it moves,
+  // against the menu bar items' own frames and macOS's own hit test.
+
+  reg.define(/^Chrome is in front with its Help menu left of the notch, and a status item sits right of the notch as Meter's readings do$/, async (w) => {
+    await ensureIsland(w);
+    if (!w.chrome || w.chrome.exited) w.chrome = await chrome.launch(w);
+    await harness.activate(w.chrome.pid);
+    await island.until(async () => (await harness.frontmost()).pid === w.chrome.pid, 5000,
+      'the test Chrome did not come to the front');
+    const g = await motion.geometry();
+    const n = g.notch;
+    const help = (await harness.menubar(w.chrome.pid)).find((i) => i.title === 'Help');
+    assert.ok(help && help.frame, "Chrome's menu bar shows no Help menu");
+    assert.ok(help.frame.x + help.frame.w <= n.x, "Chrome's Help menu is not left of the notch");
+    w.help = help.frame;
+    // A status item of the harness's own (never Meter's, which is only read),
+    // where a panel as wide as the open one would have reached into the strip.
+    w.status = await motion.statusStandIn(w);
+    const f = w.status.frame;
+    const reach = (OPEN_PANEL_WIDTH - n.w) / 2;
+    assert.ok(f.x >= n.x + n.w - 0.5, `the status item (x ${f.x}) is not right of the notch`);
+    assert.ok(f.x < n.x + n.w + reach,
+      `the status item (x ${f.x}) lies beyond where a full-width panel would reach, so it proves nothing`);
+    // Meter's readings and the other status items beside the notch: read once, never clicked.
+    w.beside = (await harness.extras()).map((i) => i.frame)
+      .filter((r) => r && r.w > 0 && r.y < g.stripBottom && r.x < n.x + n.w + reach && r.x + r.w > n.x - reach);
+    await plainNotch(w);
+  });
+
+  reg.define(/^the visionary rests the pointer on the notch, the island opens, and later the pointer leaves it$/, async (w) => {
+    const pid = await ensureIsland(w);
+    const hits = [motion.center(w.help), motion.center(w.status.frame)];
+    w.watch = await motion.watchWhile(pid, 3400, { start: 'open', hits }, async () => {
+      w.restMs = RULED_REST_MS;
+      await rest(w, RULED_REST_MS);
+      await island.waitFor(pid, (v) => v.open && v.page === 'music', 2000, 'the island did not open');
+      await sleep(500); // the open time
+      await pointerAway();
+    });
+    w.watch.hitOwners = [w.chrome.pid, w.status.handle.pid];
+  });
+
+  reg.define(/^the visionary rests the pointer on the notch and the island starts opening$/, async (w) => {
+    const pid = await ensureIsland(w);
+    w.restMs = RULED_REST_MS;
+    w.opening = await motion.watchWhile(pid, 1400, { start: 'open', looks: [100, 600] }, () => rest(w, RULED_REST_MS));
+    assert.ok(w.opening.start, 'the island never started opening');
+  });
+
+  reg.define(/^the visionary moves the pointer off the island and its grace runs out$/, async (w) => {
+    const pid = await ensureIsland(w);
+    w.closing = await motion.watchWhile(pid, 1900, { start: 'close', looks: [100, 500] }, () => pointerAway());
+    assert.ok(w.closing.start, 'the island never started closing');
+  });
+
+  reg.define(/^the visionary sees the island no wider than the notch inside the menu bar strip at every moment while it opens, stays open and closes$/, (w) => {
+    const { samples, g } = w.watch;
+    const n = g.notch;
+    assert.ok(samples.length > 100, `only ${samples.length} looks at the island`);
+    // Positive control: it opened to the full panel and closed again while watched.
+    const bodies = samples.map((s) => motion.parts(s.ax, g).body);
+    assert.ok(bodies.some((b) => b && b.w >= OPEN_PANEL_WIDTH - 5), 'the island never opened to the full panel while watched');
+    assert.ok(!bodies[bodies.length - 1], 'the island had not closed again by the end of the watch');
+    for (const s of samples) {
+      for (const f of motion.framesOf(s)) {
+        // A wing lies wholly left of the notch; nothing else may be in the strip beside it.
+        if (!motion.inStrip(f, g) || f.x + f.w <= n.x + 0.5) continue;
+        assert.ok(f.x >= n.x - 0.5 && f.x + f.w <= n.x + n.w + 0.5,
+          `${Math.round(s.t - w.watch.start)} ms after the opening started the island spans x ${f.x}-${f.x + f.w} inside the menu bar strip, wider than the notch (${n.x}-${n.x + n.w})`);
+      }
+    }
+  });
+
+  reg.define(/^the visionary sees Chrome's Help menu and the status item right of the notch uncovered the whole time$/, (w) => {
+    const { samples, hitOwners } = w.watch;
+    const items = [['Help menu', w.help], ['status item', w.status.frame], ...w.beside.map((f) => ['status item', f])];
+    for (const s of samples) {
+      const t = Math.round(s.t - w.watch.start);
+      for (const f of motion.framesOf(s)) {
+        for (const [name, item] of items) {
+          assert.ok(!motion.overlaps(f, item), `${t} ms after the opening started the island ${JSON.stringify(f)} covers the ${name} at ${JSON.stringify(item)}`);
+        }
+      }
+      // What macOS itself finds there: still Chrome's menu and the status item.
+      s.hits.forEach((owner, i) => {
+        assert.equal(owner, hitOwners[i], `${t} ms after the opening started macOS finds process ${owner} at the ${i ? 'status item' : 'Help menu'}, not its own app`);
+      });
+    }
+  });
+
+  reg.define(/^the visionary sees the full-width panel only below the menu bar strip, joined to the notch$/, (w) => {
+    const { samples, g } = w.watch;
+    const n = g.notch;
+    let open = 0;
+    for (const s of samples) {
+      const { neck, body } = motion.parts(s.ax, g);
+      if (!body) continue;
+      const t = Math.round(s.t - w.watch.start);
+      assert.ok(body.y >= g.stripBottom - 0.5, `${t} ms after the opening started the panel's top is at y ${body.y}, inside the menu bar strip`);
+      assert.ok(neck && Math.abs(neck.y + neck.h - body.y) <= 0.5 && body.x < n.x + 1 && body.x + body.w > n.x + n.w - 1,
+        `${t} ms after the opening started the panel ${JSON.stringify(body)} is not joined to the notch ${JSON.stringify(neck)}`);
+      assert.ok(Math.abs(body.x + body.w / 2 - (n.x + n.w / 2)) <= 1, 'the panel is not centred under the notch');
+      if (body.w >= OPEN_PANEL_WIDTH - 5) open++;
+    }
+    assert.ok(open > 10, 'the full-width panel was never seen hanging below the strip');
+  });
+
+  /** The opening's samples from its start, with the shape's parts. */
+  function sinceStart(watch) {
+    return watch.samples.filter((s) => s.t >= watch.start - 1)
+      .map((s) => ({ t: s.t - watch.start, ...motion.parts(s.ax, watch.g) }));
+  }
+
+  /** The open size the motion came to rest at: the body at the watch's end. */
+  function restingBody(seq) {
+    const b = seq[seq.length - 1].body;
+    assert.ok(b && b.w >= OPEN_PANEL_WIDTH - 5 && b.h > 100, `the island did not end the watch open: ${JSON.stringify(b)}`);
+    return b;
+  }
+
+  reg.define(/^the visionary sees the island grow out of the notch's own shape over about 0\.4 seconds rather than appear at once$/, async (w) => {
+    const watch = await w.opening;
+    assert.ok(watch.start, 'the island never started opening');
+    const n = watch.g.notch;
+    const seq = sinceStart(watch);
+    const final = restingBody(seq);
+    const first = seq.find((s) => s.body);
+    assert.ok(first.t < 20, 'the first look after the opening started came late');
+    assert.ok(first.body.w <= n.w + 0.2 * (final.w - n.w) && first.body.h <= 0.2 * final.h,
+      `the island appeared at once: ${JSON.stringify(first.body)} at its first look, against ${JSON.stringify(final)} open`);
+    assert.ok(first.neck && first.neck.x === n.x && first.neck.w === n.w, 'the opening did not start from the notch itself');
+    const partway = seq.filter((s) => s.body && s.body.h < final.h - 2 && s.body.w < final.w - 2);
+    assert.ok(partway.length >= 5, `only ${partway.length} looks saw the island partway grown`);
+    const near = (s) => s.body && Math.abs(s.body.w - final.w) <= 1 && Math.abs(s.body.h - final.h) <= 1
+      && Math.abs(s.body.x - final.x) <= 1;
+    let settledAt = null;
+    for (let i = seq.length - 1; i >= 0 && near(seq[i]); i--) settledAt = seq[i].t;
+    assert.ok(settledAt !== null && settledAt >= 200 && settledAt <= 650,
+      `the island came to its open size ${Math.round(settledAt)} ms after the opening started, not in about 0.4 s`);
+  });
+
+  reg.define(/^the visionary sees its edges pass their resting places by at most 4 points before settling$/, async (w) => {
+    const watch = await w.opening;
+    const seq = sinceStart(watch);
+    const final = restingBody(seq);
+    let worst = 0;
+    for (const s of seq) {
+      if (!s.body) continue;
+      const b = s.body;
+      worst = Math.max(worst, final.x - b.x, b.x + b.w - (final.x + final.w), b.y + b.h - (final.y + final.h));
+    }
+    assert.ok(worst <= 4, `an edge passed its resting place by ${worst} points`);
+  });
+
+  /** The full look the harness took `ms` after the motion started, parsed. */
+  function lookAt(watch, ms) {
+    const l = watch.looks.find((x) => x.at === ms);
+    assert.ok(l, `the island was not looked at ${ms} ms after the motion started`);
+    const late = l.look.t - watch.start - ms;
+    assert.ok(Math.abs(late) <= 40, `the look came ${Math.round(late)} ms off ${ms} ms`);
+    return island.parse(l.look.windows, watch.g.notch);
+  }
+
+  reg.define(/^the visionary sees (the island partway grown, larger than the notch and smaller than the open panel|the island at its full open size showing "Wonderwall" and "Oasis") (0\.1|0\.6) seconds after the opening started$/, (w, state, after) => {
+    const watch = w.opening;
+    const final = restingBody(sinceStart(watch));
+    const v = lookAt(watch, Math.round(Number(after) * 1000));
+    if (state.includes('partway')) {
+      assert.ok(v.body, 'the island was the plain notch, not growing');
+      assert.ok(v.body.w > watch.g.notch.w + 1 && v.body.h > 1, `the island was no larger than the notch: ${JSON.stringify(v.body)}`);
+      assert.ok(v.body.w < final.w - 1 && v.body.h < final.h - 1, `the island was already at its open size: ${JSON.stringify(v.body)}`);
+    } else {
+      assert.ok(v.body && Math.abs(v.body.w - final.w) <= 1 && Math.abs(v.body.h - final.h) <= 1,
+        `the island was not at its open size: ${JSON.stringify(v.body)} against ${JSON.stringify(final)}`);
+      for (const text of ['Wonderwall', 'Oasis']) {
+        assert.ok(v.texts.includes(text), `the island did not show "${text}" (it showed ${v.texts.join(', ') || 'nothing'})`);
+      }
+    }
+  });
+
+  reg.define(/^the visionary sees (the island partway shrunk, smaller than the open panel and larger than the notch|the plain notch) (0\.1|0\.5) seconds after the closing started$/, (w, state, after) => {
+    const watch = w.closing;
+    const n = watch.g.notch;
+    const before = watch.samples.filter((s) => s.t < watch.start).map((s) => motion.parts(s.ax, watch.g).body).filter(Boolean);
+    const open = before[before.length - 1];
+    assert.ok(open && open.w >= OPEN_PANEL_WIDTH - 5, 'the island was not open before the closing');
+    const v = lookAt(watch, Math.round(Number(after) * 1000));
+    if (state.includes('partway')) {
+      assert.ok(v.body, 'the island was already the plain notch');
+      assert.ok(v.body.w < open.w - 1 && v.body.h < open.h - 1, `the island had not shrunk: ${JSON.stringify(v.body)}`);
+      assert.ok(v.body.w > n.w + 1 && v.body.h > 1, `the island was no larger than the notch: ${JSON.stringify(v.body)}`);
+    } else {
+      assert.ok(island.isPlainNotch(v, n), `the island was not the plain notch: ${JSON.stringify(v.frames)}`);
+    }
+  });
+
+  reg.define(/^the visionary sees the island never smaller than the notch, and never larger than the open panel, on its way back$/, (w) => {
+    const watch = w.closing;
+    const n = watch.g.notch;
+    const before = watch.samples.filter((s) => s.t < watch.start).map((s) => motion.parts(s.ax, watch.g).body).filter(Boolean);
+    const open = before[before.length - 1];
+    const after = watch.samples.filter((s) => s.t >= watch.start);
+    assert.ok(after.length > 50, 'too few looks while the island closed');
+    for (const s of after) {
+      const t = Math.round(s.t - watch.start);
+      const { neck, body } = motion.parts(s.ax, watch.g);
+      assert.ok(neck && neck.x <= n.x + 0.5 && neck.x + neck.w >= n.x + n.w - 0.5 && neck.h >= n.h - 0.5,
+        `${t} ms after the closing started the island was smaller than the notch: ${JSON.stringify(neck)}`);
+      if (!body) continue;
+      assert.ok(body.w >= n.w - 0.5, `${t} ms after the closing started the island was narrower than the notch: ${JSON.stringify(body)}`);
+      assert.ok(body.w <= open.w + 0.5 && body.h <= open.h + 0.5 && body.x >= open.x - 0.5,
+        `${t} ms after the closing started the island was larger than the open panel: ${JSON.stringify(body)}`);
+    }
+  });
+
 };
 
 // Shared with the other features' steps (each feature keeps its own registry).

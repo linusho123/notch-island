@@ -20,6 +20,7 @@ const procs = require('../support/procs');
 const chrome = require('../support/chrome');
 const standIns = require('../support/stand-ins');
 const scenes = require('../support/scenes');
+const motion = require('../support/motion');
 const paths = require('../support/paths');
 const { helpers } = require('./music-panel.steps');
 
@@ -550,6 +551,11 @@ module.exports = (reg) => {
   // Whens ----------------------------------------------------------------
 
   reg.define(/^"Wonderwall" ends and "Champagne Supernova" starts$/, async (w) => {
+    // The wing's motion is watched frame by frame meanwhile (D139).
+    const g = await motion.geometry();
+    w.wingWatch = harness.motionWatch(w.island.pid, 10000, 8, { below: g.stripBottom }).then((r) => ({ ...r, g }));
+    w.defer(() => w.wingWatch.catch(() => {}));
+    await sleep(60);
     await champagneStarts(w);
   });
 
@@ -693,7 +699,7 @@ module.exports = (reg) => {
     const last = w.songs[w.songs.length - 1].start;
     const out = w.samples.filter((s) => s.t >= last + 3300 && s.t <= last + 3800);
     assert.ok(out.length && out.every((s) => wingOut(s.view)), 'the wing was not out through 3.8 s after the last song started');
-    // The fold takes 0.2 s and the hide 0.22 s after the 4 s are up.
+    // The fold slides back into the notch in about 0.3 s after the 4 s are up (D139).
     const after = w.samples.filter((s) => s.t >= last + 4400);
     assert.ok(after.length && after.every((s) => island.isPlainNotch(s.view, n)),
       'the wing was still out 4.4 s after the last song started');
@@ -744,5 +750,79 @@ module.exports = (reg) => {
     const { items } = await harness.h('menu-items', iina.pid, 'Playback');
     const titles = items.map((i) => i.title);
     assert.ok(titles.includes('Pause'), `IINA's Playback menu offers ${titles.slice(0, 3).join(', ')}, not Pause: the movie is not playing`);
+  });
+
+  // The wing's motion (P3.5, D139, D138) -------------------------------------
+  // The wing's window frames as Accessibility and the window server give
+  // them, sampled fast while it moves, against the gap the menu bar's own
+  // items leave and the song's start as Apple Music reports it.
+
+  /** The wing's frames over the watch, from Accessibility, from the song's start on. */
+  async function wingMotion(w) {
+    const watch = await w.wingWatch;
+    const seq = watch.samples.filter((s) => s.t >= w.started - 200)
+      .map((s) => ({ t: s.t, all: motion.framesOf(s), wing: motion.parts(s.ax, watch.g).wing }));
+    const out = seq.filter((s) => s.wing);
+    assert.ok(out.length > 20, 'the wing was never seen out while watched');
+    // Its resting width: what it shows most of the time it is out.
+    const widths = out.map((s) => s.wing.w).sort((a, b) => a - b);
+    const full = widths[Math.floor(widths.length / 2)];
+    return { seq, out, full, g: watch.g };
+  }
+
+  reg.define(/^the visionary sees the wing grow leftward out of the notch's left edge over about 0\.4 seconds rather than appear at once$/, async (w) => {
+    const { seq, out, full, g } = await wingMotion(w);
+    const n = g.notch;
+    const first = out[0];
+    const i = seq.indexOf(first);
+    assert.ok(i > 0 && first.t - seq[i - 1].t < 30, 'the wing came out between two looks too far apart to tell how');
+    assert.ok(first.wing.w <= 0.35 * full, `the wing appeared at once, ${first.wing.w} of its ${full} points wide at its first look`);
+    for (const s of out) {
+      assert.ok(Math.abs(s.wing.x + s.wing.w - n.x) <= 1.5, `the wing's right edge was at x ${s.wing.x + s.wing.w}, not at the notch's left edge ${n.x}`);
+    }
+    const growing = out.filter((s) => s.t < first.t + 1000 && s.wing.w < full - 2);
+    assert.ok(growing.length >= 4, `only ${growing.length} looks saw the wing partway out`);
+    const settled = out.find((s) => s.t > first.t && Math.abs(s.wing.w - full) <= 1
+      && out.filter((x) => x.t >= s.t && x.t < s.t + 300).every((x) => Math.abs(x.wing.w - full) <= 1));
+    const ms = settled ? settled.t - first.t : Infinity;
+    assert.ok(ms >= 150 && ms <= 650, `the wing came to its full width ${Math.round(ms)} ms after it started out, not in about 0.4 s`);
+  });
+
+  reg.define(/^the visionary sees the wing never reach past its 135-point gap, even mid-bounce$/, async (w) => {
+    const { seq, out, g } = await wingMotion(w);
+    const n = g.notch;
+    // The gap as Chrome's own menu bar and the status items leave it.
+    const { gap } = await realGap();
+    assert.ok(Math.abs(gap - 135) <= 0.5, `the free gap is ${gap} points, not 135`);
+    const help = (await harness.menubar(w.chrome.pid)).find((i) => i.title === 'Help');
+    for (const s of seq) {
+      for (const f of s.all) {
+        if (!motion.inStrip(f, g) || f.x >= n.x - 0.5) continue;
+        assert.ok(f.x >= n.x - gap - 0.5, `the wing reached x ${f.x}, past its gap's left end ${n.x - gap}`);
+        assert.ok(!motion.overlaps(f, help.frame), `the wing ${JSON.stringify(f)} covered Chrome's Help menu`);
+      }
+    }
+    assert.ok(out.length, 'the wing never came out');
+  });
+
+  reg.define(/^the visionary sees the wing slide back into the notch's edge when it folds, rather than vanish$/, async (w) => {
+    const { seq, out, full, g } = await wingMotion(w);
+    const n = g.notch;
+    const last = out[out.length - 1];
+    assert.ok(seq[seq.length - 1].t > last.t + 100, 'the wing had not folded by the end of the watch');
+    // The fold: from the last look at its full width to its last look out.
+    const atFull = out.filter((s) => Math.abs(s.wing.w - full) <= 1);
+    const foldFrom = atFull[atFull.length - 1];
+    const folding = out.filter((s) => s.t > foldFrom.t);
+    assert.ok(folding.length >= 4, `only ${folding.length} looks saw the wing partway folded: it vanished`);
+    for (let k = 1; k < folding.length; k++) {
+      assert.ok(folding[k].wing.w <= folding[k - 1].wing.w + 0.5, 'the wing grew again while folding');
+    }
+    for (const s of folding) {
+      assert.ok(Math.abs(s.wing.x + s.wing.w - n.x) <= 1.5, `the folding wing's right edge left the notch's edge: ${JSON.stringify(s.wing)}`);
+    }
+    assert.ok(last.wing.w <= 0.35 * full, `the wing vanished at ${last.wing.w} of its ${full} points`);
+    const ms = last.t - foldFrom.t;
+    assert.ok(ms >= 100 && ms <= 600, `the fold took ${Math.round(ms)} ms, not about 0.3 s`);
   });
 };

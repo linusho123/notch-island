@@ -93,7 +93,17 @@ function inside(frame, outer, slack = 1) {
  */
 function parse(windows, notch) {
   const frames = windows.map((w) => w.frame).filter(Boolean);
-  const panel = frames.find((f) => f.h > notch.h + 4) || null;
+  // The island is drawn as one shape in two windows (D135): the neck, in the
+  // menu bar strip over the notch, and the body hanging below the strip. The
+  // panel is the two together, from the top of the screen to the body's foot.
+  const neck = frames.find((f) => Math.abs(f.x - notch.x) <= 1 && Math.abs(f.y - notch.y) <= 1
+    && f.w <= notch.w + 1) || null;
+  const body = frames.find((f) => f !== neck && f.y >= notch.y + notch.h - 1 && f.w >= notch.w - 1) || null;
+  let panel = null;
+  if (body) {
+    const top = Math.min(body.y, neck ? neck.y : body.y);
+    panel = { x: body.x, y: top, w: body.w, h: body.y + body.h - top };
+  }
   const all = windows.flatMap((w) => w.elements || []);
   const visible = (e) => e.frame && frames.some((f) => inside(e.frame, f));
   const groups = all.filter((e) => e.role === 'AXGroup' && e.description);
@@ -126,6 +136,8 @@ function parse(windows, notch) {
   return {
     wing,
     frames,
+    neck,
+    body,
     panel,
     open: Boolean(panel),
     page,

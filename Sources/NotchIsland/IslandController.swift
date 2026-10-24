@@ -2,7 +2,7 @@ import AppKit
 import IslandCore
 import SwiftUI
 
-/// The island's one window: a borderless panel that never activates the app
+/// One of the island's windows: a borderless panel that never activates the app
 /// and never becomes key, so the frontmost app keeps its focus. It sits above
 /// the menu bar on every space, fullscreen ones included, and is kept out of
 /// every screen capture (D108, D110).
@@ -50,12 +50,25 @@ final class PointerTrackingView: NSView {
   override func mouseExited(with event: NSEvent) { onPointer() }
 }
 
-/// The island view's controller: it places the panel over the built-in notch,
-/// runs the pointer rules (rest, sweep, click, grace, drags), pages between
-/// music and shelf, and offers the right-click Quit.
+/// The island view's controller: it places the island over the built-in
+/// notch, runs the pointer rules (rest, sweep, click, grace, drags), drives
+/// the opening and closing frame by frame, pages between music and shelf,
+/// and offers the right-click Quit.
+///
+/// The island is drawn as one shape in two windows (D135): the neck, exactly
+/// the notch's width, inside the menu bar strip, and the body hanging below
+/// the strip, joined to the neck by curved shoulders. Nothing of the island
+/// lies in the strip beside the notch, so every app menu and status item
+/// there stays uncovered and clickable; the body lets clicks through its
+/// transparent shoulder corners.
 final class IslandController: NSObject, NSMenuDelegate {
-  private let panel = IslandPanel()
+  private let neckPanel = IslandPanel()
+  private let bodyPanel = IslandPanel()
   private let rootView = PointerTrackingView()
+  private let bodyRoot = PointerTrackingView()
+  /// The opening's progress, 0 (the plain notch) to 1 (the open panel).
+  private var motion = MotionValue(at: 0)
+  private var displayLink: CADisplayLink?
   let model = IslandModel()
   private var machine: HoverMachine
   private var pager = PageScroller()
@@ -83,28 +96,36 @@ final class IslandController: NSObject, NSMenuDelegate {
   private var pressStartedOnIsland = false
   private let contextGuard: ContextGuard
   private var notchRect: CGRect?
-  private var openRect: CGRect?
+  /// The shape, top-left based from the home screen's top-left corner.
+  private var shape: IslandShape?
+  private var screenFrame: CGRect?
 
   init(timing: IslandTiming, contextGuard: ContextGuard) {
     machine = HoverMachine(timing: timing)
     self.contextGuard = contextGuard
     super.init()
-    let hosting = FirstClickHostingView(rootView: IslandView(model: model))
-    hosting.translatesAutoresizingMaskIntoConstraints = false
-    rootView.addSubview(hosting)
-    NSLayoutConstraint.activate([
-      hosting.leadingAnchor.constraint(equalTo: rootView.leadingAnchor),
-      hosting.trailingAnchor.constraint(equalTo: rootView.trailingAnchor),
-      hosting.topAnchor.constraint(equalTo: rootView.topAnchor),
-      hosting.bottomAnchor.constraint(equalTo: rootView.bottomAnchor),
-    ])
-    panel.contentView = rootView
+    Self.host(FirstClickHostingView(rootView: NeckView(model: model)), in: rootView)
+    Self.host(FirstClickHostingView(rootView: BodyView(model: model)), in: bodyRoot)
+    neckPanel.contentView = rootView
+    bodyPanel.contentView = bodyRoot
     rootView.onPointer = { [weak self] in self?.pointerChanged() }
+    bodyRoot.onPointer = { [weak self] in self?.pointerChanged() }
     monitor = NSEvent.addLocalMonitorForEvents(
       matching: [.leftMouseDown, .leftMouseUp, .rightMouseDown, .scrollWheel]
     ) { [weak self] event in
       self?.handle(event) ?? event
     }
+  }
+
+  private static func host(_ hosting: NSView, in root: NSView) {
+    hosting.translatesAutoresizingMaskIntoConstraints = false
+    root.addSubview(hosting)
+    NSLayoutConstraint.activate([
+      hosting.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+      hosting.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+      hosting.topAnchor.constraint(equalTo: root.topAnchor),
+      hosting.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+    ])
   }
 
   /// Place the island over the built-in notch; with no such screen there is
@@ -114,35 +135,91 @@ final class IslandController: NSObject, NSMenuDelegate {
       let notch = NotchGeometry.notchRect(on: ContextGuard.describe(screen))
     else {
       notchRect = nil
-      openRect = nil
-      panel.orderOut(nil)
+      shape = nil
+      neckPanel.orderOut(nil)
+      bodyPanel.orderOut(nil)
       return
     }
     notchRect = notch
-    openRect = NotchGeometry.openRect(
-      notch: notch, screen: screen.frame, size: IslandView.openSize)
+    screenFrame = screen.frame
+    // The menu bar strip: as tall as the screen keeps above its visible
+    // frame, never less than the notch (a hidden menu bar keeps none).
+    let strip = max(notch.height, screen.frame.maxY - screen.visibleFrame.maxY)
+    let local = CGRect(
+      x: notch.minX, y: screen.frame.maxY - notch.maxY, width: notch.width, height: notch.height)
+    shape = IslandShape(notch: local, stripBottom: local.minY + strip, openBody: BodyView.openSize)
     model.notchSize = notch.size
-    applyFrame()
-    panel.orderFrontRegardless()
+    applyShape()
+    neckPanel.orderFrontRegardless()
   }
 
-  private var shapeRect: CGRect? {
-    machine.state == .open ? openRect : notchRect
+  /// A top-left based rect of the shape in AppKit's global coordinates.
+  private func appKit(_ r: CGRect) -> CGRect {
+    let top = screenFrame?.maxY ?? 0
+    return CGRect(x: r.minX, y: top - r.maxY, width: r.width, height: r.height)
   }
 
-  private func applyFrame() {
-    guard let rect = shapeRect else { return }
-    panel.setFrame(rect, display: true)
+  private var progress: Double { motion.sample(at: now).x }
+
+  /// Lay the two windows out for the motion's progress now, and show the
+  /// content once the opening has settled.
+  private func applyShape() {
+    guard let shape else { return }
+    let p = progress
+    neckPanel.setFrame(appKit(shape.neck(progress: p)), display: true)
+    if let body = shape.body(progress: p) {
+      bodyPanel.setFrame(appKit(body), display: true)
+      if !bodyPanel.isVisible { bodyPanel.orderFrontRegardless() }
+      if !model.bodyShown { model.bodyShown = true }
+    } else {
+      if bodyPanel.isVisible { bodyPanel.orderOut(nil) }
+      if model.bodyShown { model.bodyShown = false }
+    }
+    let content =
+      machine.state == .open && motion.swing(at: now) < IslandMotion.contentSwing
+    if model.isOpen != content { model.isOpen = content }
   }
 
-  /// Whether the pointer is on the island's drawn shape. The top edge counts:
-  /// the pointer pushed against the top of the screen is on the notch.
+  /// Head the motion for the machine's state: spring out on opening, shrink
+  /// back without a bounce on closing (D137), from wherever it is now.
+  private func startMotion(open: Bool) {
+    motion.retarget(
+      to: open ? 1 : 0, curve: open ? IslandMotion.opening : IslandMotion.closing, at: now)
+    if displayLink == nil {
+      let link = rootView.displayLink(target: self, selector: #selector(frame(_:)))
+      link.add(to: .main, forMode: .common)
+      displayLink = link
+    }
+    applyShape()
+  }
+
+  /// One display frame of the motion; the link stops once it is at rest, so
+  /// the island at rest draws nothing (D79).
+  @objc private func frame(_ link: CADisplayLink) {
+    let resting = motion.settle(at: now)
+    applyShape()
+    if resting {
+      displayLink?.invalidate()
+      displayLink = nil
+      watchPointer()
+    }
+  }
+
+  /// Whether the pointer is on the island's drawn shape as it stands now. The
+  /// top edge counts: the pointer pushed against the top of the screen is on
+  /// the notch. Over the body, the window lets clicks through wherever the
+  /// shape is not drawn (the shoulders' corners).
   private func pointerInside() -> (CGPoint, Bool) {
     let p = Self.pointerLocation()
-    guard let rect = shapeRect else { return (p, false) }
-    let radius =
-      machine.state == .open ? NotchGeometry.openBottomRadius : NotchGeometry.closedBottomRadius
-    return (p, NotchGeometry.shapeContains(p, in: rect, bottomRadius: radius))
+    guard let shape, let screenFrame else { return (p, false) }
+    let local = CGPoint(x: p.x, y: screenFrame.maxY - p.y)
+    let progress = progress
+    let radius = model.bodyShown ? 0 : NotchGeometry.closedBottomRadius
+    let inside = shape.contains(local, progress: progress, neckBottomRadius: radius)
+    if let body = shape.body(progress: progress), body.contains(local) {
+      bodyPanel.ignoresMouseEvents = !inside
+    }
+    return (p, inside)
   }
 
   /// Where the pointer is now, in AppKit's coordinates, asked of the event
@@ -162,12 +239,14 @@ final class IslandController: NSObject, NSMenuDelegate {
     settle()
   }
 
+  private var wasOpen = false
+
   /// Apply what the machine decided and arm its next deadline.
   private func settle() {
-    let wasOpen = model.isOpen
     machine.tick(at: now)
     let isOpen = machine.state == .open
     if isOpen != wasOpen {
+      wasOpen = isOpen
       #if ISLAND_TEST_INPUT
         NSLog(
           "notch-island: %@ (pointer %@)", isOpen ? "open" : "closed", "\(Self.pointerLocation())")
@@ -176,9 +255,9 @@ final class IslandController: NSObject, NSMenuDelegate {
         pager.reset()
         model.page = .music
       }
-      model.isOpen = isOpen
-      applyFrame()
-      watchPointerWhileOpen(isOpen)
+      startMotion(open: isOpen)
+      if isOpen { onOpenRefresh() }
+      watchPointer()
       onOpenChanged(isOpen)
     }
     deadlineTimer?.invalidate()
@@ -199,14 +278,16 @@ final class IslandController: NSObject, NSMenuDelegate {
     TestInput.leftButtonReading ?? (NSEvent.pressedMouseButtons & 1 != 0)
   }
 
-  private func watchPointerWhileOpen(_ open: Bool) {
+  /// Watch the pointer while the island is open or still moving (a pointer
+  /// back on a closing island turns it round); at rest and closed, nothing.
+  private func watchPointer() {
+    let open = machine.state == .open || !motion.isResting
     if open, openPoll == nil {
-      onOpenRefresh()
       var ticks = 0
       let timer = Timer(timeInterval: 0.1, repeats: true) { [weak self] _ in
         guard let self else { return }
         ticks += 1
-        if ticks % 20 == 0 { self.onOpenRefresh() }
+        if ticks % 20 == 0, self.machine.state == .open { self.onOpenRefresh() }
         // A mouse-up that never reached us must not hold the island open.
         if self.pressStartedOnIsland, !Self.leftButtonHeld() {
           self.pressStartedOnIsland = false
@@ -241,7 +322,7 @@ final class IslandController: NSObject, NSMenuDelegate {
   private func handle(_ event: NSEvent) -> NSEvent? {
     switch event.type {
     case .leftMouseDown:
-      guard event.window === panel else { return event }
+      guard isIsland(event.window) else { return event }
       if machine.state == .closed {
         machine.click(at: now)
         settle()
@@ -259,13 +340,13 @@ final class IslandController: NSObject, NSMenuDelegate {
       DispatchQueue.main.async { [weak self] in self?.pointerChanged() }
       return event
     case .rightMouseDown:
-      guard event.window === panel else { return event }
+      guard isIsland(event.window) else { return event }
       machine.secondaryClick()
       settle()
       showQuitMenu(with: event)
       return nil
     case .scrollWheel:
-      guard event.window === panel, machine.state == .open else { return event }
+      guard isIsland(event.window), machine.state == .open else { return event }
       let began = event.phase.contains(.began) || event.phase.isEmpty
       if pager.scroll(
         deltaY: Double(event.scrollingDeltaY), continuous: event.hasPreciseScrollingDeltas,
@@ -277,6 +358,10 @@ final class IslandController: NSObject, NSMenuDelegate {
     default:
       return event
     }
+  }
+
+  private func isIsland(_ window: NSWindow?) -> Bool {
+    window === neckPanel || window === bodyPanel
   }
 
   /// The right-click menu has one item, Quit (D86). Quitting stops the island

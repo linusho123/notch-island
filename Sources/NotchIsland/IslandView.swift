@@ -4,7 +4,11 @@ import SwiftUI
 
 /// What the island's drawn content shows; the controller keeps it current.
 final class IslandModel: ObservableObject {
+  /// The open panel's content is shown: the island is open and its opening
+  /// has settled (D137).
   @Published var isOpen = false
+  /// Something of the island hangs below the menu bar strip.
+  @Published var bodyShown = false
   @Published var page: IslandPage = .music
   @Published var music = MusicPage(
     content: .nothingPlayedYet, isPlaying: false, controlsEnabled: false)
@@ -58,27 +62,57 @@ final class FirstClickHostingView<Content: View>: NSHostingView<Content> {
   override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-struct IslandView: View {
+/// The neck: the island's part inside the menu bar strip, exactly the
+/// notch's width (D135). Closed, it is the plain notch with rounded bottom
+/// corners; while the panel hangs below, it joins the panel squarely.
+struct NeckView: View {
   @ObservedObject var model: IslandModel
-  static let openSize = CGSize(width: 460, height: 190)
-
-  private var radius: CGFloat {
-    model.isOpen ? NotchGeometry.openBottomRadius : NotchGeometry.closedBottomRadius
-  }
 
   var body: some View {
-    ZStack(alignment: .top) {
-      UnevenRoundedRectangle(
-        bottomLeadingRadius: radius, bottomTrailingRadius: radius
-      )
+    let radius = model.bodyShown ? 0 : NotchGeometry.closedBottomRadius
+    UnevenRoundedRectangle(bottomLeadingRadius: radius, bottomTrailingRadius: radius)
       .fill(Color.black)
-      if model.isOpen {
-        OpenPanel(model: model)
-          .padding(.top, model.notchSize.height)
-          .transition(.opacity)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+  }
+}
+
+/// The island's part below the menu bar strip: the panel, joined to the neck
+/// by curved shoulders, its size driven frame by frame by the controller.
+/// Its content is laid out at the open size and fades in once the opening
+/// has settled (D137).
+struct BodyView: View {
+  @ObservedObject var model: IslandModel
+  /// The open panel below the strip: the shoulders, then the pages.
+  static let openSize = CGSize(width: 460, height: IslandShape.shoulderRadius + 157)
+
+  var body: some View {
+    GeometryReader { proxy in
+      let shape = BodyShape(neckWidth: model.notchSize.width)
+      ZStack(alignment: .top) {
+        shape.fill(Color.black)
+        if model.isOpen {
+          OpenPanel(model: model)
+            .frame(
+              width: Self.openSize.width,
+              height: Self.openSize.height - IslandShape.shoulderRadius
+            )
+            .padding(.top, IslandShape.shoulderRadius)
+            .transition(.opacity.animation(.easeOut(duration: 0.15)))
+        }
       }
+      .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+      .clipShape(shape)
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+  }
+}
+
+/// The body's outline, from IslandCore so drawing and the pointer agree.
+struct BodyShape: Shape {
+  var neckWidth: CGFloat
+
+  func path(in rect: CGRect) -> Path {
+    Path(IslandShape.bodyPath(size: rect.size, neckWidth: neckWidth))
+      .offsetBy(dx: rect.minX, dy: rect.minY)
   }
 }
 

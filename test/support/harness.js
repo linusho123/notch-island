@@ -80,6 +80,17 @@ module.exports = {
   sweep: async (pid, a, b, steps, stepMs, settleMs) =>
     (await h('sweep', pid, a.x, a.y, b.x, b.y, steps, stepMs, settleMs)).samples,
   makeMovie: (file, seconds) => h('make-movie', file, seconds),
+  /**
+   * The island's window frames sampled every `everyMs` for `ms`, from
+   * Accessibility and the window server; options: `below` (the strip's
+   * bottom), `start` ('open' | 'close'), `looks` (ms after the start for a
+   * full look), `hits` (points macOS's own hit test is asked about).
+   */
+  motionWatch: (pid, ms, everyMs, { below, start, looks, hits } = {}) => h('motion-watch', pid, ms, everyMs,
+    ...(below !== undefined ? [`below=${below}`] : []),
+    ...(start ? [`start=${start}`] : []),
+    ...(looks ? [`looks=${looks.join(',')}`] : []),
+    ...(hits ? [`hits=${hits.map((p) => `${p.x}:${p.y}`).join(',')}`] : [])),
 };
 
 // The hooks register on the test file that loads the harness (node:test root).
