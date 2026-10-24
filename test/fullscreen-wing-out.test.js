@@ -3,9 +3,11 @@
 // at once (D125, "a fullscreen movie is never interrupted"). The scenario
 // lives in test/fixtures (the contract's own fullscreen scenario starts with
 // the movie already fullscreen). A UI run: only through scripts/when-idle.sh.
+const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const { runFeatures } = require('gherkin-node-test');
+const { assertInIdleRun } = require('./support/require-idle');
 const harness = require('./support/harness');
 const island = require('./support/island');
 const procs = require('./support/procs');
@@ -13,12 +15,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const wingOut = (v) => Boolean(v.wing && v.wing.art);
 const root = path.join(__dirname, '..');
 
+assertInIdleRun();
+
 runFeatures(path.join(__dirname, 'fixtures', 'fullscreen-wing-out'), {
   'new-song-notice': (reg) => {
-    require('./steps/new-song-notice.steps')(reg);
+    // The contract's own steps this fixture uses (the runner refuses unused ones).
+    const fixture = fs.readFileSync(path.join(__dirname, 'fixtures', 'fullscreen-wing-out', 'new-song-notice.feature'), 'utf8');
+    const used = fixture.split('\n').map((l) => l.trim().replace(/^(Given|When|Then|And) /, ''));
+    require('./steps/new-song-notice.steps')(new Proxy(reg, {
+      get: (target, key) => (key === 'define'
+        ? (re, fn) => { if (used.some((u) => re.test(u))) target.define(re, fn); }
+        : target[key]),
+    }));
     reg.define(/^IINA is in front playing a movie in a window$/, async (w) => {
       const movie = path.join(root, 'build', 'test-media', 'test-movie.mov');
-      const fs = require('node:fs');
       if (!fs.existsSync(movie)) await harness.makeMovie(movie, 180);
       const iina = procs.start('IINA', '/Applications/IINA.app/Contents/MacOS/IINA', [movie]);
       w.defer(() => procs.stop(iina));
