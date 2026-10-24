@@ -226,14 +226,14 @@ Feature: The music panel
     When the visionary rests the pointer on the notch
     Then the visionary sees the music panel open showing "Wonderwall"
 
-  @D135 @D136
-  Scenario: The open island stays as wide as the notch inside the menu bar
+  @D140 @D136
+  Scenario: The open island is a card below the menu bar, apart from the notch
     Given Apple Music is playing "Wonderwall" and the island is closed to the plain notch
     And Chrome is in front with its Help menu left of the notch, and a status item sits right of the notch as Meter's readings do
     When the visionary rests the pointer on the notch, the island opens, and later the pointer leaves it
     Then the visionary sees the island no wider than the notch inside the menu bar strip at every moment while it opens, stays open and closes
     And the visionary sees Chrome's Help menu and the status item right of the notch uncovered the whole time
-    And the visionary sees the full-width panel only below the menu bar strip, joined to the notch
+    And the visionary sees the open panel as a card below the menu bar strip, its top about 8 points below the notch, with the plain notch above it and nothing joining them
 
   @D137 @D138
   Scenario: Opening springs out of the notch and settles

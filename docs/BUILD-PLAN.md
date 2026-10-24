@@ -343,6 +343,15 @@ cost against D79's ceiling.
 **Quick path (the visionary's request):** one builder, one combined review
 (contract and the risk above) instead of two, head review only if that review
 finds a must-fix, then the full gate once at the end.
+**Amendment (the visionary, 2026-10-24, before merge):** D140 reverses
+D135: no neck. The open island is a card of its own below the menu bar
+strip, its top about 8 points below the notch's bottom edge, the plain notch
+above it and nothing joining them; it still grows down out of the notch and
+shrinks back up into it with D137/D138's springs, and D136 (never wider than
+the notch inside the strip) still holds. The shape scenario is reworded (the
+fence's Sanctioned changes). The builder reshapes on this branch: the motion
+math, springs, wing and harness work carry over; the click-through is simply
+outside the card's rounded rect.
 **Register:** no feature leaves wip; the reworded and new scenarios bind in
 `music-panel` (out of wip apart from its P4 shelf-drag row) and `new-song-notice`, so they gate at once.
 
