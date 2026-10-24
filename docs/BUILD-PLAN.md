@@ -297,6 +297,24 @@ budget met only for Apple Music.
 **Expected probes:** a wing over Chrome's Help menu, a right wing, a playing
 indicator, six seconds, 0.5 s vs 1.5 s lateness, a re-pop per skip, a wing in
 fullscreen, a wing on the external monitor.
+*Closed 2026-10-24:* gate at afb7037: swift test 174, lint 0, scope 0; UI
+(through when-idle, 1 void) 319 tests, 228 pass, 1 fail, 90 todo — the fail
+was the P1 row "Resting the pointer on the notch opens the music panel"
+opening 4 ms past its allowed time; by the visionary's choice it was re-run
+5× alone through the waiter, 5/5 green, and recorded here as a timing flake
+(the run manifest committed is the gate run's, with that row red). Every P3
+row passed, the external-monitor row on PM161Q J with a normal desktop on it.
+`new-song-notice` left wip. Run by hand (Workflow tool off): builder (three
+session-limit stops, resumed), two cold reviews, head review (4 must), fix
+round, verifier. Rulings: D134 (a wing comes out within the first second or
+not at all). Sharing the Mac built (scripts/when-idle.sh + input guard; an
+early guard voided ~80 runs on the harness's own events until f5034ef).
+Carried to P4's start: the in-idle-run guard in `test/support/harness.js` so
+the six UI test files outside features.test.js and fullscreen-wing-out also
+refuse to run outside the waiter; a plain-message failure when the external
+screen shows a fullscreen app; head-review should-fixes S4 (stand-in menu bar
+calibration), S5 (Apple Music art read inside the one-second budget), S6, S8,
+S9; QuickTime's ~0.6 s latency margin to watch.
 
 ## P4 — The shelf: captures and files
 

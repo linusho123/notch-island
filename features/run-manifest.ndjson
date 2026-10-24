@@ -44,7 +44,7 @@
 {"file":"music-panel.feature","title":"Play resumes from the same spot","status":"passed"}
 {"file":"music-panel.feature","title":"Resting the pointer on the notch for 2 seconds opens the island [2]","status":"passed"}
 {"file":"music-panel.feature","title":"Resting the pointer on the notch for about 0.15 seconds opens the island [1]","status":"passed"}
-{"file":"music-panel.feature","title":"Resting the pointer on the notch opens the music panel","status":"passed"}
+{"file":"music-panel.feature","title":"Resting the pointer on the notch opens the music panel","status":"failed"}
 {"file":"music-panel.feature","title":"Right-clicking the notch offers only Quit","status":"passed"}
 {"file":"music-panel.feature","title":"Scrolling down reaches the shelf when no song has played since the island was installed [2]","status":"passed"}
 {"file":"music-panel.feature","title":"Scrolling down reaches the shelf when the last song played was \"Wonderwall\" [1]","status":"passed"}
