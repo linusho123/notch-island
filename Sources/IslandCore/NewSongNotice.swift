@@ -20,6 +20,8 @@ public struct NewSongDetector: Sendable {
   }
 
   private var lastPlayed: [SourceID: Key] = [:]
+  /// Sources that went out of view: their next report is read like a first sighting.
+  private var unseen: Set<SourceID> = []
 
   public init() {}
 
@@ -31,15 +33,21 @@ public struct NewSongDetector: Sendable {
     let key = Key(title: song.title, artist: song.artist, trackID: song.trackID)
     let before = lastPlayed[id]
     lastPlayed[id] = key
+    let firstSighting = before == nil || unseen.contains(id)
+    unseen.remove(id)
     if before == key || report.joinedMidSong { return nil }
     let position = report.position
-    if before == nil, let position, position > Self.freshStart { return nil }
+    if firstSighting, let position, position > Self.freshStart { return nil }
     return report.readAt - min(max(position ?? 0, 0), Self.maxBackDate)
   }
+
+  /// The source went out of view (hidden behind another source).
+  public mutating func hidden(_ id: SourceID) { unseen.insert(id) }
 
   /// The source's app quit or its tab closed: its next song starts afresh.
   public mutating func forget(_ id: SourceID) {
     lastPlayed[id] = nil
+    unseen.remove(id)
   }
 }
 

@@ -109,6 +109,27 @@ struct NewSongDetectorTests {
     #expect(d.take(.quickTime, playing("holiday.mov", at: 0.5)) != nil)
   }
 
+  @Test func aSourceBackFromHiddenAtALatePositionIsNoNewSongButAFreshOneIs() {
+    // Hidden behind another source, it auto-advanced, and comes back a minute in.
+    var d = NewSongDetector()
+    let iina = SourceID(rawValue: "iina")
+    _ = d.take(iina, playing("part-1.mkv", at: 3))
+    d.hidden(iina)
+    #expect(d.take(iina, playing("part-2.mkv", at: 90, readAt: 400)) == nil)
+    // And back at its start, a new song still is one.
+    var e = NewSongDetector()
+    _ = e.take(iina, playing("part-1.mkv", at: 3))
+    e.hidden(iina)
+    #expect(e.take(iina, playing("part-2.mkv", at: 0.4, readAt: 400)) != nil)
+  }
+
+  @Test func aSourceThatStaysVisibleKeepsTheCarriedClockOfAnIINAPartTwo() {
+    var d = NewSongDetector()
+    let iina = SourceID(rawValue: "iina")
+    _ = d.take(iina, playing("part-1.mkv", at: 3))
+    #expect(d.take(iina, playing("part-2.mkv", at: 6, readAt: 110)) != nil)
+  }
+
   @Test func aStoppedOrEmptyReportIsNoSong() {
     var d = NewSongDetector()
     let stopped = SourceReport(song: nil, state: .stopped, position: nil, readAt: 1)

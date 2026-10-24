@@ -120,7 +120,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           self.wing.notify(title: title, image: self.artwork[id] ?? nil, startedAt: started)
         }
       }
-    case .hidden: hub.hide(id)
+    case .hidden:
+      hub.hide(id)
+      detector.hidden(id)
     case .left:
       detector.forget(id)
       keep = hub.leave(id, at: now) || hub.resumeAt != nil
