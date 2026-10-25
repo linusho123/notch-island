@@ -27,8 +27,16 @@ const mmss = (t) => {
   return m * 60 + s;
 };
 const center = (f) => ({ x: f.x + f.w / 2, y: f.y + f.h / 2 });
-/** The open panel's width (D135: the full-width panel hangs below the strip). */
+/** The open card's width (D140: a card of its own below the menu bar strip). */
 const OPEN_PANEL_WIDTH = 460;
+/**
+ * "About 8 points below the notch" (D140). The island places the card's top
+ * exactly 8 points below the notch's bottom edge; Accessibility reports a
+ * window's frame in whole points, so a top off by more than a point is the
+ * island's doing, not rounding.
+ */
+const CARD_GAP = 8;
+const CARD_GAP_SLACK = 1;
 
 // ---------------------------------------------------------------- helpers
 
@@ -79,7 +87,10 @@ async function assertHangsFromNotch(view) {
   const { frame: screen, notch: n } = await harness.builtIn();
   const p = view.panel;
   assert.ok(p, 'the island is not open');
-  assert.ok(Math.abs(p.y - screen.y) <= 1, `the panel's top is at y ${p.y}, not at the top of the built-in screen`);
+  // The open panel is the card just below the notch (D140); its exact place
+  // is the shape scenario's to check.
+  assert.ok(p.y >= n.y + n.h - 0.5 && p.y <= n.y + n.h + CARD_GAP + CARD_GAP_SLACK,
+    `the card's top is at y ${p.y}, not just below the notch (bottom ${n.y + n.h})`);
   assert.ok(p.y + p.h > n.y + n.h + 20, 'the panel does not reach down below the notch');
   assert.ok(p.x <= n.x + n.w / 2 && p.x + p.w >= n.x + n.w / 2, 'the panel is not under the notch');
   assert.ok(p.x >= screen.x && p.x + p.w <= screen.x + screen.w, 'the panel is not inside the built-in screen');
@@ -1017,7 +1028,7 @@ module.exports = (reg) => {
     assert.equal(closed.length, 0, 'the island closed while the dot was still held far away');
     await harness.release();
   });
-  // The island's shape and motion (P3.5, D135-D138) --------------------------
+  // The island's shape and motion (P3.5, D136-D140) --------------------------
   // Every Then reads the island's window frames as Accessibility and the
   // window server give them, sampled fast by the harness while it moves,
   // against the menu bar items' own frames and macOS's own hit test.
@@ -1039,20 +1050,26 @@ module.exports = (reg) => {
     w.status = await motion.statusStandIn(w);
     const f = w.status.frame;
     assert.ok(f.x >= n.x + n.w - 0.5, `the status item (x ${f.x}) is not right of the notch`);
-    // Every status item where a panel as wide as the open one would reach into
-    // the strip (Meter's readings among them): their frames read once, never
-    // clicked, never asked about again.
+    // Every status item where a card as wide as the open one would reach if it
+    // were in the strip (Meter's readings among them): their frames read once,
+    // never clicked, never asked about again.
     const reach = (OPEN_PANEL_WIDTH - n.w) / 2;
     w.beside = (await harness.extras()).map((i) => i.frame)
       .filter((r) => r && r.w > 0 && r.y < g.stripBottom && r.x < n.x + n.w + reach && r.x + r.w > n.x - reach);
     assert.ok(w.beside.some((r) => r.x >= n.x + n.w - 0.5),
-      'no status item sits right of the notch where a full-width panel would reach, so the scenario proves nothing');
+      'no status item sits right of the notch where a card as wide as the open one would reach, so the scenario proves nothing');
     await plainNotch(w);
   });
 
   reg.define(/^the visionary rests the pointer on the notch, the island opens, and later the pointer leaves it$/, async (w) => {
     const pid = await ensureIsland(w);
-    const hits = [motion.center(w.help), motion.center(w.status.frame)];
+    // macOS's hit test at the Help menu, the status item, a point in the gap
+    // between the notch and the open card, and a point inside the open card.
+    const n = (await motion.geometry()).notch;
+    const below = n.y + n.h;
+    w.gapPoint = { x: n.x + n.w / 2, y: below + CARD_GAP / 2 };
+    w.cardPoint = { x: n.x + n.w / 2, y: below + CARD_GAP + 60 };
+    const hits = [motion.center(w.help), motion.center(w.status.frame), w.gapPoint, w.cardPoint];
     w.watch = await motion.watchWhile(pid, 3400, { start: 'open', hits }, async () => {
       w.restMs = RULED_REST_MS;
       await rest(w, RULED_REST_MS);
@@ -1061,6 +1078,7 @@ module.exports = (reg) => {
       await pointerAway();
     });
     w.watch.hitOwners = [w.chrome.pid, w.status.handle.pid];
+    w.watch.islandPid = pid;
   });
 
   reg.define(/^the visionary rests the pointer on the notch and the island starts opening$/, async (w) => {
@@ -1081,7 +1099,7 @@ module.exports = (reg) => {
     const n = g.notch;
     assert.ok(samples.length > 100, `only ${samples.length} looks at the island`);
     // Positive control: it opened to the full panel and closed again while watched.
-    const bodies = samples.map((s) => motion.parts(s.ax, g).body);
+    const bodies = samples.map((s) => motion.parts(s.ax, g).card);
     assert.ok(bodies.some((b) => b && b.w >= OPEN_PANEL_WIDTH - 5), 'the island never opened to the full panel while watched');
     assert.ok(!bodies[bodies.length - 1], 'the island had not closed again by the end of the watch');
     for (const s of samples) {
@@ -1105,27 +1123,58 @@ module.exports = (reg) => {
         }
       }
       // What macOS itself finds there: still Chrome's menu and the status item.
-      s.hits.forEach((owner, i) => {
+      s.hits.slice(0, 2).forEach((owner, i) => {
         assert.equal(owner, hitOwners[i], `${t} ms after the opening started macOS finds process ${owner} at the ${i ? 'status item' : 'Help menu'}, not its own app`);
       });
     }
   });
 
-  reg.define(/^the visionary sees the full-width panel only below the menu bar strip, joined to the notch$/, (w) => {
-    const { samples, g } = w.watch;
+  reg.define(/^the visionary sees the open panel as a card below the menu bar strip, its top about 8 points below the notch, with the plain notch above it and nothing joining them$/, (w) => {
+    const { samples, g, islandPid } = w.watch;
     const n = g.notch;
-    let open = 0;
+    const below = n.y + n.h;
+    const near = (a, b, d = 0.5) => Math.abs(a - b) <= d;
+    const key = (f) => [f.x, f.y, f.w, f.h].map(Math.round).join(',');
+    // The card where it rests: the frame it holds longest while open.
+    const counts = new Map();
     for (const s of samples) {
-      const { neck, body } = motion.parts(s.ax, g);
-      if (!body) continue;
-      const t = Math.round(s.t - w.watch.start);
-      assert.ok(body.y >= g.stripBottom - 0.5, `${t} ms after the opening started the panel's top is at y ${body.y}, inside the menu bar strip`);
-      assert.ok(neck && Math.abs(neck.y + neck.h - body.y) <= 0.5 && body.x < n.x + 1 && body.x + body.w > n.x + n.w - 1,
-        `${t} ms after the opening started the panel ${JSON.stringify(body)} is not joined to the notch ${JSON.stringify(neck)}`);
-      assert.ok(Math.abs(body.x + body.w / 2 - (n.x + n.w / 2)) <= 1, `${t} ms after the opening started the panel ${JSON.stringify(body)} is not centred under the notch (centre ${n.x + n.w / 2})`);
-      if (body.w >= OPEN_PANEL_WIDTH - 5) open++;
+      const { card } = motion.parts(s.ax, g);
+      if (card) counts.set(key(card), (counts.get(key(card)) || 0) + 1);
     }
-    assert.ok(open > 10, 'the full-width panel was never seen hanging below the strip');
+    const [restKey, restCount] = [...counts].sort((a, b) => b[1] - a[1])[0] || [];
+    assert.ok(restKey && restCount > 10, 'the open card was never seen at rest');
+    let resting = 0;
+    for (const s of samples) {
+      const t = Math.round(s.t - w.watch.start);
+      const { notchPart, card } = motion.parts(s.ax, g);
+      // The plain notch above, the same at every moment: its window exactly
+      // over the camera housing, reaching no lower than the notch.
+      assert.ok(notchPart && near(notchPart.x, n.x) && near(notchPart.w, n.w) && near(notchPart.y, n.y) && near(notchPart.h, n.h),
+        `${t} ms after the opening started the notch was not plain: ${JSON.stringify(notchPart)} against the notch ${JSON.stringify(n)}`);
+      if (!card) continue;
+      assert.ok(card.y >= g.stripBottom - 0.5, `${t} ms after the opening started the card's top is at y ${card.y}, inside the menu bar strip`);
+      assert.ok(near(card.x + card.w / 2, n.x + n.w / 2, 1), `${t} ms after the opening started the card ${JSON.stringify(card)} is not centred under the notch (centre ${n.x + n.w / 2})`);
+      // Nothing joining them: no window of the island's, by Accessibility or
+      // by the window server, anywhere between the notch and the card.
+      if (card.y > below + 1) {
+        const gap = { x: card.x, y: below + 0.5, w: card.w, h: card.y - below - 1 };
+        for (const f of motion.framesOf(s)) {
+          assert.ok(!motion.overlaps(f, gap, 0.25), `${t} ms after the opening started the island ${JSON.stringify(f)} lies in the gap ${JSON.stringify(gap)} between the notch and the card`);
+        }
+      }
+      if (key(card) !== restKey) continue;
+      resting++;
+      assert.ok(card.w >= OPEN_PANEL_WIDTH - 1, `the resting card is ${card.w} wide, not the open size`);
+      assert.ok(Math.abs(card.y - (below + CARD_GAP)) <= CARD_GAP_SLACK,
+        `${t} ms after the opening started the open card's top is ${card.y - below} points below the notch, not about ${CARD_GAP}`);
+      // What macOS itself finds there: in the gap, not the island (what is
+      // under it); inside the card, the island (so the hit test sees it).
+      const [, , inGap, inCard] = s.hits;
+      assert.ok(typeof inGap === 'number' && inGap !== islandPid,
+        `${t} ms after the opening started macOS finds ${inGap === islandPid ? 'the island' : 'nothing'} in the gap at ${JSON.stringify(w.gapPoint)}`);
+      assert.equal(inCard, islandPid, `${t} ms after the opening started macOS finds process ${inCard}, not the island, inside the open card at ${JSON.stringify(w.cardPoint)}`);
+    }
+    assert.ok(resting > 10, `the open card was seen at rest only ${resting} times`);
   });
 
   /** The opening's samples from its start, with the shape's parts. */
@@ -1134,9 +1183,9 @@ module.exports = (reg) => {
       .map((s) => ({ t: s.t - watch.start, ...motion.parts(s.ax, watch.g) }));
   }
 
-  /** The open size the motion came to rest at: the body at the watch's end. */
+  /** The open size the motion came to rest at: the card at the watch's end. */
   function restingBody(seq) {
-    const b = seq[seq.length - 1].body;
+    const b = seq[seq.length - 1].card;
     assert.ok(b && b.w >= OPEN_PANEL_WIDTH - 5 && b.h > 100, `the island did not end the watch open: ${JSON.stringify(b)}`);
     return b;
   }
@@ -1147,14 +1196,18 @@ module.exports = (reg) => {
     const n = watch.g.notch;
     const seq = sinceStart(watch);
     const final = restingBody(seq);
-    const first = seq.find((s) => s.body);
-    assert.ok(first.body.w <= n.w + 0.2 * (final.w - n.w) && first.body.h <= 0.2 * final.h,
-      `the island appeared at once: ${JSON.stringify(first.body)} at its first look, against ${JSON.stringify(final)} open`);
-    assert.ok(first.neck && first.neck.x === n.x && first.neck.w === n.w, 'the opening did not start from the notch itself');
-    const partway = seq.filter((s) => s.body && s.body.h < final.h - 2 && s.body.w < final.w - 2);
+    const first = seq.find((s) => s.card);
+    assert.ok(first.card.w <= n.w + 0.2 * (final.w - n.w) && first.card.h <= 0.2 * final.h,
+      `the island appeared at once: ${JSON.stringify(first.card)} at its first look, against ${JSON.stringify(final)} open`);
+    // Out of the notch's own shape: the plain notch there, and the card's
+    // first look starting right under it, not already down at its open place.
+    assert.ok(first.notchPart && first.notchPart.x === n.x && first.notchPart.w === n.w, 'the opening did not start from the notch itself');
+    assert.ok(first.card.y < final.y - 0.5 || final.y - (n.y + n.h) < 1,
+      `the card first appeared at y ${first.card.y}, already at its open place ${final.y}, not out of the notch`);
+    const partway = seq.filter((s) => s.card && s.card.h < final.h - 2 && s.card.w < final.w - 2);
     assert.ok(partway.length >= 5, `only ${partway.length} looks saw the island partway grown`);
-    const near = (s) => s.body && Math.abs(s.body.w - final.w) <= 1 && Math.abs(s.body.h - final.h) <= 1
-      && Math.abs(s.body.x - final.x) <= 1;
+    const near = (s) => s.card && Math.abs(s.card.w - final.w) <= 1 && Math.abs(s.card.h - final.h) <= 1
+      && Math.abs(s.card.x - final.x) <= 1 && Math.abs(s.card.y - final.y) <= 1;
     let settledAt = null;
     for (let i = seq.length - 1; i >= 0 && near(seq[i]); i--) settledAt = seq[i].t;
     assert.ok(settledAt !== null && settledAt >= 200 && settledAt <= 650,
@@ -1167,9 +1220,10 @@ module.exports = (reg) => {
     const final = restingBody(seq);
     let worst = 0;
     for (const s of seq) {
-      if (!s.body) continue;
-      const b = s.body;
-      worst = Math.max(worst, final.x - b.x, b.x + b.w - (final.x + final.w), b.y + b.h - (final.y + final.h));
+      if (!s.card) continue;
+      const b = s.card;
+      // All four edges: sideways, the foot, and the top dipping past its place.
+      worst = Math.max(worst, final.x - b.x, b.x + b.w - (final.x + final.w), b.y + b.h - (final.y + final.h), b.y - final.y);
     }
     assert.ok(worst <= 4, `an edge passed its resting place by ${worst} points`);
   });
@@ -1188,12 +1242,12 @@ module.exports = (reg) => {
     const final = restingBody(sinceStart(watch));
     const v = lookAt(watch, Math.round(Number(after) * 1000));
     if (state.includes('partway')) {
-      assert.ok(v.body, 'the island was the plain notch, not growing');
-      assert.ok(v.body.w > watch.g.notch.w + 1 && v.body.h > 1, `the island was no larger than the notch: ${JSON.stringify(v.body)}`);
-      assert.ok(v.body.w < final.w - 1 && v.body.h < final.h - 1, `the island was already at its open size: ${JSON.stringify(v.body)}`);
+      assert.ok(v.card, 'the island was the plain notch, not growing');
+      assert.ok(v.card.w > watch.g.notch.w + 1 && v.card.h > 1, `the island was no larger than the notch: ${JSON.stringify(v.card)}`);
+      assert.ok(v.card.w < final.w - 1 && v.card.h < final.h - 1, `the island was already at its open size: ${JSON.stringify(v.card)}`);
     } else {
-      assert.ok(v.body && Math.abs(v.body.w - final.w) <= 1 && Math.abs(v.body.h - final.h) <= 1,
-        `the island was not at its open size: ${JSON.stringify(v.body)} against ${JSON.stringify(final)}`);
+      assert.ok(v.card && Math.abs(v.card.w - final.w) <= 1 && Math.abs(v.card.h - final.h) <= 1,
+        `the island was not at its open size: ${JSON.stringify(v.card)} against ${JSON.stringify(final)}`);
       for (const text of ['Wonderwall', 'Oasis']) {
         assert.ok(v.texts.includes(text), `the island did not show "${text}" (it showed ${v.texts.join(', ') || 'nothing'})`);
       }
@@ -1203,14 +1257,14 @@ module.exports = (reg) => {
   reg.define(/^the visionary sees (the island partway shrunk, smaller than the open panel and larger than the notch|the plain notch) (0\.1|0\.5) seconds after the closing started$/, (w, state, after) => {
     const watch = w.closing;
     const n = watch.g.notch;
-    const before = watch.samples.filter((s) => s.t < watch.start).map((s) => motion.parts(s.ax, watch.g).body).filter(Boolean);
+    const before = watch.samples.filter((s) => s.t < watch.start).map((s) => motion.parts(s.ax, watch.g).card).filter(Boolean);
     const open = before[before.length - 1];
     assert.ok(open && open.w >= OPEN_PANEL_WIDTH - 5, 'the island was not open before the closing');
     const v = lookAt(watch, Math.round(Number(after) * 1000));
     if (state.includes('partway')) {
-      assert.ok(v.body, 'the island was already the plain notch');
-      assert.ok(v.body.w < open.w - 1 && v.body.h < open.h - 1, `the island had not shrunk: ${JSON.stringify(v.body)}`);
-      assert.ok(v.body.w > n.w + 1 && v.body.h > 1, `the island was no larger than the notch: ${JSON.stringify(v.body)}`);
+      assert.ok(v.card, 'the island was already the plain notch');
+      assert.ok(v.card.w < open.w - 1 && v.card.h < open.h - 1, `the island had not shrunk: ${JSON.stringify(v.card)}`);
+      assert.ok(v.card.w > n.w + 1 && v.card.h > 1, `the island was no larger than the notch: ${JSON.stringify(v.card)}`);
     } else {
       assert.ok(island.isPlainNotch(v, n), `the island was not the plain notch: ${JSON.stringify(v.frames)}`);
     }
@@ -1219,19 +1273,19 @@ module.exports = (reg) => {
   reg.define(/^the visionary sees the island never smaller than the notch, and never larger than the open panel, on its way back$/, (w) => {
     const watch = w.closing;
     const n = watch.g.notch;
-    const before = watch.samples.filter((s) => s.t < watch.start).map((s) => motion.parts(s.ax, watch.g).body).filter(Boolean);
+    const before = watch.samples.filter((s) => s.t < watch.start).map((s) => motion.parts(s.ax, watch.g).card).filter(Boolean);
     const open = before[before.length - 1];
     const after = watch.samples.filter((s) => s.t >= watch.start);
     assert.ok(after.length > 50, 'too few looks while the island closed');
     for (const s of after) {
       const t = Math.round(s.t - watch.start);
-      const { neck, body } = motion.parts(s.ax, watch.g);
-      assert.ok(neck && neck.x <= n.x + 0.5 && neck.x + neck.w >= n.x + n.w - 0.5 && neck.h >= n.h - 0.5,
-        `${t} ms after the closing started the island was smaller than the notch: ${JSON.stringify(neck)}`);
-      if (!body) continue;
-      assert.ok(body.w >= n.w - 0.5, `${t} ms after the closing started the island was narrower than the notch: ${JSON.stringify(body)}`);
-      assert.ok(body.w <= open.w + 0.5 && body.h <= open.h + 0.5 && body.x >= open.x - 0.5,
-        `${t} ms after the closing started the island was larger than the open panel: ${JSON.stringify(body)}`);
+      const { notchPart, card } = motion.parts(s.ax, watch.g);
+      assert.ok(notchPart && notchPart.x <= n.x + 0.5 && notchPart.x + notchPart.w >= n.x + n.w - 0.5 && notchPart.h >= n.h - 0.5,
+        `${t} ms after the closing started the island was smaller than the notch: ${JSON.stringify(notchPart)}`);
+      if (!card) continue;
+      assert.ok(card.w >= n.w - 0.5, `${t} ms after the closing started the island was narrower than the notch: ${JSON.stringify(card)}`);
+      assert.ok(card.w <= open.w + 0.5 && card.h <= open.h + 0.5 && card.x >= open.x - 0.5 && card.y + card.h <= open.y + open.h + 0.5,
+        `${t} ms after the closing started the island was larger than the open panel: ${JSON.stringify(card)}`);
     }
   });
 

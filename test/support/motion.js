@@ -1,5 +1,5 @@
 'use strict';
-// The island's shape and motion, read from the far side (D135-D139): its
+// The island's shape and motion, read from the far side (D136-D140): its
 // window frames as Accessibility and the window server give them, sampled
 // fast by the harness while it moves, against the menu bar items' own
 // frames and macOS's own hit test. Nothing here reads the test input.
@@ -20,13 +20,17 @@ async function geometry() {
 /** Frames of one sample: every island window both sources list. */
 const framesOf = (s) => [...(s.ax || []), ...(s.cg || [])];
 
-/** The parts of the drawn shape in one sample's Accessibility frames. */
+/**
+ * The parts of the island in one sample's Accessibility frames (D140): the
+ * plain notch's window over the camera housing, the card's window below the
+ * menu bar strip, and the new-song wing's in the strip left of the notch.
+ */
 function parts(frames, g) {
   const { notch: n, stripBottom } = g;
-  const neck = frames.find((f) => Math.abs(f.x - n.x) <= 1 && Math.abs(f.y - n.y) <= 1 && f.w <= n.w + 1) || null;
-  const body = frames.find((f) => f !== neck && f.y >= stripBottom - 1) || null;
-  const wing = frames.find((f) => f !== neck && f.x < n.x - 0.5 && f.y < stripBottom - 0.5) || null;
-  return { neck, body, wing };
+  const notchPart = frames.find((f) => Math.abs(f.x - n.x) <= 1 && Math.abs(f.y - n.y) <= 1 && f.w <= n.w + 1) || null;
+  const card = frames.find((f) => f !== notchPart && f.y >= stripBottom - 1) || null;
+  const wing = frames.find((f) => f !== notchPart && f.x < n.x - 0.5 && f.y < stripBottom - 0.5) || null;
+  return { notchPart, card, wing };
 }
 
 /** Whether a frame lies (partly) inside the menu bar strip. */
