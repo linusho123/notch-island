@@ -165,12 +165,12 @@ final class IslandController: NSObject, NSMenuDelegate {
 
   private var progress: Double { motion.sample(at: now).x }
 
-  /// Size the card's window to the card for the motion's progress now (the
-  /// notch's window never changes), and show the content once the opening
-  /// has settled.
-  private func applyShape() {
+  /// Size the card's window to the card for the motion's progress now, or
+  /// `ahead` seconds from now (the notch's window never changes), and show
+  /// the content once the opening has settled.
+  private func applyShape(ahead: TimeInterval = 0) {
     guard let shape else { return }
-    if let card = shape.card(progress: progress) {
+    if let card = shape.card(progress: motion.sample(at: now + ahead).x) {
       cardPanel.setFrame(appKit(card), display: true)
       if !cardPanel.isVisible { cardPanel.orderFrontRegardless() }
       _ = pointerInside()
@@ -192,7 +192,10 @@ final class IslandController: NSObject, NSMenuDelegate {
       link.add(to: .main, forMode: .common)
       displayLink = link
     }
-    applyShape()
+    // The first frame goes up at once, as it will look when it reaches the
+    // screen, rather than at the display link's first callback a frame or
+    // two later: the opening is seen starting by the end of the rest (D137).
+    applyShape(ahead: 1.0 / 60)
   }
 
   /// One display frame of the motion; the link stops once it is at rest, so
