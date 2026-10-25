@@ -125,7 +125,10 @@ struct WingView: View {
 
   var body: some View {
     let width = model.fit.width ?? 0
-    ZStack(alignment: .trailing) {
+    // The black wing fills the window as the motion sizes it; what it shows
+    // keeps its full width from the wing's moving left edge, so it slides out
+    // from under the notch and back.
+    ZStack(alignment: .leading) {
       UnevenRoundedRectangle(bottomLeadingRadius: 8)
         .fill(Color.black)
       HStack(spacing: WingLayout.artTitleSpacing) {
@@ -142,11 +145,11 @@ struct WingView: View {
       .padding(.leading, WingLayout.leadingPad)
       .padding(
         .trailing,
-        model.fit == .artOnly(width: width) ? WingLayout.artTrailingPad : WingLayout.trailingPad)
+        model.fit == .artOnly(width: width) ? WingLayout.artTrailingPad : WingLayout.trailingPad
+      )
+      .frame(width: width, height: model.height, alignment: .trailing)
     }
-    .frame(width: width, height: model.height, alignment: .trailing)
-    .offset(x: model.out ? 0 : width)
-    .animation(.easeOut(duration: 0.2), value: model.out)
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     .clipped()
     .accessibilityElement(children: .contain)
     .accessibilityLabel("New-song wing")
@@ -177,21 +180,32 @@ struct WingView: View {
 /// fullscreen, or an app switch leaves no room (D115, D44, D28, D125). A wing
 /// comes out within the first second of its song or not at all (D134): an app
 /// switch lays out a wing already out, and never brings out one that had not.
-final class WingController {
+/// It grows leftward out of the notch's edge with the opening's spring and
+/// folds back into it as the island closes, frame by frame, never wider than
+/// its free gap (D139).
+final class WingController: NSObject {
   private let panel = WingPanel()
   private let model = WingModel()
   private var hold = WingHold()
   private var foldTimer: Timer?
-  private var hideWork: DispatchWorkItem?
   private let queue = DispatchQueue(label: "notch-island.wing")
   private var current: (title: String, image: NSImage?)?
+  /// How far out the wing is, 0 (folded into the notch) to 1 (its full width).
+  private var motion = MotionValue(at: 0)
+  private var displayLink: CADisplayLink?
+  /// The wing's full width and the room its gap leaves (D114).
+  private var fullWidth: CGFloat = 0
+  private var room: CGFloat = 0
   /// Whether the island is open, and whether an app is fullscreen now.
   var islandOpen: () -> Bool = { false }
   var fullscreen: () -> Bool = { false }
   var home: () -> (notch: CGRect, screen: CGRect)? = { nil }
 
-  init() {
+  override init() {
+    super.init()
     let hosting = NSHostingView(rootView: WingView(model: model))
+    // The motion sizes the window; the content never pushes it wider.
+    hosting.sizingOptions = []
     panel.contentView = hosting
     NSWorkspace.shared.notificationCenter.addObserver(
       forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
@@ -288,18 +302,16 @@ final class WingController {
       if model.out { fold() }
       return
     }
-    hideWork?.cancel()
-    hideWork = nil
-    let notch = home.notch
-    let w = width.rounded(.up)
-    model.height = notch.height
+    model.height = home.notch.height
     model.fit = fit
     model.image = image
-    panel.setFrame(
-      CGRect(x: notch.minX - w, y: notch.minY, width: w, height: notch.height), display: true)
+    fullWidth = width.rounded(.up)
+    room = max(0, (gap ?? 0) - WingLayout.menuMargin)
     if !model.out {
-      panel.orderFrontRegardless()
-      DispatchQueue.main.async { self.model.out = true }
+      model.out = true
+      move(out: true)
+    } else {
+      applyWidth()
     }
     #if ISLAND_TEST_INPUT
       NSLog("notch-island: wing for %@ (gap %@, %@)", title, "\(gap ?? -1)", "\(fit)")
@@ -323,12 +335,49 @@ final class WingController {
     foldTimer = nil
     guard model.out || panel.isVisible else { return }
     model.out = false
-    let work = DispatchWorkItem { [weak self] in
-      guard let self, !self.model.out else { return }
-      self.panel.orderOut(nil)
-      self.model.fit = .none
+    move(out: false)
+  }
+
+  /// Spring out of the notch's edge, or fold back into it without a bounce,
+  /// from wherever the wing is now.
+  private func move(out: Bool) {
+    motion.retarget(
+      to: out ? 1 : 0, curve: out ? IslandMotion.opening : IslandMotion.closing, at: now)
+    // The link follows the home screen, not the wing's window, which is not
+    // on screen yet when the wing starts out.
+    if displayLink == nil,
+      let home = home(),
+      let screen = NSScreen.screens.first(where: { $0.frame == home.screen })
+    {
+      let link = screen.displayLink(target: self, selector: #selector(frame(_:)))
+      link.add(to: .main, forMode: .common)
+      displayLink = link
     }
-    hideWork = work
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.22, execute: work)
+    applyWidth()
+  }
+
+  @objc private func frame(_ link: CADisplayLink) {
+    let resting = motion.settle(at: now)
+    applyWidth()
+    if resting {
+      displayLink?.invalidate()
+      displayLink = nil
+    }
+  }
+
+  /// The wing's window, right edge at the notch's left edge, as wide as the
+  /// motion has it now; folded all the way, gone.
+  private func applyWidth() {
+    guard let home = home() else { return }
+    let notch = home.notch
+    let w = IslandMotion.wingWidth(full: fullWidth, room: room, progress: motion.sample(at: now).x)
+    guard w >= 0.5 else {
+      if panel.isVisible { panel.orderOut(nil) }
+      if !model.out { model.fit = .none }
+      return
+    }
+    panel.setFrame(
+      CGRect(x: notch.minX - w, y: notch.minY, width: w, height: notch.height), display: true)
+    if !panel.isVisible { panel.orderFrontRegardless() }
   }
 }

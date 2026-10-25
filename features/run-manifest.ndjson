@@ -38,18 +38,24 @@
 {"file":"music-panel.feature","title":"Moving the progress dot by clicking the bar's start to 0:00:00 jumps the concert file there [4]","status":"passed"}
 {"file":"music-panel.feature","title":"Moving the progress dot by dragging the dot back to 0:30:00 jumps the concert file there [3]","status":"passed"}
 {"file":"music-panel.feature","title":"Moving the progress dot by dragging the dot to 1:45:00 jumps the concert file there [1]","status":"passed"}
+{"file":"music-panel.feature","title":"Opening springs out of the notch and settles","status":"passed"}
 {"file":"music-panel.feature","title":"Pause stops the music and becomes play","status":"passed"}
 {"file":"music-panel.feature","title":"Picking Quit stops the island","status":"passed"}
 {"file":"music-panel.feature","title":"Play on the last song starts it again","status":"passed"}
 {"file":"music-panel.feature","title":"Play resumes from the same spot","status":"passed"}
 {"file":"music-panel.feature","title":"Resting the pointer on the notch for 2 seconds opens the island [2]","status":"passed"}
 {"file":"music-panel.feature","title":"Resting the pointer on the notch for about 0.15 seconds opens the island [1]","status":"passed"}
-{"file":"music-panel.feature","title":"Resting the pointer on the notch opens the music panel","status":"failed"}
+{"file":"music-panel.feature","title":"Resting the pointer on the notch opens the music panel","status":"passed"}
 {"file":"music-panel.feature","title":"Right-clicking the notch offers only Quit","status":"passed"}
 {"file":"music-panel.feature","title":"Scrolling down reaches the shelf when no song has played since the island was installed [2]","status":"passed"}
 {"file":"music-panel.feature","title":"Scrolling down reaches the shelf when the last song played was \"Wonderwall\" [1]","status":"passed"}
 {"file":"music-panel.feature","title":"Skip plays the next song in the queue","status":"passed"}
 {"file":"music-panel.feature","title":"Sweeping across the notch without resting opens nothing","status":"passed"}
+{"file":"music-panel.feature","title":"The island checked 0.1 seconds after it starts closing [1]","status":"passed"}
+{"file":"music-panel.feature","title":"The island checked 0.1 seconds after it starts opening [1]","status":"passed"}
+{"file":"music-panel.feature","title":"The island checked 0.5 seconds after it starts closing [2]","status":"passed"}
+{"file":"music-panel.feature","title":"The island checked 0.6 seconds after it starts opening [2]","status":"passed"}
+{"file":"music-panel.feature","title":"The open island is a card below the menu bar, apart from the notch","status":"passed"}
 {"file":"music-panel.feature","title":"The panel shows a downloaded file with no cover art and no artist","status":"passed"}
 {"file":"music-panel.feature","title":"The pointer leaving the open island for 0.2 seconds and back onto it [1]","status":"passed"}
 {"file":"music-panel.feature","title":"The pointer leaving the open island for 2 seconds [2]","status":"passed"}
@@ -124,7 +130,8 @@
 {"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, menus reach it [5]","status":"passed"}
 {"file":"new-song-notice.feature","title":"The new-song notice finds room: the art alone [3]","status":"passed"}
 {"file":"new-song-notice.feature","title":"The new-song notice finds room: the title shortened [2]","status":"passed"}
-{"file":"new-song-notice.feature","title":"The new-song notice finds room: the whole title [1]","status":"passed"}
+{"file":"new-song-notice.feature","title":"The new-song notice finds room: the whole title [1]","status":"failed"}
+{"file":"new-song-notice.feature","title":"The wing slides out of the notch's left edge and back in","status":"passed"}
 {"file":"new-song-notice.feature","title":"The wings checked 1 minute after a new song starts [4]","status":"passed"}
 {"file":"new-song-notice.feature","title":"The wings checked 1 second after a new song starts [1]","status":"passed"}
 {"file":"new-song-notice.feature","title":"The wings checked 3.5 seconds after a new song starts [2]","status":"passed"}

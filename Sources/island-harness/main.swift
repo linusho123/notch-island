@@ -90,14 +90,24 @@ func attr(_ el: AXUIElement, _ name: String) -> AnyObject? {
   return value
 }
 
+/// A window's frame from its position and its size, which Accessibility gives
+/// in two reads: a window that moves and resizes every display frame (the
+/// island, in motion) can change between them, giving a frame it never had.
+/// The position is read again after the size; a change means start over.
 func frameOf(_ el: AXUIElement) -> CGRect? {
-  guard let p = attr(el, kAXPositionAttribute), let s = attr(el, kAXSizeAttribute) else {
-    return nil
-  }
   var point = CGPoint.zero
   var size = CGSize.zero
-  AXValueGetValue(p as! AXValue, .cgPoint, &point)
-  AXValueGetValue(s as! AXValue, .cgSize, &size)
+  for _ in 0..<5 {
+    guard let p = attr(el, kAXPositionAttribute), let s = attr(el, kAXSizeAttribute) else {
+      return nil
+    }
+    var again = CGPoint.zero
+    AXValueGetValue(p as! AXValue, .cgPoint, &point)
+    AXValueGetValue(s as! AXValue, .cgSize, &size)
+    guard let q = attr(el, kAXPositionAttribute) else { return nil }
+    AXValueGetValue(q as! AXValue, .cgPoint, &again)
+    if again == point { break }
+  }
   return CGRect(origin: point, size: size)
 }
 
@@ -953,6 +963,126 @@ case "sweep":
     sleepMs(40)
   }
   emit(["samples": samples])
+case "motion-watch":
+  // motion-watch pid ms everyMs [below=Y] [start=open|close] [looks=ms,ms]
+  // [hits=x:y,x:y]: the island's window frames sampled fast for a while,
+  // from Accessibility (its AXWindows) and from the window server (the
+  // windows it lists for the process), with nothing else read, so a motion
+  // is seen frame by frame. With `start`, the moment the part below the
+  // strip (a window whose top is at or below Y) first appears (open) or
+  // first shrinks (close) is the start, and a full look at the island is
+  // taken `looks` ms after it. With `hits`, macOS's own hit test is asked
+  // at each point in every sample: which process's element lies there.
+  requireTrust()
+  let pid = pid_t(num(1))
+  let app = appElement(pid)
+  let until = now() + num(2)
+  var opts: [String: String] = [:]
+  for a in args.dropFirst(4) {
+    let kv = a.split(separator: "=", maxSplits: 1).map(String.init)
+    if kv.count == 2 { opts[kv[0]] = kv[1] }
+  }
+  let below = Double(opts["below"] ?? "") ?? .infinity
+  let mode = opts["start"]
+  var pending = (opts["looks"] ?? "").split(separator: ",").compactMap { Double($0) }.sorted()
+  let points = (opts["hits"] ?? "").split(separator: ",").compactMap { pair -> CGPoint? in
+    let xy = pair.split(separator: ":").compactMap { Double($0) }
+    return xy.count == 2 ? CGPoint(x: xy[0], y: xy[1]) : nil
+  }
+  let system = AXUIElementCreateSystemWide()
+  var samples: [[String: Any]] = []
+  var looks: [[String: Any]] = []
+  var start: Double?
+  var tallest = 0.0
+  repeat {
+    let t0 = now()
+    let windows = (attr(app, kAXWindowsAttribute) as? [AXUIElement]) ?? []
+    let frames = windows.compactMap(frameOf)
+    let list =
+      (CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]])
+      ?? []
+    let cg = list.compactMap { info -> [String: Double]? in
+      guard (info[kCGWindowOwnerPID as String] as? Int) == Int(pid),
+        let b = info[kCGWindowBounds as String] as? NSDictionary,
+        let r = CGRect(dictionaryRepresentation: b)
+      else { return nil }
+      return rectJSON(r)
+    }
+    let hits = points.map { p -> Any in
+      var element: AXUIElement?
+      guard AXUIElementCopyElementAtPosition(system, Float(p.x), Float(p.y), &element) == .success,
+        let el = element
+      else { return NSNull() }
+      var owner: pid_t = 0
+      AXUIElementGetPid(el, &owner)
+      return Int(owner)
+    }
+    let t = (t0 + now()) / 2
+    samples.append(["t": t, "ax": frames.map(rectJSON), "cg": cg, "hits": hits])
+    let bodyHeight = frames.filter { Double($0.minY) >= below - 1 }.map { Double($0.height) }.max()
+    if start == nil, let mode {
+      if mode == "open", bodyHeight != nil { start = t }
+      if mode == "close", let h = bodyHeight ?? (tallest > 0 ? 0 : nil), h < tallest - 0.5 {
+        start = t
+      }
+    }
+    tallest = max(tallest, bodyHeight ?? 0)
+    if let s = start, let next = pending.first {
+      let wait = s + next - now()
+      if wait <= num(3) {
+        sleepMs(wait)
+        looks.append(["at": next, "look": islandSample(pid)])
+        pending.removeFirst()
+        continue
+      }
+    }
+    sleepMs(num(3) - (now() - t0))
+  } while now() < until
+  emit(["samples": samples, "start": start.map { $0 as Any } ?? NSNull(), "looks": looks])
+case "hit":
+  // hit x y: what macOS's own hit test finds at a point: the process whose
+  // element lies there, and that element's role and description.
+  requireTrust()
+  let system = AXUIElementCreateSystemWide()
+  var element: AXUIElement?
+  let err = AXUIElementCopyElementAtPosition(system, Float(num(1)), Float(num(2)), &element)
+  guard err == .success, let el = element else {
+    emit(["pid": NSNull(), "error": err.rawValue])
+    break
+  }
+  var pid: pid_t = 0
+  AXUIElementGetPid(el, &pid)
+  emit(["pid": Int(pid), "element": describe(el, depth: 0)])
+case "status-stand-in":
+  // status-stand-in seconds title [fromRight]: a status item of the harness's own in the
+  // menu bar, right of the notch where macOS puts a new one, that prints
+  // {"clicked"} each time it is clicked. Ends after `seconds` or with the
+  // run that started it (NOTCH_ISLAND_OWNER_PID).
+  let app = NSApplication.shared
+  app.setActivationPolicy(.accessory)
+  final class Clicks: NSObject {
+    @objc func clicked(_ sender: Any?) { line(["clicked": true, "t": now()]) }
+  }
+  let clicks = Clicks()
+  // Where macOS should put it, in points from the screen's right edge
+  // (its preferred position, kept per autosave name): next to the notch.
+  if args.count > 3, let fromRight = Double(args[3]) {
+    let key = "NSStatusItem Preferred Position NotchIslandStandIn"
+    UserDefaults.standard.set(fromRight, forKey: key)
+  }
+  let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+  item.autosaveName = "NotchIslandStandIn"
+  item.button?.title = arg(2)
+  item.button?.target = clicks
+  item.button?.action = #selector(Clicks.clicked(_:))
+  line(["pid": Int(getpid())])
+  DispatchQueue.main.asyncAfter(deadline: .now() + num(1)) { exit(0) }
+  if let owner = ProcessInfo.processInfo.environment["NOTCH_ISLAND_OWNER_PID"].flatMap(Int32.init) {
+    Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+      if kill(owner, 0) != 0 { exit(0) }
+    }
+  }
+  withExtendedLifetime(clicks) { app.run() }
 case "capture-check":
   captureCheck(
     CGRect(x: num(1), y: num(2), width: num(3), height: num(4)), islandPid: Int(num(5)))

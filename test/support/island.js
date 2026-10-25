@@ -93,7 +93,13 @@ function inside(frame, outer, slack = 1) {
  */
 function parse(windows, notch) {
   const frames = windows.map((w) => w.frame).filter(Boolean);
-  const panel = frames.find((f) => f.h > notch.h + 4) || null;
+  // The island is drawn in two windows (D140): the plain notch, over the
+  // camera housing, and the card below the menu bar strip, apart from it.
+  // The open panel is the card.
+  const notchPart = frames.find((f) => Math.abs(f.x - notch.x) <= 1 && Math.abs(f.y - notch.y) <= 1
+    && f.w <= notch.w + 1) || null;
+  const card = frames.find((f) => f !== notchPart && f.y >= notch.y + notch.h - 1 && f.w >= notch.w - 1) || null;
+  const panel = card;
   const all = windows.flatMap((w) => w.elements || []);
   const visible = (e) => e.frame && frames.some((f) => inside(e.frame, f));
   const groups = all.filter((e) => e.role === 'AXGroup' && e.description);
@@ -126,6 +132,8 @@ function parse(windows, notch) {
   return {
     wing,
     frames,
+    notchPart,
+    card,
     panel,
     open: Boolean(panel),
     page,
@@ -178,7 +186,7 @@ async function waitFor(pid, pred, ms, message) {
       return pred(last) ? last : null;
     }, ms, message);
   } catch (e) {
-    e.message += `\n  island last showed: ${JSON.stringify({ open: last?.open, page: last?.page, texts: last?.texts, buttons: last?.buttons?.map((b) => `${b.label}${b.enabled ? '' : '(greyed)'}`), frames: last?.frames })}`;
+    e.message += `\n  island last showed: ${JSON.stringify({ open: last?.open, page: last?.page, texts: last?.texts, buttons: last?.buttons?.map((b) => `${b.label}${b.enabled ? '' : '(greyed)'}`), frames: last?.frames, wing: last?.wing })}`;
     throw e;
   }
 }

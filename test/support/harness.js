@@ -59,7 +59,17 @@ module.exports = {
   extras: async () => (await h('extras')).items,
   frontmost: () => h('frontmost'),
   keyboardFocus: () => h('keyboardfocus'),
-  activate: (pid) => h('activate', pid),
+  // A just-launched app is not yet registered with macOS for a moment.
+  activate: async (pid) => {
+    for (let i = 0; ; i++) {
+      try {
+        return await h('activate', pid);
+      } catch (e) {
+        if (i >= 20 || !/no such app/.test(e.message)) throw e;
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    }
+  },
   fullscreen: (pid) => h('fullscreen', pid),
   pointer: () => h('pointer'),
   move: (x, y) => h('move', x, y),
@@ -80,6 +90,17 @@ module.exports = {
   sweep: async (pid, a, b, steps, stepMs, settleMs) =>
     (await h('sweep', pid, a.x, a.y, b.x, b.y, steps, stepMs, settleMs)).samples,
   makeMovie: (file, seconds) => h('make-movie', file, seconds),
+  /**
+   * The island's window frames sampled every `everyMs` for `ms`, from
+   * Accessibility and the window server; options: `below` (the strip's
+   * bottom), `start` ('open' | 'close'), `looks` (ms after the start for a
+   * full look), `hits` (points macOS's own hit test is asked about).
+   */
+  motionWatch: (pid, ms, everyMs, { below, start, looks, hits } = {}) => h('motion-watch', pid, ms, everyMs,
+    ...(below !== undefined ? [`below=${below}`] : []),
+    ...(start ? [`start=${start}`] : []),
+    ...(looks ? [`looks=${looks.join(',')}`] : []),
+    ...(hits ? [`hits=${hits.map((p) => `${p.x}:${p.y}`).join(',')}`] : [])),
 };
 
 // The hooks register on the test file that loads the harness (node:test root).

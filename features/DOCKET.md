@@ -1234,3 +1234,15 @@ D139 2026-10-24 [I>V]
   sib:   D138
   touches: D114 D115 D134 D137
 # the `135` points is the Chrome gap measured for D67
+
+D140 2026-10-24 [I>V] reverses D135
+  pre:   Apple Music is playing "Wonderwall", Chrome is in front with its Help menu left of the notch, and a status item such as Meter's CPU, GPU and RAM readings sits right of it [I>V]
+  trig:  the visionary rests the pointer on the notch and the island opens, stays open and closes [I>V]
+  resp:  the open island is a card of its own below the menu bar strip, its top edge about eight points below the notch's bottom edge, with nothing drawn between them, so the notch is plain while the card is open; it grows down out of the notch and shrinks back up into it, and inside the menu bar strip it is never wider than the notch at any moment, so every app menu and status item beside the notch stays uncovered and clickable [V]
+  why:   the visionary did not like the notch-wide neck once built and asked for an island modelled on vorssaint-utils', a detached card with a small gap below the notch [V]
+  serves: N5 N1
+  sib:   D136
+  touches: D135 D136 D137 D18 D24 D70 D113 D114
+# P3.5 amendment before merge; the visionary picked, among offered shapes, the card below the menu bar strip (not from the screen's top, which would cover Meter) and a plain notch while open (no lip)
+# GPL note: vorssaint-utils is GPL-3.0; only its look is matched, none of its code is copied
+# roads not taken: the notch-wide neck with curved shoulders (D135, built and seen); a card from the screen's top over the menu bar strip; a small black lip left around the notch while open; scaling in place instead of growing out of the notch

@@ -4,6 +4,8 @@ import SwiftUI
 
 /// What the island's drawn content shows; the controller keeps it current.
 final class IslandModel: ObservableObject {
+  /// The open panel's content is shown: the island is open and its opening
+  /// has settled (D137).
   @Published var isOpen = false
   @Published var page: IslandPage = .music
   @Published var music = MusicPage(
@@ -11,8 +13,6 @@ final class IslandModel: ObservableObject {
   @Published var artwork: NSImage?
   /// The source's last report, for the progress bar.
   @Published var report: SourceReport?
-  /// The notch's size, for the closed shape and the open panel's top strip.
-  @Published var notchSize = CGSize(width: 185, height: 33)
   /// The output device, for the source line's speaker part (D119, D120).
   @Published var output: OutputDevice?
   /// Which source's face the card shows; a change turns the card (D48).
@@ -58,27 +58,49 @@ final class FirstClickHostingView<Content: View>: NSHostingView<Content> {
   override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-struct IslandView: View {
-  @ObservedObject var model: IslandModel
-  static let openSize = CGSize(width: 460, height: 190)
-
-  private var radius: CGFloat {
-    model.isOpen ? NotchGeometry.openBottomRadius : NotchGeometry.closedBottomRadius
+/// The plain notch: the island's only part inside the menu bar strip,
+/// exactly the camera housing with rounded bottom corners, the same whether
+/// the card below is open or not (D140).
+struct NotchView: View {
+  var body: some View {
+    let radius = NotchGeometry.closedBottomRadius
+    UnevenRoundedRectangle(bottomLeadingRadius: radius, bottomTrailingRadius: radius)
+      .fill(Color.black)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
+}
+
+/// The card below the menu bar strip, apart from the notch (D140), its size
+/// driven frame by frame by the controller. Its content is laid out at the
+/// open size and fades in once the opening has settled (D137).
+struct CardView: View {
+  @ObservedObject var model: IslandModel
+  /// The open card, as the open panel below the strip was before.
+  static let openSize = CGSize(width: 460, height: 167)
+  /// Room above the pages, inside the card.
+  static let topInset: CGFloat = 10
 
   var body: some View {
-    ZStack(alignment: .top) {
-      UnevenRoundedRectangle(
-        bottomLeadingRadius: radius, bottomTrailingRadius: radius
-      )
-      .fill(Color.black)
-      if model.isOpen {
-        OpenPanel(model: model)
-          .padding(.top, model.notchSize.height)
-          .transition(.opacity)
+    GeometryReader { proxy in
+      ZStack(alignment: .top) {
+        CardShape().fill(Color.black)
+        if model.isOpen {
+          OpenPanel(model: model)
+            .frame(width: Self.openSize.width, height: Self.openSize.height - Self.topInset)
+            .padding(.top, Self.topInset)
+            .transition(.opacity.animation(.easeOut(duration: 0.15)))
+        }
       }
+      .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
+      .clipShape(CardShape())
     }
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+  }
+}
+
+/// The card's outline, from IslandCore so drawing and the pointer agree.
+struct CardShape: Shape {
+  func path(in rect: CGRect) -> Path {
+    Path(IslandShape.cardPath(size: rect.size)).offsetBy(dx: rect.minX, dy: rect.minY)
   }
 }
 
