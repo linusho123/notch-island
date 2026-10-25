@@ -2,8 +2,8 @@
 # Builds notch-island with Swift Package Manager (Command Line Tools, no
 # Xcode), bundles it as an agent app (no Dock icon) and signs it ad hoc.
 #
-#   build/release/NotchIsland.app   the app as installed: no test input
-#   build/test/NotchIsland.app      the same app with the test-only input
+#   build/apps.noindex/release/NotchIsland.app   the app as installed: no test input
+#   build/apps.noindex/test/NotchIsland.app      the same app with the test-only input
 #                                   compiled in (-DISLAND_TEST_INPUT), which
 #                                   the acceptance harness feeds
 #   build/island-harness            the harness's helper (never bundled)
@@ -32,10 +32,10 @@ clang -dynamiclib -fobjc-arc -O2 -framework Foundation \
 codesign --force --sign - build/now-playing-adapter.dylib >/dev/null
 
 swift build -c release --product NotchIsland --build-path .build/release-app
-bundle .build/release-app build/release local.notch-island "notch-island"
+bundle .build/release-app build/apps.noindex/release local.notch-island "notch-island"
 
 swift build -c release --product NotchIsland --build-path .build/test-app -Xswiftc -DISLAND_TEST_INPUT
-bundle .build/test-app build/test local.notch-island.test "notch-island test"
+bundle .build/test-app build/apps.noindex/test local.notch-island.test "notch-island test"
 
 sh scripts/build-harness.sh
 

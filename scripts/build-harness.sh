@@ -13,7 +13,7 @@ echo "built build/island-harness"
 # The menu stand-in: the same helper as a small app, so LaunchServices
 # (`open`) can bring it to the front like any app the visionary opens; a bare
 # executable started by the harness cannot take the front itself.
-app=build/MenuStandIn.app
+app=build/apps.noindex/MenuStandIn.app
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS"
 cp build/island-harness "$app/Contents/MacOS/island-harness"
