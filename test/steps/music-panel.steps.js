@@ -1154,11 +1154,16 @@ module.exports = (reg) => {
       if (!card) continue;
       assert.ok(card.y >= g.stripBottom - 0.5, `${t} ms after the opening started the card's top is at y ${card.y}, inside the menu bar strip`);
       assert.ok(near(card.x + card.w / 2, n.x + n.w / 2, 1), `${t} ms after the opening started the card ${JSON.stringify(card)} is not centred under the notch (centre ${n.x + n.w / 2})`);
-      // Nothing joining them: no window of the island's, by Accessibility or
-      // by the window server, anywhere between the notch and the card.
-      if (card.y > below + 1) {
-        const gap = { x: card.x, y: below + 0.5, w: card.w, h: card.y - below - 1 };
-        for (const f of motion.framesOf(s)) {
+      // Nothing joining them: no other window of the island's anywhere
+      // between the notch and the card, by Accessibility and by the window
+      // server. Each source is held to its own card: the two read a moving
+      // window a frame apart.
+      for (const frames of [s.ax || [], s.cg || []]) {
+        const own = motion.parts(frames, g).card;
+        if (!own || own.y <= below + 1) continue;
+        const gap = { x: own.x, y: below + 0.5, w: own.w, h: own.y - below - 1 };
+        for (const f of frames) {
+          if (f === own) continue;
           assert.ok(!motion.overlaps(f, gap, 0.25), `${t} ms after the opening started the island ${JSON.stringify(f)} lies in the gap ${JSON.stringify(gap)} between the notch and the card`);
         }
       }
