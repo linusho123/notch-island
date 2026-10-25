@@ -355,6 +355,31 @@ outside the card's rounded rect.
 **Register:** no feature leaves wip; the reworded and new scenarios bind in
 `music-panel` (out of wip apart from its P4 shelf-drag row) and `new-song-notice`, so they gate at once.
 
+*Closed 2026-10-24:* gate at 279dfa8: swift test 188, lint 0, scope 0; UI
+(through when-idle, 2 void) 326 tests, 235 pass, 1 fail, 90 todo — the fail
+was the new-song-notice row "finds room: the whole title [1]" with no wing by
+1.5 s, the skipped-first-notice flake already present on P3 (a baseline of
+the P3 build failed the same way: the IINA row alone 1 of 3, "the art alone
+[3]" no wing by 1.5 s, "5 songs [2]" the wing not out for one look); by the
+visionary's choice it is carried, not fixed here (the run manifest committed
+is the gate run's, with that row red). The neck build (98b2eb9) was replaced
+before merge by the card (D140, reversing D135) once the visionary saw it.
+Quick path by hand: builder, one combined review (no must-fix), fixer (F1 the
+harness reads a moving window's frame consistently, "never folding" is three
+looks without the wing; F2 a launched app is waited for until it can be
+activated; F3 the IINA Given forgets the second part's saved position, which
+had started it a minute in), the card builder (first frame at once fixed the
+first-open rest-deadline miss), a second combined review of the card (no
+must-fix). Carried to P4's start, besides P3's list: the skipped first
+notice (no wing for a song now and then, the IINA row alone most often) and
+the "keep the wing out" rows' one-look Accessibility misses; the wing's
+display link exists only when an NSScreen frame equals the home screen's;
+no far-side check of clicks in the card's rounded corners (only `contains` is
+unit-tested; the ignoresMouseEvents toggle can trail a click with no move
+before it); the close-start detection in motion-watch is about 90 ms late, so
+"plain notch 0.5 s after closing" effectively allows about 0.59 s; no
+positive control for the overshoot; the 8 ms watch during the rest Given.
+
 ## P4 — The shelf: captures and files
 
 **Contract:** `shelf-captures-and-files.feature` (20 scenarios, 11 outlines),
