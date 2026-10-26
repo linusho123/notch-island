@@ -237,9 +237,19 @@ public struct ShelfItem: Identifiable, Equatable, Sendable, Codable {
         return String(s[range.upperBound...])
       }
       return s
-    case .note(let text, _):
-      return text
+    case .note(let text, let isReminder):
+      if isReminder {
+        return text.hasPrefix("✎ ") ? String(text.dropFirst(2)) : text
+      } else {
+        return text.hasPrefix("✎ ") ? text : "✎ \(text)"
+      }
     }
+  }
+
+  /// The raw text of a note or reminder, without any display prefix.
+  public var noteText: String? {
+    guard case .note(let text, _) = kind else { return nil }
+    return text.hasPrefix("✎ ") ? String(text.dropFirst(2)) : text
   }
 
   /// All file URLs represented by this item (for dragging out to other apps).

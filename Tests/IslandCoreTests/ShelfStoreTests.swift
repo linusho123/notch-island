@@ -782,4 +782,61 @@ struct ShelfStoreTests {
     let itemsAfter24h = store.items()
     #expect(itemsAfter24h.count == 0)
   }
+
+  @Test("Updating a note's text saves correction in place (D63)")
+  func updateNoteTextInPlaceD63() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let store = ShelfStore(file: storeFile)
+
+    // Add three items: note 1, note 2, note 3
+    let n1 = store.addNote(text: "first note")
+    let n2 = store.addNote(text: "idea: notch app shwos lyrics")
+    let n3 = store.addNote(text: "third note")
+
+    #expect(store.count == 3)
+    #expect(store.items()[1].id == n2.id)
+
+    // Correct note 2 in place
+    let updated = store.updateNoteText(id: n2.id, text: "idea: notch app shows lyrics")
+    #expect(updated == true)
+
+    let items = store.items()
+    #expect(items.count == 3)
+    #expect(items[0].id == n1.id)
+    #expect(items[1].id == n2.id)
+    #expect(items[1].title == "✎ idea: notch app shows lyrics")
+    #expect(items[2].id == n3.id)
+
+    // Verify persistence across reload (D59)
+    store.reload()
+    let reloaded = store.items()
+    #expect(reloaded.count == 3)
+    #expect(reloaded[1].id == n2.id)
+    #expect(reloaded[1].title == "✎ idea: notch app shows lyrics")
+  }
+
+  @Test("Emptying a note's text removes the note (D63)")
+  func emptyingNoteRemovesItD63() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let store = ShelfStore(file: storeFile)
+
+    let n1 = store.addNote(text: "keep me")
+    let n2 = store.addNote(text: "idea: notch app shows lyrics")
+    #expect(store.count == 2)
+
+    // Empty note 2's text
+    let updated = store.updateNoteText(id: n2.id, text: "")
+    #expect(updated == true)
+
+    let items = store.items()
+    #expect(items.count == 1)
+    #expect(items[0].id == n1.id)
+
+    // Verify persistence across reload (D59)
+    store.reload()
+    #expect(store.count == 1)
+    #expect(store.items()[0].id == n1.id)
+  }
 }
