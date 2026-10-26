@@ -425,8 +425,17 @@ module.exports = function (reg) {
     await sleep(200);
   });
 
-  reg.define(/^the visionary takes a screenshot copied only to the clipboard$/, async () => {
+  reg.define(/^the visionary takes a screenshot copied only to the clipboard$/, async (w) => {
+    const beforeSave = await harness.pasteboardSave();
     execSync('/usr/sbin/screencapture -c');
+    w.defer(async () => {
+      const current = await harness.pasteboardSave();
+      assert.deepEqual(
+        current.types,
+        beforeSave.types,
+        `general pasteboard types were not restored after screencapture -c (was ${beforeSave.types.join(', ')}, now ${current.types.join(', ')})`
+      );
+    });
     await sleep(100);
   });
 
