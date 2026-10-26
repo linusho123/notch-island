@@ -10,9 +10,12 @@ const { helpers } = require('./music-panel.steps');
 const {
   scratchDesktop,
   scratchDocuments,
+  scratchArchive,
+  scratchBackup,
   scratchScreenshots,
   setupScreenshotLocation,
   restartIsland,
+  launchDropStandIn,
 } = require('../support/shelf');
 
 const {
@@ -200,6 +203,19 @@ module.exports = function (reg) {
     await ensureIsland(w);
   });
 
+  reg.define(/^a link to "gov\.uk\/renew-adult-passport" is parked on the shelf$/, async (w) => {
+    island.feed(w, {
+      clearShelf: true,
+      seedShelf: [{
+        type: 'link',
+        url: 'https://gov.uk/renew-adult-passport',
+        title: 'gov.uk/renew-adult-passport',
+        landedAt: new Date().toISOString(),
+      }],
+    });
+    await ensureIsland(w);
+  });
+
   reg.define(/^a link to "gov\.uk\/renew-adult-passport" was parked on the shelf 7 days ago and never removed$/, async (w) => {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
     island.feed(w, {
@@ -234,6 +250,185 @@ module.exports = function (reg) {
       ],
     });
     await ensureIsland(w);
+  });
+
+  reg.define(/^the island is closed and "tax-return\.pdf" is in the Documents folder$/, async (w) => {
+    const docs = scratchDocuments(w);
+    const pdf = path.join(docs, 'tax-return.pdf');
+    fs.writeFileSync(pdf, '%PDF-1.4 tax return content');
+    island.feed(w, { clearShelf: true, seedShelf: null });
+    await ensureIsland(w);
+    await pointerAway();
+    await sleep(600);
+  });
+
+  reg.define(/^the visionary is dragging "tax-return\.pdf" and the island has opened to the shelf page$/, async (w) => {
+    const docs = scratchDocuments(w);
+    const pdf = path.join(docs, 'tax-return.pdf');
+    if (!fs.existsSync(pdf)) fs.writeFileSync(pdf, '%PDF-1.4 tax return content');
+    await ensureIsland(w);
+    const { notch } = await harness.builtIn();
+    w.activeDrag = await harness.startDragObject('file', pdf, notch.x + notch.w / 2, notch.y + 200, notch.x + notch.w / 2, notch.y + 10);
+    w.defer(async () => {
+      if (w.activeDrag) {
+        await w.activeDrag.release();
+        w.activeDrag = null;
+      }
+      await harness.release();
+    });
+    await island.waitFor(w.island.pid, (v) => v.open && v.page === 'shelf', 3000, 'island did not open to shelf page');
+  });
+
+  reg.define(/^the shelf holds only "tax-return\.pdf"$/, async (w) => {
+    const docs = scratchDocuments(w);
+    const pdf = path.join(docs, 'tax-return.pdf');
+    fs.writeFileSync(pdf, '%PDF-1.4 tax return content');
+    island.feed(w, {
+      clearShelf: true,
+      seedShelf: [{ type: 'file', path: pdf, landedAt: new Date().toISOString() }],
+    });
+    await ensureIsland(w);
+  });
+
+  reg.define(/^the shelf holds one stack of three files dropped together from Finder$/, async (w) => {
+    const docs = scratchDocuments(w);
+    const f1 = path.join(docs, 'file1.txt');
+    const f2 = path.join(docs, 'file2.txt');
+    const f3 = path.join(docs, 'file3.txt');
+    fs.writeFileSync(f1, 'content 1');
+    fs.writeFileSync(f2, 'content 2');
+    fs.writeFileSync(f3, 'content 3');
+    island.feed(w, {
+      clearShelf: true,
+      seedShelf: [{ type: 'files', paths: [f1, f2, f3], landedAt: new Date().toISOString() }],
+    });
+    await ensureIsland(w);
+  });
+
+  reg.define(/^the folder "Taxes 2026", holding 4 files, is parked on the shelf from the Documents folder$/, async (w) => {
+    const docs = scratchDocuments(w);
+    const folder = path.join(docs, 'Taxes 2026');
+    fs.mkdirSync(folder, { recursive: true });
+    for (let i = 1; i <= 4; i++) {
+      fs.writeFileSync(path.join(folder, `file${i}.pdf`), `%PDF tax doc ${i}`);
+    }
+    island.feed(w, {
+      clearShelf: true,
+      seedShelf: [{ type: 'folder', path: folder, landedAt: new Date().toISOString() }],
+    });
+    await ensureIsland(w);
+  });
+
+  reg.define(/^(the file "tax-return\.pdf"|the folder "Taxes 2026") is parked on the shelf from the Documents folder$/, async (w, item) => {
+    const docs = scratchDocuments(w);
+    if (item.includes('folder')) {
+      const folder = path.join(docs, 'Taxes 2026');
+      fs.mkdirSync(folder, { recursive: true });
+      for (let i = 1; i <= 4; i++) {
+        fs.writeFileSync(path.join(folder, `file${i}.pdf`), `%PDF tax doc ${i}`);
+      }
+      island.feed(w, {
+        clearShelf: true,
+        seedShelf: [{ type: 'folder', path: folder, landedAt: new Date().toISOString() }],
+      });
+    } else {
+      const pdf = path.join(docs, 'tax-return.pdf');
+      fs.writeFileSync(pdf, '%PDF-1.4 tax return content');
+      island.feed(w, {
+        clearShelf: true,
+        seedShelf: [{ type: 'file', path: pdf, landedAt: new Date().toISOString() }],
+      });
+    }
+    await ensureIsland(w);
+  });
+
+  reg.define(/^"tax-return\.pdf" sits in the Documents folder$/, async (w) => {
+    const docs = scratchDocuments(w);
+    const pdf = path.join(docs, 'tax-return.pdf');
+    fs.writeFileSync(pdf, '%PDF-1.4 tax return content');
+    island.feed(w, { clearShelf: true, seedShelf: null });
+    await ensureIsland(w);
+  });
+
+  reg.define(/^"Screenshot 2026-10-18 at 10\.15\.02\.png" is parked on the shelf and its original is on the Desktop$/, async (w) => {
+    setupScreenshotLocation(w, scratchDesktop(w));
+    const desktop = scratchDesktop(w);
+    const shot = path.join(desktop, 'Screenshot 2026-10-18 at 10.15.02.png');
+    execSync(`/usr/sbin/screencapture -x "${shot}"`);
+    island.feed(w, {
+      clearShelf: true,
+      seedShelf: [{ type: 'screenshot', path: shot, landedAt: new Date().toISOString() }],
+    });
+    await ensureIsland(w);
+  });
+
+  reg.define(/^(the 2 GB screen recording "bug-repro\.mov"|the screenshot "Screenshot 2026-10-18 at 10\.15\.02\.png") is parked on the shelf and its original is on the Desktop$/, async (w, item) => {
+    setupScreenshotLocation(w, scratchDesktop(w));
+    const desktop = scratchDesktop(w);
+    if (item.includes('bug-repro.mov')) {
+      const mov = path.join(desktop, 'bug-repro.mov');
+      execSync(`/bin/dd if=/dev/zero of="${mov}" bs=1 count=0 seek=2147483648 2>/dev/null`);
+      island.feed(w, {
+        clearShelf: true,
+        seedShelf: [{ type: 'screenRecording', path: mov, landedAt: new Date().toISOString() }],
+      });
+    } else {
+      const shot = path.join(desktop, 'Screenshot 2026-10-18 at 10.15.02.png');
+      execSync(`/usr/sbin/screencapture -x "${shot}"`);
+      island.feed(w, {
+        clearShelf: true,
+        seedShelf: [{ type: 'screenshot', path: shot, landedAt: new Date().toISOString() }],
+      });
+    }
+    await ensureIsland(w);
+  });
+
+  reg.define(/^("tax-return\.pdf"|"Screenshot 2026-10-18 at 10\.15\.02\.png"|the folder "Taxes 2026") is parked on the shelf from (the Documents folder|the Desktop)$/, async (w, item, home) => {
+    if (item.includes('tax-return.pdf')) {
+      const docs = scratchDocuments(w);
+      const pdf = path.join(docs, 'tax-return.pdf');
+      fs.writeFileSync(pdf, '%PDF-1.4 tax return content');
+      island.feed(w, {
+        clearShelf: true,
+        seedShelf: [{ type: 'file', path: pdf, landedAt: new Date().toISOString() }],
+      });
+    } else if (item.includes('Screenshot')) {
+      setupScreenshotLocation(w, scratchDesktop(w));
+      const desktop = scratchDesktop(w);
+      const shot = path.join(desktop, 'Screenshot 2026-10-18 at 10.15.02.png');
+      execSync(`/usr/sbin/screencapture -x "${shot}"`);
+      island.feed(w, {
+        clearShelf: true,
+        seedShelf: [{ type: 'screenshot', path: shot, landedAt: new Date().toISOString() }],
+      });
+    } else if (item.includes('Taxes 2026')) {
+      const docs = scratchDocuments(w);
+      const folder = path.join(docs, 'Taxes 2026');
+      fs.mkdirSync(folder, { recursive: true });
+      for (let i = 1; i <= 4; i++) {
+        fs.writeFileSync(path.join(folder, `file${i}.pdf`), `%PDF tax doc ${i}`);
+      }
+      island.feed(w, {
+        clearShelf: true,
+        seedShelf: [{ type: 'folder', path: folder, landedAt: new Date().toISOString() }],
+      });
+    }
+    await ensureIsland(w);
+  });
+
+  reg.define(/^the island is open on the shelf page holding "tax-return\.pdf", with no remove area showing$/, async (w) => {
+    const docs = scratchDocuments(w);
+    const pdf = path.join(docs, 'tax-return.pdf');
+    fs.writeFileSync(pdf, '%PDF-1.4 tax return content');
+    island.feed(w, {
+      clearShelf: true,
+      seedShelf: [{ type: 'file', path: pdf, landedAt: new Date().toISOString() }],
+    });
+    await ensureIsland(w);
+    await openOnShelfPage(w);
+    const view = await island.look(w.island.pid);
+    const rem = view.elements.find((e) => e.identifier === 'remove-area');
+    assert.ok(!rem, 'remove area is showing when no drag is under way');
   });
 
   // ------------------------------------------------------------- Whens
@@ -537,5 +732,485 @@ module.exports = function (reg) {
       2000,
       'tax-return.pdf did not leave the shelf after 24 hours'
     );
+  });
+
+  // U4 Whens and Thens
+
+  reg.define(/^the visionary drags "tax-return\.pdf" from Finder onto the notch, still holding it$/, async (w) => {
+    const docs = scratchDocuments(w);
+    const pdf = path.join(docs, 'tax-return.pdf');
+    const { notch } = await harness.builtIn();
+    w.activeDrag = await harness.startDragObject('file', pdf, notch.x + notch.w / 2, notch.y + 200, notch.x + notch.w / 2, notch.y + 10);
+    w.defer(async () => {
+      if (w.activeDrag) {
+        await w.activeDrag.release();
+        w.activeDrag = null;
+      }
+      await harness.release();
+    });
+    await sleep(200);
+  });
+
+  reg.define(/^the visionary sees the island open straight to the shelf page, ready for the drop$/, async (w) => {
+    await island.waitFor(w.island.pid, (v) => v.open && v.page === 'shelf', 3000, 'island did not open straight to shelf page');
+  });
+
+  reg.define(/^the visionary lets go over the shelf page$/, async (w) => {
+    if (w.activeDrag) {
+      await w.activeDrag.release();
+      w.activeDrag = null;
+    } else {
+      await harness.release();
+    }
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees "tax-return\.pdf" parked on the shelf$/, async (w) => {
+    await island.waitFor(
+      w.island.pid,
+      (v) => v.open && v.page === 'shelf' && v.texts.includes('tax-return.pdf'),
+      3000,
+      'tax-return.pdf not parked on shelf'
+    );
+  });
+
+  reg.define(/^the visionary drags (.+) onto the notch and lets go$/, async (w, dropped) => {
+    const { notch } = await harness.builtIn();
+    const nx = notch.x + notch.w / 2;
+    const ny = notch.y + 10;
+    if (dropped.includes('the file "tax-return.pdf"')) {
+      const docs = scratchDocuments(w);
+      const pdf = path.join(docs, 'tax-return.pdf');
+      if (!fs.existsSync(pdf)) fs.writeFileSync(pdf, '%PDF-1.4 tax return content');
+      await harness.dragObject('file', pdf, nx, ny + 200, nx, ny, false);
+    } else if (dropped.includes('the file "boarding-pass.pdf"')) {
+      const desktop = scratchDesktop(w);
+      const pdf = path.join(desktop, 'boarding-pass.pdf');
+      if (!fs.existsSync(pdf)) fs.writeFileSync(pdf, '%PDF-1.4 boarding pass content');
+      await harness.dragObject('file', pdf, nx, ny + 200, nx, ny, false);
+    } else if (dropped.includes('three files selected together')) {
+      const docs = scratchDocuments(w);
+      const f1 = path.join(docs, 'file1.txt');
+      const f2 = path.join(docs, 'file2.txt');
+      const f3 = path.join(docs, 'file3.txt');
+      fs.writeFileSync(f1, 'file 1 content');
+      fs.writeFileSync(f2, 'file 2 content');
+      fs.writeFileSync(f3, 'file 3 content');
+      await harness.dragObject('files', `${f1},${f2},${f3}`, nx, ny + 200, nx, ny, false);
+    } else if (dropped.includes('the folder "Taxes 2026"')) {
+      const docs = scratchDocuments(w);
+      const folder = path.join(docs, 'Taxes 2026');
+      fs.mkdirSync(folder, { recursive: true });
+      fs.writeFileSync(path.join(folder, 'receipt.txt'), 'receipt data');
+      await harness.dragObject('folder', folder, nx, ny + 200, nx, ny, false);
+    } else if (dropped.includes('a link from Chrome')) {
+      await harness.dragObject('link', 'https://gov.uk/renew-adult-passport', nx, ny + 200, nx, ny, false);
+    }
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees (.+) on the shelf page$/, async (w, parked) => {
+    await openOnShelfPage(w);
+    if (parked.includes('tax-return.pdf')) {
+      await island.waitFor(w.island.pid, (v) => v.texts.includes('tax-return.pdf'), 3000, 'tax-return.pdf missing on shelf page');
+    } else if (parked.includes('boarding-pass.pdf')) {
+      await island.waitFor(w.island.pid, (v) => v.texts.includes('boarding-pass.pdf'), 3000, 'boarding-pass.pdf missing on shelf page');
+    } else if (parked.includes('one stack holding the three files')) {
+      await island.waitFor(
+        w.island.pid,
+        (v) => v.texts.some((t) => t.includes('3 files') || t.includes('files')) || v.elements.filter((e) => e.identifier === 'shelf-item').length === 1,
+        3000,
+        'stack of 3 files missing on shelf page'
+      );
+    } else if (parked.includes('Taxes 2026')) {
+      await island.waitFor(w.island.pid, (v) => v.texts.includes('Taxes 2026'), 3000, 'Taxes 2026 missing on shelf page');
+    } else if (parked.includes('gov.uk/renew-adult-passport')) {
+      await island.waitFor(w.island.pid, (v) => v.texts.some((t) => t.includes('gov.uk/renew-adult-passport')), 3000, 'link missing on shelf page');
+    }
+  });
+
+  reg.define(/^the visionary drags the highlighted text "([^"]+)" from Chrome onto the notch and lets go$/, async (w, text) => {
+    const { notch } = await harness.builtIn();
+    await harness.dragObject('text', text, notch.x + notch.w / 2, notch.y + 200, notch.x + notch.w / 2, notch.y + 10, false);
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees the shelf still holding only "tax-return\.pdf", with no note made from the text$/, async (w) => {
+    await openOnShelfPage(w);
+    const view = await island.look(w.island.pid);
+    const items = view.elements.filter((e) => e.identifier === 'shelf-item');
+    assert.equal(items.length, 1, `expected 1 item on shelf, found ${items.length}: ${view.texts.join(', ')}`);
+    assert.ok(view.texts.includes('tax-return.pdf'), 'tax-return.pdf missing from shelf');
+    assert.ok(!view.texts.some((t) => t.includes('renew passport')), 'dropped text created a note');
+  });
+
+  reg.define(/^the visionary drags the stack into a Gmail draft in Chrome$/, async (w) => {
+    w.standIn = await launchDropStandIn(w, { title: 'Gmail' });
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item'),
+      2000,
+      'no shelf item found'
+    );
+    const stackEl = view.elements.find((e) => e.identifier === 'shelf-item');
+    const from = center(stackEl.frame);
+    const to = { x: w.standIn.window.x + w.standIn.window.w / 2, y: w.standIn.window.y + w.standIn.window.h / 2 };
+    await harness.drag(from.x, from.y, to.x, to.y, 20, 15, false);
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees all 3 screenshots and the recording attached to the draft$/, async (w) => {
+    const log = await island.until(() => w.standIn.readLog(), 3000, 'stand-in did not receive drop');
+    assert.ok(log && log.received, 'no received items in log');
+    const names = log.received.map((r) => r.name);
+    assert.equal(names.filter((n) => n.includes('Screenshot')).length, 3, 'screenshots missing in draft');
+    assert.equal(names.filter((n) => n.endsWith('.mov')).length, 1, 'recording missing in draft');
+  });
+
+  reg.define(/^the visionary sees all three files attached to the draft$/, async (w) => {
+    const log = await island.until(() => w.standIn.readLog(), 3000, 'stand-in did not receive files');
+    assert.ok(log && log.received, 'no files received');
+    assert.equal(log.received.length, 3, `expected 3 files attached, got ${log.received.length}`);
+  });
+
+  reg.define(/^the visionary drags it from the shelf into a Finder window of the drive "Backup"$/, async (w) => {
+    const backupDir = scratchBackup(w);
+    w.standIn = await launchDropStandIn(w, { title: 'Backup', copyTo: backupDir });
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item'),
+      2000,
+      'no folder item on shelf'
+    );
+    const itemEl = view.elements.find((e) => e.identifier === 'shelf-item');
+    const from = center(itemEl.frame);
+    const to = { x: w.standIn.window.x + w.standIn.window.w / 2, y: w.standIn.window.y + w.standIn.window.h / 2 };
+    await harness.drag(from.x, from.y, to.x, to.y, 20, 15, false);
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees the folder "Taxes 2026" on "Backup" with all 4 files inside it$/, async (w) => {
+    const backupDir = scratchBackup(w);
+    const targetFolder = path.join(backupDir, 'Taxes 2026');
+    await island.until(() => fs.existsSync(targetFolder), 3000, 'folder Taxes 2026 not copied to Backup');
+    const files = fs.readdirSync(targetFolder);
+    assert.equal(files.length, 4, `expected 4 files in Taxes 2026, found ${files.length}`);
+  });
+
+  reg.define(/^the visionary moves (the file "tax-return\.pdf"|the folder "Taxes 2026") to the folder "Archive" in Finder$/, async (w, item) => {
+    const docs = scratchDocuments(w);
+    const archive = scratchArchive(w);
+    const name = item.includes('folder') ? 'Taxes 2026' : 'tax-return.pdf';
+    fs.renameSync(path.join(docs, name), path.join(archive, name));
+    await sleep(200);
+  });
+
+  reg.define(/^the visionary then drags it from the shelf onto the Desktop$/, async (w) => {
+    const desktop = scratchDesktop(w);
+    w.standIn = await launchDropStandIn(w, { title: 'Desktop', moveTo: desktop });
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item'),
+      2000,
+      'no item on shelf'
+    );
+    const itemEl = view.elements.find((e) => e.identifier === 'shelf-item');
+    const from = center(itemEl.frame);
+    const to = { x: w.standIn.window.x + w.standIn.window.w / 2, y: w.standIn.window.y + w.standIn.window.h / 2 };
+    await harness.drag(from.x, from.y, to.x, to.y, 20, 15, false);
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees (the file "tax-return\.pdf"|the folder "Taxes 2026") on the Desktop and no longer in "Archive"$/, async (w, item) => {
+    const desktop = scratchDesktop(w);
+    const archive = scratchArchive(w);
+    const name = item.includes('folder') ? 'Taxes 2026' : 'tax-return.pdf';
+    await island.until(() => fs.existsSync(path.join(desktop, name)), 3000, `${name} missing from Desktop`);
+    assert.ok(!fs.existsSync(path.join(archive, name)), `${name} still in Archive`);
+  });
+
+  reg.define(/^the visionary moves "tax-return\.pdf" to the Trash in Finder$/, async (w) => {
+    const docs = scratchDocuments(w);
+    const pdf = path.join(docs, 'tax-return.pdf');
+    execSync(`osascript -e 'tell application "Finder" to delete POSIX file "${pdf}"'`);
+    w.defer(() => {
+      try {
+        const trashFile = path.join(os.homedir(), '.Trash', 'tax-return.pdf');
+        if (fs.existsSync(trashFile)) fs.rmSync(trashFile, { force: true });
+      } catch {}
+    });
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary drags it out of the shelf onto the Desktop and Finder moves it there$/, async (w) => {
+    const desktop = scratchDesktop(w);
+    w.standIn = await launchDropStandIn(w, { title: 'Desktop', moveTo: desktop });
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item'),
+      2000,
+      'no item on shelf'
+    );
+    const itemEl = view.elements.find((e) => e.identifier === 'shelf-item');
+    const from = center(itemEl.frame);
+    const to = { x: w.standIn.window.x + w.standIn.window.w / 2, y: w.standIn.window.y + w.standIn.window.h / 2 };
+    await harness.drag(from.x, from.y, to.x, to.y, 20, 15, false);
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees "tax-return\.pdf" on the Desktop, no longer in Documents$/, async (w) => {
+    const desktop = scratchDesktop(w);
+    const docs = scratchDocuments(w);
+    await island.until(() => fs.existsSync(path.join(desktop, 'tax-return.pdf')), 3000, 'tax-return.pdf not moved to Desktop');
+    assert.ok(!fs.existsSync(path.join(docs, 'tax-return.pdf')), 'tax-return.pdf still in Documents');
+  });
+
+  reg.define(/^the visionary parks it on the shelf by dragging it onto the notch$/, async (w) => {
+    const docs = scratchDocuments(w);
+    const pdf = path.join(docs, 'tax-return.pdf');
+    const { notch } = await harness.builtIn();
+    await harness.dragObject('file', pdf, notch.x + notch.w / 2, notch.y + 200, notch.x + notch.w / 2, notch.y + 10, false);
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees "tax-return\.pdf" still in the Documents folder in Finder$/, async (w) => {
+    const docs = scratchDocuments(w);
+    assert.ok(fs.existsSync(path.join(docs, 'tax-return.pdf')), 'tax-return.pdf missing from Documents');
+  });
+
+  reg.define(/^the visionary sees "tax-return\.pdf" on the shelf page$/, async (w) => {
+    await openOnShelfPage(w);
+    await island.waitFor(
+      w.island.pid,
+      (v) => v.page === 'shelf' && v.texts.includes('tax-return.pdf'),
+      3000,
+      'tax-return.pdf not on shelf page'
+    );
+  });
+
+  reg.define(/^the visionary drags it from the shelf into a Gmail draft in Chrome$/, async (w) => {
+    w.standIn = await launchDropStandIn(w, { title: 'Gmail' });
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item'),
+      2000,
+      'no item on shelf'
+    );
+    const itemEl = view.elements.find((e) => e.identifier === 'shelf-item');
+    const from = center(itemEl.frame);
+    const to = { x: w.standIn.window.x + w.standIn.window.w / 2, y: w.standIn.window.y + w.standIn.window.h / 2 };
+    await harness.drag(from.x, from.y, to.x, to.y, 20, 15, false);
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees the "tax-return\.pdf" from Documents attached to the draft$/, async (w) => {
+    const log = await island.until(() => w.standIn.readLog(), 3000, 'stand-in did not receive draft attachment');
+    assert.ok(log && log.received && log.received.length > 0, 'no attachment in draft');
+    const item = log.received.find((r) => r.name === 'tax-return.pdf');
+    assert.ok(item, 'tax-return.pdf was not attached to draft');
+    assert.ok(item.path.includes(scratchDocuments(w)), `attachment did not come from Documents: ${item.path}`);
+  });
+
+  reg.define(/^the visionary opens the island, scrolls down to the shelf and drags the screenshot into (a Messages chat|a Gmail draft in Chrome)$/, async (w, target) => {
+    const title = target.includes('Messages') ? 'Messages' : 'Gmail';
+    w.standIn = await launchDropStandIn(w, { title });
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item'),
+      2000,
+      'no screenshot on shelf'
+    );
+    const itemEl = view.elements.find((e) => e.identifier === 'shelf-item');
+    const from = center(itemEl.frame);
+    const to = { x: w.standIn.window.x + w.standIn.window.w / 2, y: w.standIn.window.y + w.standIn.window.h / 2 };
+    await harness.drag(from.x, from.y, to.x, to.y, 20, 15, false);
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees the screenshot attached in (a Messages chat|a Gmail draft in Chrome), as if dragged from the Desktop$/, async (w, target) => {
+    const log = await island.until(() => w.standIn.readLog(), 3000, `screenshot not received in ${target}`);
+    assert.ok(log && log.received && log.received.length > 0, 'no screenshot received');
+    const shot = log.received.find((r) => r.name.includes('Screenshot'));
+    assert.ok(shot, 'screenshot missing from target received list');
+    assert.ok(shot.path.includes(scratchDesktop(w)), `screenshot did not come from Desktop: ${shot.path}`);
+  });
+
+  reg.define(/^the visionary drags it out of the shelf into a Messages chat that accepts it$/, async (w) => {
+    w.standIn = await launchDropStandIn(w, { title: 'Messages' });
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item'),
+      2000,
+      'no item on shelf'
+    );
+    const itemEl = view.elements.find((e) => e.identifier === 'shelf-item');
+    const from = center(itemEl.frame);
+    const to = { x: w.standIn.window.x + w.standIn.window.w / 2, y: w.standIn.window.y + w.standIn.window.h / 2 };
+    await harness.drag(from.x, from.y, to.x, to.y, 20, 15, false);
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees the screenshot gone from the shelf page$/, async (w) => {
+    await openOnShelfPage(w);
+    await island.waitFor(
+      w.island.pid,
+      (v) => !v.texts.some((t) => t.includes('Screenshot')),
+      3000,
+      'screenshot is still on the shelf'
+    );
+  });
+
+  reg.define(/^the visionary drags it out of the shelf and lets go (in a Messages chat that refuses it as too large|over the menu bar, where nothing accepts it)$/, async (w, where) => {
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item'),
+      2000,
+      'no item on shelf'
+    );
+    const itemEl = view.elements.find((e) => e.identifier === 'shelf-item');
+    const from = center(itemEl.frame);
+    if (where.includes('Messages')) {
+      w.standIn = await launchDropStandIn(w, { title: 'Messages', maxSize: 1073741824 });
+      const to = { x: w.standIn.window.x + w.standIn.window.w / 2, y: w.standIn.window.y + w.standIn.window.h / 2 };
+      await harness.drag(from.x, from.y, to.x, to.y, 20, 15, false);
+    } else {
+      const { notch } = await harness.builtIn();
+      await harness.drag(from.x, from.y, notch.x - 50, 10, 20, 15, false);
+    }
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees (the 2 GB screen recording "bug-repro\.mov"|the screenshot "Screenshot 2026-10-18 at 10\.15\.02\.png") on the shelf page as it was$/, async (w, item) => {
+    await openOnShelfPage(w);
+    const targetText = item.includes('bug-repro.mov') ? 'bug-repro.mov' : 'Screenshot';
+    await island.waitFor(
+      w.island.pid,
+      (v) => v.texts.some((t) => t.includes(targetText)),
+      3000,
+      `${targetText} not on shelf page as it was`
+    );
+  });
+
+  reg.define(/^the visionary removes it by dropping it on the remove area at the panel's edge$/, async (w) => {
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item'),
+      2000,
+      'no item on shelf'
+    );
+    const itemEl = view.elements.find((e) => e.identifier === 'shelf-item');
+    const from = center(itemEl.frame);
+    const to = { x: view.panel.x + view.panel.w / 2, y: view.panel.y + view.panel.h - 18 };
+    await harness.drag(from.x, from.y, to.x, to.y, 20, 15, false);
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees ("tax-return\.pdf"|"Screenshot 2026-10-18 at 10\.15\.02\.png"|the folder "Taxes 2026") gone from the shelf page$/, async (w, item) => {
+    await openOnShelfPage(w);
+    const name = item.replace(/"/g, '').replace('the folder ', '');
+    await island.waitFor(
+      w.island.pid,
+      (v) => !v.texts.some((t) => t.includes(name)),
+      3000,
+      `${name} still on shelf`
+    );
+  });
+
+  reg.define(/^the visionary sees ("tax-return\.pdf"|"Screenshot 2026-10-18 at 10\.15\.02\.png"|the folder "Taxes 2026") still in (the Documents folder|the Desktop)$/, async (w, item, home) => {
+    const dir = home.includes('Documents') ? scratchDocuments(w) : scratchDesktop(w);
+    const name = item.replace(/"/g, '').replace('the folder ', '');
+    assert.ok(fs.existsSync(path.join(dir, name)), `${name} is missing from ${dir}`);
+  });
+
+  reg.define(/^the visionary drags the link onto the remove area at the panel's edge and lets go$/, async (w) => {
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item'),
+      2000,
+      'no link on shelf'
+    );
+    const itemEl = view.elements.find((e) => e.identifier === 'shelf-item');
+    const from = center(itemEl.frame);
+    const to = { x: view.panel.x + view.panel.w / 2, y: view.panel.y + view.panel.h - 18 };
+    await harness.drag(from.x, from.y, to.x, to.y, 20, 15, false);
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees the link gone from the shelf page$/, async (w) => {
+    await openOnShelfPage(w);
+    await island.waitFor(
+      w.island.pid,
+      (v) => !v.texts.some((t) => t.includes('gov.uk')),
+      3000,
+      'link still on shelf'
+    );
+  });
+
+  reg.define(/^the visionary starts dragging "tax-return\.pdf" out of the shelf$/, async (w) => {
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item'),
+      2000,
+      'no tax-return.pdf on shelf'
+    );
+    const itemEl = view.elements.find((e) => e.identifier === 'shelf-item');
+    const from = center(itemEl.frame);
+    w.defer(() => harness.release().catch(() => {}));
+    await harness.drag(from.x, from.y, from.x, from.y + 30, 15, 15, true);
+    await sleep(150);
+  });
+
+  reg.define(/^the visionary sees a small remove area appear at the panel's edge$/, async (w) => {
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'remove-area'),
+      2000,
+      'remove area did not appear'
+    );
+    const rem = view.elements.find((e) => e.identifier === 'remove-area');
+    assert.ok(rem, 'remove area not found');
+  });
+
+  reg.define(/^the visionary drags it out of the shelf and drops it on (the Desktop|a Chrome window)$/, async (w, where) => {
+    if (where === 'the Desktop') {
+      const desktop = scratchDesktop(w);
+      w.standIn = await launchDropStandIn(w, { title: 'Desktop', moveTo: desktop });
+    } else {
+      w.standIn = await launchDropStandIn(w, { title: 'Google Chrome' });
+    }
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item'),
+      2000,
+      'no item on shelf'
+    );
+    const itemEl = view.elements.find((e) => e.identifier === 'shelf-item');
+    const from = center(itemEl.frame);
+    const to = { x: w.standIn.window.x + w.standIn.window.w / 2, y: w.standIn.window.y + w.standIn.window.h / 2 };
+    await harness.drag(from.x, from.y, to.x, to.y, 20, 15, false);
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees "tax-return\.pdf" moved to the Desktop as in Finder, no longer in Documents$/, async (w) => {
+    const desktop = scratchDesktop(w);
+    const docs = scratchDocuments(w);
+    await island.until(() => fs.existsSync(path.join(desktop, 'tax-return.pdf')), 3000, 'tax-return.pdf not moved to Desktop');
+    assert.ok(!fs.existsSync(path.join(docs, 'tax-return.pdf')), 'tax-return.pdf still in Documents');
+  });
+
+  reg.define(/^the visionary sees Chrome open "tax-return\.pdf"$/, async (w) => {
+    const log = await island.until(() => w.standIn.readLog(), 3000, 'Chrome stand-in did not receive tax-return.pdf');
+    assert.ok(log && log.received && log.received.some((r) => r.name === 'tax-return.pdf'), 'tax-return.pdf not opened by Chrome');
   });
 };

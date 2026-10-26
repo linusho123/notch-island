@@ -19,6 +19,7 @@ const procs = require('../support/procs');
 const scenes = require('../support/scenes');
 const motion = require('../support/motion');
 const { root, testBundleID } = require('../support/paths');
+const { scratchDocuments } = require('../support/shelf');
 const { osa } = music;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -920,6 +921,24 @@ module.exports = (reg) => {
     await showsSong(w, CONCERT);
   });
 
+  reg.define(/^the island is open on the shelf page$/, async (w) => {
+    const docs = scratchDocuments(w);
+    const pdf = path.join(docs, 'tax-return.pdf');
+    fs.writeFileSync(pdf, '%PDF-1.4 tax return content');
+    island.feed(w, {
+      clearShelf: true,
+      seedShelf: [{ type: 'file', path: pdf, landedAt: new Date().toISOString() }],
+    });
+    await ensureIsland(w);
+    await openByRest(w);
+    const view = await island.look(w.island.pid);
+    const c = center(view.panel);
+    await harness.glide(c.x, c.y, 4, 8);
+    await sleep(60);
+    await harness.scroll(-80, 'trackpad');
+    await island.waitFor(w.island.pid, (v) => v.open && v.page === 'shelf', 2000, 'shelf page did not open');
+  });
+
   reg.define(/^the visionary rests the pointer on the notch and the island opens$/, async (w) => {
     w.restMs = RULED_REST_MS;
     await rest(w, RULED_REST_MS);
@@ -943,12 +962,24 @@ module.exports = (reg) => {
     }
   });
 
-  reg.define(/^the visionary drags the progress dot with the pointer down to the Dock, without letting go$/, async (w) => {
-    const view = await island.waitFor(w.island.pid, (v) => v.dot, 2000, 'the island shows no progress dot');
-    const d = center(view.dot.frame);
+  reg.define(/^the visionary drags (the progress dot|the parked "tax-return\.pdf") with the pointer down to the Dock, without letting go$/, async (w, what) => {
+    let startPoint;
+    if (what === 'the progress dot') {
+      const view = await island.waitFor(w.island.pid, (v) => v.dot, 2000, 'the island shows no progress dot');
+      startPoint = center(view.dot.frame);
+    } else {
+      const view = await island.waitFor(
+        w.island.pid,
+        (v) => v.elements.some((e) => e.identifier === 'shelf-item' || (e.description && e.description.includes('tax-return.pdf'))),
+        2000,
+        'shelf shows no tax-return.pdf'
+      );
+      const itemEl = view.elements.find((e) => e.identifier === 'shelf-item' || (e.description && e.description.includes('tax-return.pdf')));
+      startPoint = center(itemEl.frame);
+    }
     const { frame } = await harness.builtIn();
     w.defer(() => harness.release().catch(() => {}));
-    await harness.drag(d.x, d.y, d.x, frame.y + frame.h - 20, 20, 15, true);
+    await harness.drag(startPoint.x, startPoint.y, startPoint.x, frame.y + frame.h - 20, 20, 15, true);
     const n = await notch();
     w.held = (await harness.watch(w.island.pid, 1500, 40)).map((s) => island.parse(s.windows, n));
     w.stillHeld = await harness.leftHeld();

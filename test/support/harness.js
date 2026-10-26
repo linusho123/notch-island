@@ -2,7 +2,7 @@
 // The far side's reader and the pointer's driver: build/island-harness, which
 // asks macOS itself (Accessibility, the screens, the frontmost app) and posts
 // real pointer events. Coordinates are global and top-left based.
-const { execFile } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 const { promisify } = require('node:util');
 const { harness } = require('./paths');
 const { assertInIdleRun } = require('./require-idle');
@@ -87,6 +87,36 @@ module.exports = {
     h('drag', x1, y1, x2, y2, steps, stepMs, ...(hold ? ['hold'] : [])),
   dragObject: (type, payload, x1, y1, x2, y2, hold = false) =>
     h('drag-object', type, payload, x1, y1, x2, y2, ...(hold ? ['hold'] : [])),
+  startDragObject: (type, payload, x1, y1, x2, y2) => {
+    return new Promise((resolve, reject) => {
+      const child = spawn(harness, ['drag-object', type, payload, String(x1), String(y1), String(x2), String(y2), 'hold'], {
+        stdio: ['pipe', 'pipe', 'inherit'],
+        env: { ...process.env, NOTCH_ISLAND_OWNER_PID: String(process.pid) },
+      });
+      let out = '';
+      child.stdout.on('data', (d) => {
+        out += d.toString('utf8');
+        if (out.includes('\n')) {
+          try {
+            const parsed = JSON.parse(out.trim());
+            resolve({
+              child,
+              pid: parsed.pid,
+              release: async () => {
+                if (child.stdin.writable) {
+                  child.stdin.write('release\n');
+                }
+                await new Promise((r) => child.on('exit', r));
+              },
+            });
+          } catch (e) {
+            reject(e);
+          }
+        }
+      });
+      child.on('error', reject);
+    });
+  },
   releaseIfHeld,
   release: () => h('release'),
   leftHeld: async () => (await h('button')).left,

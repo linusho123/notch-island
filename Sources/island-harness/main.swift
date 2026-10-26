@@ -1396,7 +1396,27 @@ case "drag-object":
     sourceWin.orderOut(nil)
     emit(["ok": true])
   } else {
-    emit(["ok": true, "holding": true])
+    line(["ok": true, "holding": true, "pid": Int(getpid())])
+    if let owner = ProcessInfo.processInfo.environment["NOTCH_ISLAND_OWNER_PID"].flatMap(Int32.init)
+    {
+      Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+        if kill(owner, 0) != 0 { exit(0) }
+      }
+    }
+    let input = FileHandle.standardInput
+    input.readabilityHandler = { handle in
+      let data = handle.availableData
+      if data.isEmpty || String(data: data, encoding: .utf8)?.contains("release") == true {
+        input.readabilityHandler = nil
+        DispatchQueue.main.async {
+          post(.leftMouseUp, CGPoint(x: endX, y: endY))
+          sleepMs(50)
+          sourceWin.orderOut(nil)
+          exit(0)
+        }
+      }
+    }
+    app.run()
   }
 case "move-window":
   // move-window pid x y: put an app's front window's top-left corner at
