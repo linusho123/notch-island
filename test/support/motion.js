@@ -4,7 +4,11 @@
 // fast by the harness while it moves, against the menu bar items' own
 // frames and macOS's own hit test. Nothing here reads the test input.
 const { spawn } = require('node:child_process');
-const harness = require('./harness');
+let harness;
+function getHarness() {
+  if (!harness) harness = require('./harness');
+  return harness;
+}
 const procs = require('./procs');
 const { harness: harnessBinary } = require('./paths');
 
@@ -12,7 +16,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** The built-in screen's notch and the bottom of its menu bar strip (top-left based). */
 async function geometry() {
-  const b = await harness.builtIn();
+  const b = await getHarness().builtIn();
   const n = b.notch;
   return { notch: n, screen: b.frame, stripBottom: b.frame.y + Math.max(n.h, b.menuBarHeight || 0) };
 }
@@ -44,7 +48,7 @@ const center = (f) => ({ x: f.x + f.w / 2, y: f.y + f.h / 2 });
 /** Watch the island's frames while `act` runs (started together). */
 async function watchWhile(pid, ms, opts, act) {
   const g = await geometry();
-  const watching = harness.motionWatch(pid, ms, 8, { below: g.stripBottom, ...opts });
+  const watching = getHarness().motionWatch(pid, ms, 8, { below: g.stripBottom, ...opts });
   await sleep(60); // the watcher is up before the pointer moves
   const acted = await act();
   const result = await watching;
@@ -86,7 +90,7 @@ async function statusStandIn(world, title = 'NI') {
   while (!item) {
     if (Date.now() > end) throw new Error('the status stand-in never showed in the menu bar');
     await sleep(150);
-    item = (await harness.extras()).find((i) => i.pid === child.pid && i.frame && i.frame.w > 0) || null;
+    item = (await getHarness().extras()).find((i) => i.pid === child.pid && i.frame && i.frame.w > 0) || null;
   }
   return { handle, frame: item.frame, clicks: () => lines.filter((l) => l.clicked).length };
 }
