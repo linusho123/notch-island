@@ -304,6 +304,38 @@ test('real input stops the run within about a second, puts the pointer back and 
   assert.equal(w.exitCodeOf(r), w.VOID_EXIT);
 });
 
+test('sound output turning non-built-in mid-run voids the run (SF12)', async () => {
+  const dir = tmp();
+  const marker = path.join(dir, 'headphones-terminated');
+  const guard = fakeGuardScript(dir, [[0, { ready: true }], [20, { harness: true }]]);
+  const harness = fakeHarness();
+  let outputCall = 0;
+  harness.outputDevice = async () => {
+    outputCall += 1;
+    if (outputCall <= 1) {
+      return { builtIn: true, name: 'MacBook Pro Speakers' };
+    }
+    return { builtIn: false, name: 'AirPods Pro' };
+  };
+  let restored = 0;
+  const r = await w.runGuarded({
+    command: [process.execPath, '-e', `
+      process.on('SIGTERM', () => { require('fs').writeFileSync(${JSON.stringify(marker)}, 'x'); process.exit(143); });
+      setTimeout(() => process.exit(0), 600);
+    `],
+    guardCommand: [process.execPath, guard],
+    harness,
+    restore: () => { restored += 1; },
+    log: () => {},
+    outputPollMs: 50,
+  });
+  assert.equal(r.void, true);
+  assert.match(r.reason, /AirPods Pro/);
+  assert.ok(fs.existsSync(marker), 'the command was not stopped');
+  assert.equal(restored, 1, 'the installed island was not put back');
+  assert.equal(w.exitCodeOf(r), w.VOID_EXIT);
+});
+
 test('the whole process group of the command is stopped, not only its leader', async () => {
   const dir = tmp();
   const marker = path.join(dir, 'grandchild');
