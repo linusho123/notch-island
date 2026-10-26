@@ -85,15 +85,23 @@ public final class ShelfStore: @unchecked Sendable {
     let pointer = try FilePointer(url: url)
     let capture = CaptureItem(pointer: pointer, type: capType, landedAt: now)
 
-    if let last = storedItems.last {
-      switch last.kind {
+    if let index = storedItems.lastIndex(where: {
+      switch $0.kind {
+      case .capture, .captureStack:
+        return true
+      default:
+        return false
+      }
+    }) {
+      let targetItem = storedItems[index]
+      switch targetItem.kind {
       case .capture(let prevCapture):
         let gap = now.timeIntervalSince(prevCapture.landedAt)
         if gap >= -1.0 && gap <= Self.captureStackingGap {
           let stack = CaptureStack(captures: [prevCapture, capture])
           let updatedItem = ShelfItem(
-            id: last.id, landedAt: prevCapture.landedAt, kind: .captureStack(stack))
-          storedItems[storedItems.count - 1] = updatedItem
+            id: targetItem.id, landedAt: prevCapture.landedAt, kind: .captureStack(stack))
+          storedItems[index] = updatedItem
           try? saveLocked()
           return updatedItem
         }
@@ -103,8 +111,8 @@ public final class ShelfStore: @unchecked Sendable {
           if gap >= -1.0 && gap <= Self.captureStackingGap {
             stack.captures.append(capture)
             let updatedItem = ShelfItem(
-              id: last.id, landedAt: last.landedAt, kind: .captureStack(stack))
-            storedItems[storedItems.count - 1] = updatedItem
+              id: targetItem.id, landedAt: targetItem.landedAt, kind: .captureStack(stack))
+            storedItems[index] = updatedItem
             try? saveLocked()
             return updatedItem
           }
