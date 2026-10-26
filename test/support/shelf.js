@@ -16,42 +16,60 @@ function scratchDesktop(w) {
   return dir;
 }
 
-function scratchDocuments(w) {
-  if (w && w._scratchDocsDir) return w._scratchDocsDir;
-  const dir = path.join(scratch(w), 'Documents');
-  fs.mkdirSync(dir, { recursive: true });
+function scratchVolume(w) {
+  if (w && w._scratchVolumeDir) return w._scratchVolumeDir;
+  const mountDir = path.join(scratch(w), 'ScratchVolume');
+  fs.mkdirSync(mountDir, { recursive: true });
+  if (process.env.NOTCH_ISLAND_FORCE_HDIUTIL_FAIL === '1') {
+    throw new Error('scratch disk image creation or attach failed: forced failure');
+  }
   if (w) {
     const dmg = path.join(scratch(w), 'documents.dmg');
     try {
       execFileSync('/usr/bin/hdiutil', ['create', '-size', '20m', '-fs', 'APFS', '-volname', 'NotchIslandScratchDocs', dmg, '-quiet']);
-      execFileSync('/usr/bin/hdiutil', ['attach', dmg, '-mountpoint', dir, '-nobrowse', '-quiet']);
-      w._scratchDocsMounted = true;
-      w._scratchDocsDir = dir;
-      const detach = () => {
-        if (!w._scratchDocsMounted) return;
-        w._scratchDocsMounted = false;
-        try {
-          execFileSync('/usr/bin/hdiutil', ['detach', dir, '-force', '-quiet']);
-        } catch {}
-      };
-      w.defer(detach);
-      onCleanup(detach);
-    } catch {}
+      execFileSync('/usr/bin/hdiutil', ['attach', dmg, '-mountpoint', mountDir, '-nobrowse', '-quiet']);
+    } catch (err) {
+      throw new Error(`scratch disk image creation or attach failed: ${err.message}`);
+    }
+    w._scratchDocsMounted = true;
+    w._scratchVolumeDir = mountDir;
+    const detach = () => {
+      if (!w._scratchDocsMounted) return;
+      w._scratchDocsMounted = false;
+      try {
+        execFileSync('/usr/bin/hdiutil', ['detach', mountDir, '-force', '-quiet']);
+      } catch {}
+    };
+    w.defer(detach);
+    onCleanup(detach);
   }
+  return mountDir;
+}
+
+function scratchDocuments(w) {
+  if (w && w._scratchDocsDir) return w._scratchDocsDir;
+  const vol = scratchVolume(w);
+  const dir = path.join(vol, 'Documents');
+  fs.mkdirSync(dir, { recursive: true });
+  if (w) w._scratchDocsDir = dir;
   return dir;
 }
 
 function detachScratchDocuments(w) {
-  if (w && w._scratchDocsMounted && w._scratchDocsDir) {
+  if (w && w._scratchDocsMounted) {
     w._scratchDocsMounted = false;
-    try {
-      execFileSync('/usr/bin/hdiutil', ['detach', w._scratchDocsDir, '-force', '-quiet']);
-    } catch {}
+    const target = w._scratchVolumeDir || w._scratchDocsDir;
+    if (target) {
+      try {
+        execFileSync('/usr/bin/hdiutil', ['detach', target, '-force', '-quiet']);
+      } catch {}
+    }
   }
 }
 
 function scratchArchive(w) {
-  const dir = path.join(scratch(w), 'Archive');
+  const vol = scratchVolume(w);
+  const dir = path.join(vol, 'Archive');
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
