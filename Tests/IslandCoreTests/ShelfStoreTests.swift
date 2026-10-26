@@ -573,15 +573,21 @@ struct ShelfStoreTests {
 
     let f = try createTempFile(in: dir, named: "tax-return.pdf")
     try store.parkFile(at: f)
+    let link = store.parkLink(URL(string: "https://example.com")!, title: "Example")
     let itemId = store.items()[0].id
+    let linkId = link.id
 
-    // Refused drop
+    // Refused drop: file and link stay
     store.itemRefused(id: itemId)
-    #expect(store.count == 1)
+    store.itemRefused(id: linkId)
+    #expect(store.count == 2)
+    #expect(store.items().contains { $0.id == linkId })
 
-    // Accepted drop
+    // Accepted drop removes both
     let removed = store.itemAccepted(id: itemId)
     #expect(removed)
+    let removedLink = store.itemAccepted(id: linkId)
+    #expect(removedLink)
     #expect(store.isEmpty)
 
     // Original file still on disk
