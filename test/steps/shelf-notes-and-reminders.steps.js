@@ -303,7 +303,7 @@ module.exports = function (reg) {
       w.island.pid,
       (v) => v.page === 'shelf' && v.texts.includes(label),
       3000,
-      `expected note "${label}" on shelf, but found: ${view?.texts?.join(', ')}`
+      `expected note "${label}" on shelf`
     );
     assert.ok(view.texts.includes(label), `expected note "${label}" on screen`);
 
@@ -318,7 +318,14 @@ module.exports = function (reg) {
 
   reg.define(/^the visionary sees the shelf unchanged, holding only "([^"]+)"$/, async (w, label) => {
     await openOnShelfPage(w);
-    const view = await island.look(w.island.pid);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.page === 'shelf' && v.texts.includes(label) &&
+             v.elements.filter((e) => e.identifier === 'shelf-item').length === 1 &&
+             !v.elements.some((e) => e.identifier === 'new-note-field'),
+      2500,
+      `shelf does not hold only ${label}`
+    );
     const items = view.elements.filter((e) => e.identifier === 'shelf-item');
     assert.equal(items.length, 1, `expected exactly 1 item on shelf, found ${items.length}`);
     assert.ok(view.texts.includes(label), `expected note "${label}" on shelf`);

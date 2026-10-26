@@ -583,6 +583,15 @@ struct NoteTextFieldRepresentable: NSViewRepresentable {
 }
 
 final class CustomNoteNSTextField: NSTextField {
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    guard let window = self.window else { return }
+    DispatchQueue.main.async { [weak self, weak window] in
+      guard let self = self, let window = window else { return }
+      window.makeFirstResponder(self)
+    }
+  }
+
   override func becomeFirstResponder() -> Bool {
     let ok = super.becomeFirstResponder()
     if ok, let editor = currentEditor() as? NSTextView {
@@ -788,20 +797,17 @@ private struct ShelfItemView: View {
           }
           .frame(minWidth: 100, maxWidth: 220)
         } else {
-          Button(action: {
-            model.startEditingNote(id: item.id, currentText: item.title)
-          }) {
-            Text(item.title)
-              .font(.system(size: 11, weight: .regular))
-              .foregroundColor(.white)
-              .multilineTextAlignment(.leading)
-              .lineLimit(3)
-              .frame(minWidth: 60, maxWidth: 220, alignment: .topLeading)
-              .contentShape(Rectangle())
-          }
-          .buttonStyle(.plain)
-          .accessibilityIdentifier("shelf-item-title")
-          .accessibilityLabel(item.title)
+          Text(item.title)
+            .font(.system(size: 11, weight: .regular))
+            .foregroundColor(.white)
+            .multilineTextAlignment(.leading)
+            .lineLimit(3)
+            .frame(minWidth: 60, maxWidth: 220, alignment: .topLeading)
+            .contentShape(Rectangle())
+            .onTapGesture {
+              model.startEditingNote(id: item.id, currentText: item.noteText ?? item.title)
+            }
+            .accessibilityIdentifier("shelf-item-title")
         }
       }
       .padding(8)
@@ -809,6 +815,12 @@ private struct ShelfItemView: View {
         RoundedRectangle(cornerRadius: 8)
           .fill(Color.white.opacity(0.12))
       )
+      .contentShape(Rectangle())
+      .onTapGesture {
+        if !isEditingThisNote {
+          model.startEditingNote(id: item.id, currentText: item.noteText ?? item.title)
+        }
+      }
 
       Button(action: onRemove) {
         Image(systemName: "xmark.circle.fill")

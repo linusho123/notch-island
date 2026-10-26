@@ -162,6 +162,7 @@ final class IslandController: NSObject, NSMenuDelegate {
       guard let self else { return }
       self.cardPanel.allowsKeyWindow = editing
       if editing {
+        NSApp.activate(ignoringOtherApps: true)
         self.cardPanel.makeKey()
       } else {
         self.cardPanel.resignKey()
