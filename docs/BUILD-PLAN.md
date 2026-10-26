@@ -72,8 +72,10 @@ nothing may need them hands-off by default:
   and reviewers' scenario and mutation runs, the verifier's, the gate) goes
   through `scripts/when-idle.sh`, which starts the command only after **3
   minutes** with no keyboard or trackpad input (`HIDIdleTime`), on AC power,
-  lid open, screen awake and unlocked. Agents wait for it; they never ask the
-  visionary to step away.
+  lid open, screen awake and unlocked, and with the built-in speakers as the
+  sound output (connected headphones mean the visionary is using the Mac;
+  ruled 2026-10-25). Agents wait for it; they never ask the visionary to step
+  away.
 - **Instant stop:** while a UI run is going, any keyboard or trackpad input
   that the harness did not make stops the run within about a second, returns
   the pointer to where the visionary left it, and marks the run void (exit
@@ -407,6 +409,34 @@ ageing clock reset by a restart.
 **Expected probes:** a copy on park, a move on park, a trashed file kept, a
 refused drop that still removes, a 61-second gap joined, a cap at thirty, a
 clipboard shot landed, a link aged off, a restart that empties the shelf.
+
+*Closed 2026-10-26:* gate at bb5c0e2: swift test 226, lint 0, scope 0; UI
+(through when-idle, 1 void) 353 tests, 312 pass, 3 fail, 38 todo. Every shelf
+row and the music-panel shelf row passed. The fails: "a downloaded file with
+no cover art" opening 2 ms past its rest deadline (the P1 timing flake); "moving
+onto the notch while the wing is out" with no wing (the carried skipped first
+notice); the external-monitor row with no external screen attached. Carried by
+the orchestrator's ruling under the visionary's overnight authority, as in P3
+and P3.5 (the run manifest committed is the gate run's).
+`shelf-captures-and-files` and `music-panel` left wip. Run by hand with a new
+cost split: units built on Antigravity (`agy`) Gemini 3.8 Flash (its Claude
+models ran out of quota within minutes each time), blind reviews by Haiku, head
+review and verifier by Opus 5.5. Units: U1 in-idle-run guard, U2 shelf store,
+U3a no UI run while headphones are the output (ruled 2026-10-25, Sharing the
+Mac), U3 capture watcher and shelf page, U4 drops, drags and the remove area;
+fix units FU1–FU6 for 9 must-fix and 12 should-fix. Rulings by the
+orchestrator under that authority: Q1 the D59 Then may move the injected clock
+(plus an 8:59 still-there check); Q2 a shelf item dropped back onto the island
+is a refused drop and stays; Q3 an item on an unplugged drive stays and keeps
+ageing; Q4 a capture joins the most recent capture or stack within 60 s even
+with other items parked between. The head review found the harness touching
+the visionary's Mac (the screenshot location left redirected, test PDFs in the
+real Trash, a drag let go over the Dock's Notes icon, the clipboard replaced);
+all fixed and verified (scratch disk image for Finder deletes, scratch
+screenshot folder fed at launch, clipboard saved and restored, drags cancelled
+off the Dock, a when-idle cross-run lock). Carried to P5's start, besides the
+earlier lists: P3/P3.5's timing flakes; agy's Claude quota too small for whole
+units, so plan Flash as the default.
 
 ## P5 — The shelf: notes and reminders
 

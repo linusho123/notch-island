@@ -58,11 +58,13 @@ async function launch(world, binary = testBinary) {
   await harness.move(notch.x + notch.w / 2, 420);
   const data = path.join(scratch(world), 'island-data');
   fs.mkdirSync(data, { recursive: true });
+  const screenshotDir = path.join(scratch(world), 'Desktop');
+  fs.mkdirSync(screenshotDir, { recursive: true });
   // The island's socket for its Chrome host: a short path (a socket path is
   // limited to 104 bytes), removed with the scenario.
   const sock = `/tmp/notch-island-${process.pid}-${++sockets}.sock`;
   world.defer(() => fs.rmSync(sock, { force: true }));
-  feed(world, { dataDirectory: data, chromeSocket: sock });
+  feed(world, { dataDirectory: data, chromeSocket: sock, screenshotDirectory: screenshotDir });
   const log = fs.openSync(path.join(scratch(world), 'island.log'), 'a');
   const handle = procs.start('notch-island', binary, [], {
     env: { ...process.env, NOTCH_ISLAND_TEST_INPUT: inputFile(world) },

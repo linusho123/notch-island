@@ -34,6 +34,7 @@ let package = Package(
         .linkedFramework("ServiceManagement"),
         .linkedFramework("CoreAudio"),
         .linkedFramework("ScriptingBridge"),
+        .linkedFramework("AVFoundation"),
       ]
     ),
     // The acceptance harness's own helper, never bundled into the app: reads

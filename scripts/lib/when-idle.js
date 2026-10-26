@@ -15,6 +15,9 @@
 //
 // Everything that reads or drives the Mac is passed in, so the logic is
 // tested with a fake clock and stand-in processes (test/when-idle.test.js).
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { spawn } = require('node:child_process');
 
 const IDLE_NEEDED_MS = 3 * 60 * 1000;
@@ -53,6 +56,8 @@ function conditions(r, idleNeededMs = IDLE_NEEDED_MS) {
   if (r.displayAsleep) reasons.push('the display is asleep');
   if (r.screenSaver) reasons.push('the screen saver is running');
   if (r.locked) reasons.push('the screen is locked');
+  if (r.builtInOutput === false) reasons.push(`the sound goes out through "${r.outputName}", not the built-in speakers`);
+  else if (r.builtInOutput !== true) reasons.push('the sound output could not be read');
   return { ready: reasons.length === 0, reasons };
 }
 
@@ -159,7 +164,7 @@ function signalGroup(pid, signal) {
  * visionary's input stopped it, { guardError } when the guard was not up to
  * guarding it (the command then never runs, or is stopped), or { code }.
  */
-async function runGuarded({ command, guardCommand, harness, restore, log = console.error, readyMs = 5000, stopGraceMs = 10000, settleMs = 400, onSpawn = () => {} }) {
+async function runGuarded({ command, guardCommand, harness, restore, log = console.error, readyMs = 5000, stopGraceMs = 10000, settleMs = 400, onSpawn = () => {}, outputPollMs = 250 }) {
   const left = await harness.pointer(); // where the visionary left it
   const guard = startGuard(guardCommand);
   try {
@@ -182,10 +187,31 @@ async function runGuarded({ command, guardCommand, harness, restore, log = conso
       child.on('exit', (code, signal) => { exit = { code: code ?? (signal ? 128 : 1), signal }; resolve(); });
       child.on('error', (e) => { exit = { code: 127, error: e.message }; resolve(); });
     });
+
+    let nonBuiltInReason = null;
+    let stopOutputMonitor = false;
+    const outputMonitor = (async () => {
+      if (!harness.outputDevice) return new Promise(() => {});
+      while (!stopOutputMonitor) {
+        await sleepMs(outputPollMs);
+        if (stopOutputMonitor) break;
+        try {
+          const out = await harness.outputDevice();
+          if (out && out.builtIn === false) {
+            nonBuiltInReason = `the sound goes out through "${out.name}", not the built-in speakers`;
+            return 'output-changed';
+          }
+        } catch { /* transient error */ }
+      }
+      return new Promise(() => {});
+    })();
+
     let outcome = await Promise.race([
       exited.then(() => 'done'),
       guard.until(() => guard.state.real || guard.state.exited).then(() => (guard.state.real ? 'real' : 'guard-died')),
+      outputMonitor,
     ]);
+    stopOutputMonitor = true;
     if (outcome === 'done') {
       // The exit may have won the race against input that landed with it: give
       // the guard a moment to report it before calling the run clean.
@@ -210,6 +236,10 @@ async function runGuarded({ command, guardCommand, harness, restore, log = conso
       log(`when-idle: input from the visionary (${reason}): run stopped and void`);
       return { void: true, reason };
     }
+    if (outcome === 'output-changed') {
+      log(`when-idle: sound output changed mid-run (${nonBuiltInReason}): run stopped and void`);
+      return { void: true, reason: nonBuiltInReason };
+    }
     return { guardError: `the input guard ended mid-run (${JSON.stringify(guard.state.exited)}); the run was stopped` };
   } finally {
     guard.stop();
@@ -221,10 +251,67 @@ function describe(real) {
   return `${real.signal || 'tap'}: ${real.kind || 'input'} (event type ${real.type}, from pid ${real.sourcePid ?? '?'})`;
 }
 
+// -------------------------------------------------------- cross-run lock (SF10)
+
+const DEFAULT_LOCK_FILE = path.join(os.tmpdir(), 'notch-island-when-idle.lock');
+
+function isPidAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === 'EPERM';
+  }
+}
+
+function acquireLock(lockPath = DEFAULT_LOCK_FILE, { pid = process.pid } = {}) {
+  try {
+    const fd = fs.openSync(lockPath, 'wx');
+    fs.writeFileSync(fd, `${pid}\n`);
+    fs.closeSync(fd);
+    return { acquired: true, lockPath };
+  } catch (err) {
+    if (err.code === 'EEXIST') {
+      try {
+        const content = fs.readFileSync(lockPath, 'utf8').trim();
+        const holderPid = parseInt(content, 10);
+        if (holderPid && !isPidAlive(holderPid)) {
+          // Stale lock: previous holder is no longer running.
+          fs.rmSync(lockPath, { force: true });
+          const fd = fs.openSync(lockPath, 'wx');
+          fs.writeFileSync(fd, `${pid}\n`);
+          fs.closeSync(fd);
+          return { acquired: true, lockPath, recoveredStale: true };
+        }
+        return { acquired: false, holderPid, reason: `another when-idle run is active (pid ${holderPid || 'unknown'})` };
+      } catch {
+        return { acquired: false, reason: 'another when-idle run is active' };
+      }
+    }
+    throw err;
+  }
+}
+
+function releaseLock(lockPath = DEFAULT_LOCK_FILE, { pid = process.pid } = {}) {
+  try {
+    if (fs.existsSync(lockPath)) {
+      const content = fs.readFileSync(lockPath, 'utf8').trim();
+      const holderPid = parseInt(content, 10);
+      if (!holderPid || holderPid === pid) {
+        fs.rmSync(lockPath, { force: true });
+      }
+    }
+  } catch {}
+}
+
 module.exports = {
   IDLE_NEEDED_MS,
   VOID_EXIT,
   GUARD_FAILED_EXIT,
+  DEFAULT_LOCK_FILE,
+  isPidAlive,
+  acquireLock,
+  releaseLock,
   parseHidIdleMs,
   parseOnAC,
   parseLidOpen,

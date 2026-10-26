@@ -35,7 +35,7 @@ test('the lid is open when the clamshell state reads No', () => {
 
 // --------------------------------------------------------- the conditions
 
-const ready = { idleMs: 200000, onAC: true, lidOpen: true, displayAsleep: false, locked: false, screenSaver: false };
+const ready = { idleMs: 200000, onAC: true, lidOpen: true, displayAsleep: false, locked: false, screenSaver: false, builtInOutput: true };
 
 test('a Mac idle for 3 minutes, on AC, lid open, display awake and unlocked is ready', () => {
   assert.deepEqual(w.conditions(ready), { ready: true, reasons: [] });
@@ -56,6 +56,24 @@ for (const [what, patch, reason] of [
     assert.match(c.reasons.join('; '), reason);
   });
 }
+
+test('the built-in speakers with all else ready is ready', () => {
+  assert.deepEqual(w.conditions({ ...ready, builtInOutput: true }), { ready: true, reasons: [] });
+});
+
+test('headphones as output is not ready with that reason naming the device', () => {
+  const c = w.conditions({ ...ready, builtInOutput: false, outputName: 'AirPods Pro' });
+  assert.equal(c.ready, false);
+  assert.deepEqual(c.reasons, ['the sound goes out through "AirPods Pro", not the built-in speakers']);
+});
+
+test('unknown sound output is not ready', () => {
+  for (const builtInOutput of [undefined, null]) {
+    const c = w.conditions({ ...ready, builtInOutput });
+    assert.equal(c.ready, false);
+    assert.deepEqual(c.reasons, ['the sound output could not be read']);
+  }
+});
 
 test('the idle window is 3 minutes', () => {
   assert.equal(w.IDLE_NEEDED_MS, 180000);
@@ -286,6 +304,38 @@ test('real input stops the run within about a second, puts the pointer back and 
   assert.equal(w.exitCodeOf(r), w.VOID_EXIT);
 });
 
+test('sound output turning non-built-in mid-run voids the run (SF12)', async () => {
+  const dir = tmp();
+  const marker = path.join(dir, 'headphones-terminated');
+  const guard = fakeGuardScript(dir, [[0, { ready: true }], [20, { harness: true }]]);
+  const harness = fakeHarness();
+  let outputCall = 0;
+  harness.outputDevice = async () => {
+    outputCall += 1;
+    if (outputCall <= 1) {
+      return { builtIn: true, name: 'MacBook Pro Speakers' };
+    }
+    return { builtIn: false, name: 'AirPods Pro' };
+  };
+  let restored = 0;
+  const r = await w.runGuarded({
+    command: [process.execPath, '-e', `
+      process.on('SIGTERM', () => { require('fs').writeFileSync(${JSON.stringify(marker)}, 'x'); process.exit(143); });
+      setTimeout(() => process.exit(0), 600);
+    `],
+    guardCommand: [process.execPath, guard],
+    harness,
+    restore: () => { restored += 1; },
+    log: () => {},
+    outputPollMs: 50,
+  });
+  assert.equal(r.void, true);
+  assert.match(r.reason, /AirPods Pro/);
+  assert.ok(fs.existsSync(marker), 'the command was not stopped');
+  assert.equal(restored, 1, 'the installed island was not put back');
+  assert.equal(w.exitCodeOf(r), w.VOID_EXIT);
+});
+
 test('the whole process group of the command is stopped, not only its leader', async () => {
   const dir = tmp();
   const marker = path.join(dir, 'grandchild');
@@ -370,3 +420,34 @@ test('a guard that dies mid-run stops the run rather than leave it unguarded', a
   });
   assert.ok(r.guardError, 'the run went on without its guard');
 });
+
+// ----------------------------------------------------------- the cross-run lock (SF10)
+
+test('a second waiter refuses to run while a lock is held by an active process', () => {
+  const dir = tmp();
+  const lockFile = path.join(dir, 'when-idle.lock');
+  const lock1 = w.acquireLock(lockFile, { pid: process.pid });
+  assert.equal(lock1.acquired, true);
+
+  // A second waiter attempting to acquire the same lock while the first is held
+  const lock2 = w.acquireLock(lockFile, { pid: 99999999 });
+  assert.equal(lock2.acquired, false);
+  assert.match(lock2.reason, /active/);
+
+  // Releasing the lock allows another waiter to acquire it
+  w.releaseLock(lockFile, { pid: process.pid });
+  const lock3 = w.acquireLock(lockFile, { pid: process.pid });
+  assert.equal(lock3.acquired, true);
+  w.releaseLock(lockFile, { pid: process.pid });
+});
+
+test('a stale lock from a dead process is cleared and acquired', () => {
+  const dir = tmp();
+  const lockFile = path.join(dir, 'when-idle.lock');
+  // Write a PID that does not exist
+  fs.writeFileSync(lockFile, '99999999\n');
+  const lock = w.acquireLock(lockFile, { pid: process.pid });
+  assert.equal(lock.acquired, true);
+  w.releaseLock(lockFile, { pid: process.pid });
+});
+

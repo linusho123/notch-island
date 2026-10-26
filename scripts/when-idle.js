@@ -26,6 +26,14 @@ if (!command.length) {
   process.exit(2);
 }
 
+const lockPath = process.env.WHEN_IDLE_LOCK_FILE || w.DEFAULT_LOCK_FILE;
+const lock = w.acquireLock(lockPath);
+if (!lock.acquired) {
+  console.error(`when-idle: refused: ${lock.reason}`);
+  process.exit(1);
+}
+process.on('exit', () => w.releaseLock(lockPath));
+
 // The harness stamps each event it posts into this file just before posting
 // it; the guard counts the harness's quiet from it as well as from what its
 // tap saw (an event can tickle the idle clock and reach the tap late or not
@@ -69,6 +77,7 @@ const harness = {
   leftHeld: async () => (await h('button')).left,
   release: () => h('release'),
   move: (x, y) => h('move', x, y),
+  outputDevice: () => h('output-device'),
 };
 
 const text = async (file, args) => {
@@ -83,6 +92,8 @@ async function read() {
   ]);
   let session = { displayAsleep: true, locked: true, screenSaver: false };
   try { session = await h('session'); } catch { /* read as not ready */ }
+  let output = null;
+  try { output = await h('output-device'); } catch { /* leave unknown */ }
   return {
     idleMs: w.parseHidIdleMs(hid),
     onAC: w.parseOnAC(batt),
@@ -90,6 +101,8 @@ async function read() {
     displayAsleep: session.displayAsleep,
     locked: session.locked || session.onConsole === false,
     screenSaver: session.screenSaver,
+    builtInOutput: output?.builtIn,
+    outputName: output?.name,
   };
 }
 

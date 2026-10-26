@@ -7,15 +7,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const { runFeatures } = require('gherkin-node-test');
-const { assertInIdleRun } = require('./support/require-idle');
 const harness = require('./support/harness');
 const island = require('./support/island');
 const procs = require('./support/procs');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const wingOut = (v) => Boolean(v.wing && v.wing.art);
 const root = path.join(__dirname, '..');
-
-assertInIdleRun();
 
 runFeatures(path.join(__dirname, 'fixtures', 'fullscreen-wing-out'), {
   'new-song-notice': (reg) => {

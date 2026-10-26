@@ -19,6 +19,7 @@ const procs = require('../support/procs');
 const scenes = require('../support/scenes');
 const motion = require('../support/motion');
 const { root, testBundleID } = require('../support/paths');
+const { scratchDocuments } = require('../support/shelf');
 const { osa } = music;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -275,6 +276,15 @@ async function concert(w) {
   const file = await players.movie(CONCERT, CONCERT_SECONDS - 1); // frames 0...n: n + 1 seconds
   await players.playInIINA(w, file, 4325);
   w.concertAt = Date.now();
+}
+
+async function shelfFromBelow(w) {
+  const before = w.beforeScroll;
+  assert.ok(before.shelfFrame && before.shelfFrame.y >= before.panel.y + before.panel.h - 1,
+    'the shelf page was not waiting below the music page');
+  const view = await island.waitFor(w.island.pid, (v) => v.open && v.page === 'shelf', 1500,
+    'the shelf page did not come up');
+  assert.ok(view.musicFrame.y < before.musicFrame.y, 'the music page did not move up out of the way');
 }
 
 // --------------------------------------------------------------- definer
@@ -826,15 +836,6 @@ module.exports = (reg) => {
     }
   });
 
-  async function shelfFromBelow(w) {
-    const before = w.beforeScroll;
-    assert.ok(before.shelfFrame && before.shelfFrame.y >= before.panel.y + before.panel.h - 1,
-      'the shelf page was not waiting below the music page');
-    const view = await island.waitFor(w.island.pid, (v) => v.open && v.page === 'shelf', 1500,
-      'the shelf page did not come up');
-    assert.ok(view.musicFrame.y < before.musicFrame.y, 'the music page did not move up out of the way');
-  }
-
   reg.define(/^the visionary sees the shelf page come up from below$/, async (w) => {
     await shelfFromBelow(w);
   });
@@ -920,6 +921,24 @@ module.exports = (reg) => {
     await showsSong(w, CONCERT);
   });
 
+  reg.define(/^the island is open on the shelf page$/, async (w) => {
+    const docs = scratchDocuments(w);
+    const pdf = path.join(docs, 'tax-return.pdf');
+    fs.writeFileSync(pdf, '%PDF-1.4 tax return content');
+    island.feed(w, {
+      clearShelf: true,
+      seedShelf: [{ type: 'file', path: pdf, landedAt: new Date().toISOString() }],
+    });
+    await ensureIsland(w);
+    await openByRest(w);
+    const view = await island.look(w.island.pid);
+    const c = center(view.panel);
+    await harness.glide(c.x, c.y, 4, 8);
+    await sleep(60);
+    await harness.scroll(-80, 'trackpad');
+    await island.waitFor(w.island.pid, (v) => v.open && v.page === 'shelf', 2000, 'shelf page did not open');
+  });
+
   reg.define(/^the visionary rests the pointer on the notch and the island opens$/, async (w) => {
     w.restMs = RULED_REST_MS;
     await rest(w, RULED_REST_MS);
@@ -943,12 +962,38 @@ module.exports = (reg) => {
     }
   });
 
-  reg.define(/^the visionary drags the progress dot with the pointer down to the Dock, without letting go$/, async (w) => {
-    const view = await island.waitFor(w.island.pid, (v) => v.dot, 2000, 'the island shows no progress dot');
-    const d = center(view.dot.frame);
+  reg.define(/^the visionary drags (the progress dot|the parked "tax-return\.pdf") with the pointer down to the Dock, without letting go$/, async (w, what) => {
+    let startPoint;
+    if (what === 'the progress dot') {
+      const view = await island.waitFor(w.island.pid, (v) => v.dot, 2000, 'the island shows no progress dot');
+      startPoint = center(view.dot.frame);
+    } else {
+      const view = await island.waitFor(
+        w.island.pid,
+        (v) => v.elements.some((e) => e.identifier === 'shelf-item' || (e.description && e.description.includes('tax-return.pdf'))),
+        2000,
+        'shelf shows no tax-return.pdf'
+      );
+      const itemEl = view.elements.find((e) => e.identifier === 'shelf-item' || (e.description && e.description.includes('tax-return.pdf')));
+      startPoint = center(itemEl.frame);
+    }
     const { frame } = await harness.builtIn();
-    w.defer(() => harness.release().catch(() => {}));
-    await harness.drag(d.x, d.y, d.x, frame.y + frame.h - 20, 20, 15, true);
+    w.defer(async () => {
+      // MF3 defer safety: if the button is still held near the Dock, cancel
+      // the drag and move away before releasing.
+      try {
+        if (await harness.leftHeld()) {
+          const p = await harness.pointer();
+          if (p.y >= frame.y + frame.h - 120) {
+            await harness.key(53); // Escape: cancel the drag
+            await sleep(100);
+            await harness.glide(frame.x + frame.w / 2, frame.y + frame.h / 2, 5, 10);
+          }
+          await harness.release();
+        }
+      } catch {}
+    });
+    await harness.drag(startPoint.x, startPoint.y, startPoint.x, frame.y + frame.h - 20, 20, 15, true);
     const n = await notch();
     w.held = (await harness.watch(w.island.pid, 1500, 40)).map((s) => island.parse(s.windows, n));
     w.stillHeld = await harness.leftHeld();
@@ -1026,6 +1071,22 @@ module.exports = (reg) => {
     assert.ok(w.held.length > 10, 'the island was not watched during the drag');
     const closed = w.held.filter((v) => !v.open);
     assert.equal(closed.length, 0, 'the island closed while the dot was still held far away');
+    // MF3: before releasing, cancel any drag near the Dock and move the
+    // pointer back over the island, so the release never drops a file onto
+    // a Dock icon (Notes, Finder, etc.).
+    const ptr = await harness.pointer();
+    const { frame } = await harness.builtIn();
+    const dockTop = frame.y + frame.h - 120;
+    if (ptr.y >= dockTop) {
+      await harness.key(53); // Escape: cancel the drag
+      await sleep(100);
+      const n = await notch();
+      await harness.glide(n.x + n.w / 2, n.y + n.h + 30, 5, 10);
+    }
+    // Assert the pointer is safely away from the Dock area.
+    const safePtr = await harness.pointer();
+    assert.ok(safePtr.y < dockTop,
+      `the pointer is at y ${safePtr.y}, inside the Dock area (top ${dockTop}): releasing here would drop the file on a Dock icon`);
     await harness.release();
   });
   // The island's shape and motion (P3.5, D136-D140) --------------------------
@@ -1049,7 +1110,7 @@ module.exports = (reg) => {
     // never Meter's, which is only read), asked about by macOS's hit test.
     w.status = await motion.statusStandIn(w);
     const f = w.status.frame;
-    assert.ok(f.x >= n.x + n.w - 0.5, `the status item (x ${f.x}) is not right of the notch`);
+    motion.assertStatusItemRightOfNotch(f, n);
     // Every status item where a card as wide as the open one would reach if it
     // were in the strip (Meter's readings among them): their frames read once,
     // never clicked, never asked about again.
@@ -1300,4 +1361,5 @@ module.exports = (reg) => {
 module.exports.helpers = {
   notch, away, pointerAway, ensureIsland, playing, plainNotch, rest, openOnMusicPage, openByRest,
   button, clickButton, showsSong, musicSays, dotTime, restDeadline, assertFocusKept, RULED_REST_MS,
+  shelfFromBelow,
 };

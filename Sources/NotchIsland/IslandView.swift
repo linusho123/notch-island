@@ -17,6 +17,12 @@ final class IslandModel: ObservableObject {
   @Published var output: OutputDevice?
   /// Which source's face the card shows; a change turns the card (D48).
   @Published var faceID: String?
+  /// Items parked on the shelf (D30, D64, D65).
+  @Published var shelfItems: [ShelfItem] = []
+  @Published var isDraggingShelfItem: Bool = false
+  weak var removeAreaView: NSView?
+  var currentDraggedItem: ShelfItem?
+  var shelfStore: ShelfStore?
 
   var onBack: () -> Void = {}
   var onPlayPause: () -> Void = {}
@@ -24,6 +30,15 @@ final class IslandModel: ObservableObject {
   var onSeek: (TimeInterval) -> Void = { _ in }
   var onBringForward: () -> Void = {}
   var onFlip: () -> Void = {}
+  var onRemoveShelfItem: (UUID) -> Void = { _ in }
+  var onExpandShelfStack: (UUID) -> Void = { _ in }
+  var onShelfDragBegan: ((ShelfItem) -> Void)?
+  var onShelfDragEnded: ((ShelfItem, NSDragOperation, NSPoint) -> Void)?
+
+  /// Refreshes shelf items from the store, pruning aged-out or trashed items (D57, D58).
+  func refreshShelf() {
+    shelfItems = shelfStore?.items() ?? []
+  }
 
   /// The clicked position of a seek, held until Music confirms it.
   private var seekHold = SeekHold()
@@ -112,19 +127,23 @@ private struct OpenPanel: View {
   var body: some View {
     GeometryReader { proxy in
       let height = proxy.size.height
+      let width = proxy.size.width
       ZStack(alignment: .trailing) {
-        VStack(spacing: 0) {
+        ZStack {
           MusicPageView(model: model)
-            .frame(height: height)
-          ShelfPageView()
-            .frame(height: height)
+            .frame(width: width, height: height)
+            .offset(y: model.page == .music ? 0 : -height)
+            .allowsHitTesting(model.page == .music)
+          ShelfPageView(model: model)
+            .frame(width: width, height: height)
+            .offset(y: model.page == .shelf ? 0 : height)
+            .allowsHitTesting(model.page == .shelf)
         }
-        .offset(y: model.page == .music ? 0 : -height)
         .animation(.easeOut(duration: 0.3), value: model.page)
         PageBar(page: model.page)
           .padding(.trailing, 8)
       }
-      .frame(width: proxy.size.width, height: height, alignment: .top)
+      .frame(width: width, height: height, alignment: .top)
       .clipped()
     }
   }
@@ -138,7 +157,9 @@ private struct PageBar: View {
       Capsule().fill(Color.white.opacity(page == .music ? 0.9 : 0.3)).frame(width: 3, height: 12)
       Capsule().fill(Color.white.opacity(page == .shelf ? 0.9 : 0.3)).frame(width: 3, height: 12)
     }
-    .accessibilityHidden(true)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(page == .shelf ? "Shelf page showing" : "Music page showing")
+    .accessibilityIdentifier("page-bar")
   }
 }
 
@@ -164,6 +185,7 @@ private struct MusicPageView: View {
     }
     .padding(.horizontal, 22)
     .padding(.vertical, 10)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Music page")
   }
@@ -382,18 +404,404 @@ private struct Controls: View {
   }
 }
 
-/// The shelf page. Its items arrive in P4; until then it is empty.
+/// The shelf page (D30, D64, D65). Displays parked captures, stacks, files,
+/// links and notes.
 private struct ShelfPageView: View {
+  @ObservedObject var model: IslandModel
+
   var body: some View {
-    VStack {
-      Text("Shelf")
-        .font(.system(size: 12, weight: .semibold))
-        .foregroundColor(.white.opacity(0.5))
-      Spacer()
+    ZStack(alignment: .topLeading) {
+      // Invisible geometry anchor matching MusicPageView's accessible bounds (D30)
+      VStack(alignment: .leading, spacing: 10) {
+        HStack(alignment: .top, spacing: 8) {
+          Rectangle()
+            .fill(Color.white.opacity(0.001))
+            .frame(width: 48, height: 48)
+            .accessibilityElement()
+            .accessibilityLabel("Shelf anchor top")
+            .accessibilityIdentifier("shelf-anchor-top")
+        }
+        HStack(spacing: 8) {
+          Rectangle()
+            .fill(Color.white.opacity(0.001))
+            .frame(width: 44, height: 14)
+            .accessibilityElement()
+            .accessibilityLabel("Shelf anchor mid-left")
+            .accessibilityIdentifier("shelf-anchor-mid-left")
+          Spacer()
+          Rectangle()
+            .fill(Color.white.opacity(0.001))
+            .frame(width: 44, height: 14)
+            .accessibilityElement()
+            .accessibilityLabel("Shelf anchor mid-right")
+            .accessibilityIdentifier("shelf-anchor-mid-right")
+        }
+        HStack(spacing: 36) {
+          Rectangle()
+            .fill(Color.white.opacity(0.001))
+            .frame(width: 32, height: 34)
+            .accessibilityElement()
+            .accessibilityLabel("Shelf anchor bottom")
+            .accessibilityIdentifier("shelf-anchor-bottom")
+        }
+      }
+      .frame(width: 394.5)
+      .opacity(0.001)
+      .allowsHitTesting(false)
+
+      // Actual shelf UI
+      VStack(spacing: 6) {
+        if model.shelfItems.isEmpty {
+          Spacer()
+          Text("Shelf")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(.white.opacity(0.3))
+          Spacer()
+        } else {
+          ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+              ForEach(model.shelfItems) { item in
+                DraggableItemContainer(item: item, model: model) {
+                  ShelfItemView(
+                    item: item,
+                    onRemove: {
+                      model.onRemoveShelfItem(item.id)
+                    },
+                    onExpand: {
+                      model.onExpandShelfStack(item.id)
+                    }
+                  )
+                }
+              }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+          }
+
+          Spacer()
+
+          if model.isDraggingShelfItem {
+            RemoveAreaDropHost(model: model)
+              .frame(height: 36)
+              .padding(.horizontal, 16)
+              .transition(.opacity)
+          }
+        }
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    .padding(.top, 12)
-    .frame(maxWidth: .infinity)
+    .padding(.horizontal, 22)
+    .padding(.vertical, 10)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Shelf page")
+  }
+}
+
+private struct ShelfItemView: View {
+  let item: ShelfItem
+  let onRemove: () -> Void
+  let onExpand: () -> Void
+
+  @State private var isHovered = false
+
+  var body: some View {
+    VStack(spacing: 4) {
+      ZStack(alignment: .topTrailing) {
+        itemIcon
+          .frame(width: 44, height: 44)
+          .background(Color.white.opacity(0.1))
+          .clipShape(RoundedRectangle(cornerRadius: 8))
+
+        Button(action: onRemove) {
+          Image(systemName: "xmark.circle.fill")
+            .font(.system(size: 14))
+            .foregroundColor(.white.opacity(isHovered ? 0.9 : 0.01))
+            .background(Circle().fill(Color.black.opacity(isHovered ? 0.6 : 0.01)))
+        }
+        .buttonStyle(.plain)
+        .frame(width: 20, height: 20)
+        .contentShape(Rectangle())
+        .offset(x: 4, y: -4)
+        .accessibilityLabel("Remove \(item.title)")
+        .accessibilityIdentifier("remove-\(item.title)")
+      }
+
+      Text(item.title)
+        .font(.system(size: 10, weight: .regular))
+        .foregroundColor(.white)
+        .lineLimit(2)
+        .multilineTextAlignment(.center)
+        .frame(width: 58)
+        .accessibilityIdentifier("shelf-item-title")
+
+      if item.isStack {
+        Button(action: onExpand) {
+          Text("Expand")
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundColor(.white.opacity(0.8))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(Color.white.opacity(0.2)))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Expand \(item.title)")
+        .accessibilityIdentifier("expand-\(item.title)")
+      }
+    }
+    .frame(width: 60)
+    .padding(.vertical, 4)
+    .onHover { hovering in
+      isHovered = hovering
+    }
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel(item.title)
+    .accessibilityIdentifier("shelf-item")
+  }
+
+  @ViewBuilder
+  private var itemIcon: some View {
+    switch item.kind {
+    case .capture(let cap):
+      if cap.type == .screenRecording {
+        Image(systemName: "video.fill")
+          .font(.system(size: 22))
+          .foregroundColor(.white.opacity(0.8))
+      } else {
+        Image(systemName: "photo.fill")
+          .font(.system(size: 22))
+          .foregroundColor(.white.opacity(0.8))
+      }
+    case .captureStack:
+      Image(systemName: "square.stack.3d.up.fill")
+        .font(.system(size: 22))
+        .foregroundColor(.white.opacity(0.8))
+    case .fileStack:
+      Image(systemName: "doc.on.doc.fill")
+        .font(.system(size: 22))
+        .foregroundColor(.white.opacity(0.8))
+    case .folder:
+      Image(systemName: "folder.fill")
+        .font(.system(size: 24))
+        .foregroundColor(.blue.opacity(0.8))
+    case .file:
+      Image(systemName: "doc.fill")
+        .font(.system(size: 22))
+        .foregroundColor(.white.opacity(0.8))
+    case .link:
+      Image(systemName: "link")
+        .font(.system(size: 20))
+        .foregroundColor(.blue.opacity(0.8))
+    case .note(_, let isReminder):
+      Image(systemName: isReminder ? "bell.fill" : "note.text")
+        .font(.system(size: 20))
+        .foregroundColor(.yellow.opacity(0.8))
+    }
+  }
+}
+
+private struct RemoveAreaDropHost: NSViewRepresentable {
+  let model: IslandModel
+
+  func makeNSView(context: Context) -> RemoveAreaNSView {
+    RemoveAreaNSView(model: model)
+  }
+
+  func updateNSView(_ nsView: RemoveAreaNSView, context: Context) {
+    nsView.model = model
+    if nsView.window != nil {
+      model.removeAreaView = nsView
+    }
+  }
+}
+
+private final class RemoveAreaNSView: NSView {
+  weak var model: IslandModel?
+
+  init(model: IslandModel) {
+    self.model = model
+    super.init(frame: .zero)
+    registerForDraggedTypes([.fileURL, .URL, .string])
+    setAccessibilityElement(true)
+    setAccessibilityRole(.group)
+    setAccessibilityLabel("Remove area")
+    setAccessibilityIdentifier("remove-area")
+  }
+
+  required init?(coder: NSCoder) { fatalError() }
+
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    if window != nil {
+      model?.removeAreaView = self
+    } else if model?.removeAreaView === self {
+      model?.removeAreaView = nil
+    }
+  }
+
+  override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+    .delete
+  }
+
+  override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+    .delete
+  }
+
+  override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    guard let model = model, let item = model.currentDraggedItem else { return false }
+    model.onRemoveShelfItem(item.id)
+    return true
+  }
+
+  override func draw(_ dirtyRect: NSRect) {
+    super.draw(dirtyRect)
+    let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 6, yRadius: 6)
+    NSColor.systemRed.withAlphaComponent(0.2).setFill()
+    path.fill()
+    NSColor.systemRed.withAlphaComponent(0.6).setStroke()
+    path.lineWidth = 1
+    path.stroke()
+
+    let str = "Remove from shelf" as NSString
+    let attrs: [NSAttributedString.Key: Any] = [
+      .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+      .foregroundColor: NSColor.white.withAlphaComponent(0.8),
+    ]
+    let size = str.size(withAttributes: attrs)
+    let p = NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2)
+    str.draw(at: p, withAttributes: attrs)
+  }
+}
+
+private struct DraggableItemContainer<Content: View>: NSViewRepresentable {
+  let item: ShelfItem
+  let model: IslandModel
+  let content: () -> Content
+
+  func makeNSView(context: Context) -> DraggableContainerView<Content> {
+    DraggableContainerView(item: item, model: model, rootView: content())
+  }
+
+  func updateNSView(_ nsView: DraggableContainerView<Content>, context: Context) {
+    nsView.item = item
+    nsView.model = model
+    nsView.hosting.rootView = content()
+  }
+}
+
+private final class DraggableContainerView<Content: View>: NSView, NSDraggingSource {
+  var item: ShelfItem
+  weak var model: IslandModel?
+  let hosting: FirstClickHostingView<Content>
+  private var dragStartLocation: NSPoint?
+
+  init(item: ShelfItem, model: IslandModel, rootView: Content) {
+    self.item = item
+    self.model = model
+    self.hosting = FirstClickHostingView(rootView: rootView)
+    super.init(frame: .zero)
+    self.hosting.translatesAutoresizingMaskIntoConstraints = false
+    addSubview(hosting)
+    NSLayoutConstraint.activate([
+      hosting.leadingAnchor.constraint(equalTo: leadingAnchor),
+      hosting.trailingAnchor.constraint(equalTo: trailingAnchor),
+      hosting.topAnchor.constraint(equalTo: topAnchor),
+      hosting.bottomAnchor.constraint(equalTo: bottomAnchor),
+    ])
+  }
+
+  required init?(coder: NSCoder) { fatalError() }
+
+  override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+    true
+  }
+
+  override func hitTest(_ point: NSPoint) -> NSView? {
+    guard let view = super.hitTest(point) else { return nil }
+    if point.x >= bounds.width - 32 && point.y >= bounds.height - 30 {
+      return view
+    }
+    if item.isStack && point.y <= 26 {
+      return view
+    }
+    return self
+  }
+
+  override func mouseDown(with event: NSEvent) {
+    dragStartLocation = event.locationInWindow
+  }
+
+  override func mouseUp(with event: NSEvent) {
+    if dragStartLocation != nil {
+      dragStartLocation = nil
+      if item.isStack {
+        model?.onExpandShelfStack(item.id)
+      }
+    }
+  }
+
+  override func mouseDragged(with event: NSEvent) {
+    if let start = dragStartLocation {
+      let dx = event.locationInWindow.x - start.x
+      let dy = event.locationInWindow.y - start.y
+      if (dx * dx + dy * dy) > 9 {
+        dragStartLocation = nil
+        startDragging(with: event)
+        return
+      }
+    }
+  }
+
+  private func startDragging(with event: NSEvent) {
+    var draggingItems: [NSDraggingItem] = []
+    switch item.kind {
+    case .file, .folder, .capture, .fileStack, .captureStack:
+      for url in item.urls {
+        let dragItem = NSDraggingItem(pasteboardWriter: url as NSURL)
+        let img = snapshot()
+        dragItem.setDraggingFrame(self.bounds, contents: img)
+        draggingItems.append(dragItem)
+      }
+    case .link(let url, _):
+      let dragItem = NSDraggingItem(pasteboardWriter: url as NSURL)
+      let img = snapshot()
+      dragItem.setDraggingFrame(self.bounds, contents: img)
+      draggingItems.append(dragItem)
+    case .note(let text, _):
+      let dragItem = NSDraggingItem(pasteboardWriter: text as NSString)
+      let img = snapshot()
+      dragItem.setDraggingFrame(self.bounds, contents: img)
+      draggingItems.append(dragItem)
+    }
+
+    guard !draggingItems.isEmpty else { return }
+
+    model?.currentDraggedItem = item
+    model?.isDraggingShelfItem = true
+    model?.onShelfDragBegan?(item)
+
+    let session = beginDraggingSession(with: draggingItems, event: event, source: self)
+    _ = session
+  }
+
+  func draggingSession(
+    _ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext
+  ) -> NSDragOperation {
+    [.copy, .move, .generic, .delete]
+  }
+
+  func draggingSession(
+    _ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation
+  ) {
+    model?.isDraggingShelfItem = false
+    model?.removeAreaView = nil
+    model?.onShelfDragEnded?(item, operation, screenPoint)
+    model?.currentDraggedItem = nil
+  }
+
+  private func snapshot() -> NSImage {
+    guard bounds.width > 0, bounds.height > 0 else { return NSImage() }
+    let pdf = dataWithPDF(inside: bounds)
+    return NSImage(data: pdf) ?? NSImage()
   }
 }

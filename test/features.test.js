@@ -12,12 +12,10 @@ runFeatures(path.join(__dirname, '..', 'features'), {
   'music-panel': require('./steps/music-panel.steps'),
   'music-sources': require('./steps/music-sources.steps'),
   'new-song-notice': require('./steps/new-song-notice.steps'),
+  'shelf-captures-and-files': require('./steps/shelf-captures-and-files.steps'),
 }, {
   wip: [
     'around-the-clock',
-    // The shelf-item row of the drag outline waits for the shelf (P4).
-    { feature: 'music-panel', scenarios: ['Dragging <what> far from the island keeps it open until let go'] },
-    'shelf-captures-and-files',
     'shelf-notes-and-reminders',
   ],
   manifest: path.join(__dirname, '..', 'features', 'run-manifest.ndjson'),

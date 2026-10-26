@@ -18,6 +18,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   /// When a new song starts, and the wing that tells of it (D115, D78).
   private var detector = NewSongDetector()
   private let wing = WingController()
+  private let shelfStore: ShelfStore
+  private var captureWatcher: CaptureWatcher?
 
   override init() {
     let directory =
@@ -26,6 +28,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       .appendingPathComponent("notch-island", isDirectory: true)
     store = LastSongStore(directory: directory)
     chrome = ChromeBridge(directory: directory)
+    shelfStore = ShelfStore(
+      directory: directory,
+      clock: { TestInput.clockDate ?? Date() }
+    )
     let kept = store.loadKept()
     hub = NowPlayingHub(lastSong: kept?.song, resumeAt: kept?.resumeAt)
     super.init()
@@ -48,8 +54,79 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     model.onSeek = { [weak self] in self?.shownPart?.seek(to: $0) }
     model.onBringForward = { [weak self] in self?.shownPart?.bringForward() }
     model.onFlip = { [weak self] in self?.flip() }
+    model.shelfStore = shelfStore
+    model.onRemoveShelfItem = { [weak self] id in
+      self?.shelfStore.remove(id: id)
+      self?.island?.model.refreshShelf()
+    }
+    model.onExpandShelfStack = { [weak self] id in
+      self?.shelfStore.expandStack(id: id)
+      self?.island?.model.refreshShelf()
+    }
+    model.refreshShelf()
+
+    let watcher = CaptureWatcher(
+      directory: TestInput.screenshotDirectory ?? CaptureWatcher.defaultScreenshotLocation(),
+      store: shelfStore,
+      locationProvider: {
+        #if ISLAND_TEST_INPUT
+          if let dir = TestInput.screenshotDirectory {
+            return dir
+          }
+        #endif
+        return CaptureWatcher.defaultScreenshotLocation()
+      }
+    )
+    watcher.onCaptureParked = { [weak model] _ in
+      DispatchQueue.main.async {
+        model?.refreshShelf()
+      }
+    }
+    watcher.start()
+    self.captureWatcher = watcher
+
+    #if ISLAND_TEST_INPUT
+      var handledClear = false
+      var handledSeed = false
+
+      if TestInput.clearShelf {
+        self.shelfStore.clear()
+        handledClear = true
+      }
+      if let seeds = TestInput.seedShelf {
+        for seed in seeds {
+          self.seedItem(seed)
+        }
+        handledSeed = true
+      }
+      model.refreshShelf()
+
+      TestInput.onChange { [weak self] in
+        guard let self else { return }
+        if let dir = TestInput.screenshotDirectory {
+          self.captureWatcher?.updateDirectory(dir)
+        }
+        if !TestInput.clearShelf {
+          handledClear = false
+        } else if !handledClear {
+          self.shelfStore.clear()
+          handledClear = true
+        }
+        if TestInput.seedShelf == nil {
+          handledSeed = false
+        } else if !handledSeed, let seeds = TestInput.seedShelf {
+          for seed in seeds {
+            self.seedItem(seed)
+          }
+          handledSeed = true
+        }
+        self.island?.model.refreshShelf()
+      }
+    #endif
+
     island.onOpenRefresh = { [weak self] in
       for part in self?.parts.values.map({ $0 }) ?? [] { part.refresh() }
+      self?.island?.model.refreshShelf()
     }
     wing.islandOpen = { [weak island] in island?.isOpen ?? false }
     wing.fullscreen = { [weak self] in self?.contextGuard.fullscreenNow() ?? false }
@@ -193,4 +270,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       NSLog("notch-island: could not register to start at login: %@", "\(error)")
     }
   }
+
+  #if ISLAND_TEST_INPUT
+    private func seedItem(_ seed: [String: Any]) {
+      let type = seed["type"] as? String ?? seed["kind"] as? String ?? ""
+      let landedAt: Date? = {
+        if let str = seed["landedAt"] as? String {
+          let f = ISO8601DateFormatter()
+          if let d = f.date(from: str) { return d }
+          f.formatOptions.insert(.withFractionalSeconds)
+          return f.date(from: str)
+        } else if let ts = (seed["landedAtTimestamp"] as? NSNumber)?.doubleValue {
+          return Date(timeIntervalSince1970: ts)
+        }
+        return nil
+      }()
+
+      switch type {
+      case "screenshot", "screenRecording", "capture":
+        if let path = seed["path"] as? String {
+          captureWatcher?.addSeenPath(path)
+          let url = URL(fileURLWithPath: path)
+          let capType: CaptureType =
+            (type == "screenRecording" || url.pathExtension.lowercased() == "mov")
+            ? .screenRecording : .screenshot
+          _ = try? shelfStore.parkCapture(at: url, type: capType, landedAt: landedAt)
+        }
+      case "file", "folder":
+        if let path = seed["path"] as? String {
+          captureWatcher?.addSeenPath(path)
+          _ = try? shelfStore.parkFile(at: URL(fileURLWithPath: path), landedAt: landedAt)
+        }
+      case "files", "fileStack":
+        if let paths = seed["paths"] as? [String] {
+          for p in paths { captureWatcher?.addSeenPath(p) }
+          let urls = paths.map { URL(fileURLWithPath: $0) }
+          _ = try? shelfStore.parkFiles(at: urls, landedAt: landedAt)
+        }
+      case "link":
+        if let urlStr = seed["url"] as? String, let url = URL(string: urlStr) {
+          shelfStore.parkLink(url, title: seed["title"] as? String, landedAt: landedAt)
+        }
+      case "note":
+        if let text = seed["text"] as? String {
+          let isReminder = seed["isReminder"] as? Bool ?? false
+          shelfStore.addNote(text: text, isReminder: isReminder, landedAt: landedAt)
+        }
+      default:
+        break
+      }
+    }
+  #endif
 }

@@ -31,6 +31,20 @@ final class IslandPanel: NSPanel {
 /// The root view: it reports where the pointer is over the island's window.
 final class PointerTrackingView: NSView {
   var onPointer: () -> Void = {}
+  var onDragEntered: ((NSDraggingInfo) -> NSDragOperation)?
+  var onDragUpdated: ((NSDraggingInfo) -> NSDragOperation)?
+  var onDragExited: ((NSDraggingInfo) -> Void)?
+  var onPerformDrop: ((NSDraggingInfo) -> Bool)?
+
+  override init(frame frameRect: NSRect) {
+    super.init(frame: frameRect)
+    registerForDraggedTypes([.fileURL, .URL, .string])
+  }
+
+  required init?(coder: NSCoder) {
+    super.init(coder: coder)
+    registerForDraggedTypes([.fileURL, .URL, .string])
+  }
 
   override func updateTrackingAreas() {
     super.updateTrackingAreas()
@@ -48,6 +62,26 @@ final class PointerTrackingView: NSView {
   override func mouseEntered(with event: NSEvent) { onPointer() }
   override func mouseMoved(with event: NSEvent) { onPointer() }
   override func mouseExited(with event: NSEvent) { onPointer() }
+
+  override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+    onDragEntered?(sender) ?? []
+  }
+
+  override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+    onDragUpdated?(sender) ?? []
+  }
+
+  override func draggingExited(_ sender: NSDraggingInfo?) {
+    if let sender { onDragExited?(sender) }
+  }
+
+  override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    true
+  }
+
+  override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    onPerformDrop?(sender) ?? false
+  }
 }
 
 /// The island view's controller: it places the island over the built-in
@@ -110,6 +144,18 @@ final class IslandController: NSObject, NSMenuDelegate {
     cardPanel.contentView = cardRoot
     rootView.onPointer = { [weak self] in self?.pointerChanged() }
     cardRoot.onPointer = { [weak self] in self?.pointerChanged() }
+    rootView.onDragEntered = { [weak self] sender in self?.handleDragEntered(sender) ?? [] }
+    rootView.onDragUpdated = { [weak self] sender in self?.handleDragUpdated(sender) ?? [] }
+    rootView.onPerformDrop = { [weak self] sender in self?.handlePerformDrop(sender) ?? false }
+    cardRoot.onDragEntered = { [weak self] sender in self?.handleDragEntered(sender) ?? [] }
+    cardRoot.onDragUpdated = { [weak self] sender in self?.handleDragUpdated(sender) ?? [] }
+    cardRoot.onPerformDrop = { [weak self] sender in self?.handlePerformDrop(sender) ?? false }
+    model.onShelfDragBegan = { [weak self] item in
+      self?.shelfItemDragBegan(item: item)
+    }
+    model.onShelfDragEnded = { [weak self] item, op, pt in
+      self?.shelfItemDragEnded(item: item, operation: op, screenPoint: pt)
+    }
     monitor = NSEvent.addLocalMonitorForEvents(
       matching: [.leftMouseDown, .leftMouseUp, .rightMouseDown, .scrollWheel]
     ) { [weak self] event in
@@ -379,6 +425,151 @@ final class IslandController: NSObject, NSMenuDelegate {
     quit.target = self
     menu.addItem(quit)
     NSMenu.popUpContextMenu(menu, with: event, for: rootView)
+  }
+
+  private func isTextOnlyDrag(_ sender: NSDraggingInfo) -> Bool {
+    let pb = sender.draggingPasteboard
+    let fileURLs =
+      pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
+      ?? []
+    if !fileURLs.isEmpty { return false }
+    let allURLs = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] ?? []
+    let hasWebURL = allURLs.contains { $0.scheme == "http" || $0.scheme == "https" }
+    if hasWebURL { return false }
+    if let str = pb.string(forType: .string), !str.isEmpty {
+      return true
+    }
+    return false
+  }
+
+  private func isOverRemoveArea(_ sender: NSDraggingInfo) -> Bool {
+    guard sender.draggingDestinationWindow === cardPanel else {
+      return false
+    }
+    guard let view = model.removeAreaView, let window = view.window, window === cardPanel,
+      !view.isHiddenOrHasHiddenAncestor, view.bounds.width > 0, view.bounds.height > 0
+    else {
+      return false
+    }
+    let loc = sender.draggingLocation
+    let frameInWindow = view.convert(view.bounds, to: nil)
+    return frameInWindow.insetBy(dx: -4, dy: -4).contains(loc)
+  }
+
+  private func handleDragEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+    if isTextOnlyDrag(sender) {
+      return []
+    }
+    if model.isDraggingShelfItem {
+      if isOverRemoveArea(sender) {
+        return .delete
+      }
+      return []
+    }
+    model.page = .shelf
+    pager.show(.shelf)
+    if machine.state != .open {
+      machine.dropTargetOpened()
+      settle()
+    }
+    return .copy
+  }
+
+  private func handleDragUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+    if isTextOnlyDrag(sender) {
+      return []
+    }
+    if model.isDraggingShelfItem {
+      if isOverRemoveArea(sender) {
+        return .delete
+      }
+      return []
+    }
+    if model.page != .shelf {
+      model.page = .shelf
+      pager.show(.shelf)
+    }
+    if machine.state != .open {
+      machine.dropTargetOpened()
+      settle()
+    }
+    return .copy
+  }
+
+  private func handlePerformDrop(_ sender: NSDraggingInfo) -> Bool {
+    if isTextOnlyDrag(sender) {
+      if let str = sender.draggingPasteboard.string(forType: .string) {
+        _ = model.shelfStore?.parkDroppedText(str)
+      }
+      return false
+    }
+
+    if model.isDraggingShelfItem {
+      if isOverRemoveArea(sender) {
+        if let item = model.currentDraggedItem {
+          model.onRemoveShelfItem(item.id)
+          return true
+        }
+      }
+      return false
+    }
+
+    guard let shelfStore = model.shelfStore else { return false }
+    let pb = sender.draggingPasteboard
+
+    if let fileURLs = pb.readObjects(
+      forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL],
+      !fileURLs.isEmpty
+    {
+      do {
+        if fileURLs.count == 1 {
+          try shelfStore.parkFile(at: fileURLs[0])
+        } else {
+          try shelfStore.parkFiles(at: fileURLs)
+        }
+        model.refreshShelf()
+        return true
+      } catch {
+        return false
+      }
+    }
+
+    if let allURLs = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] {
+      let webURLs = allURLs.filter { $0.scheme == "http" || $0.scheme == "https" }
+      if let first = webURLs.first {
+        var title = pb.string(forType: .string)
+        if title == nil || title == first.absoluteString {
+          let s = first.absoluteString
+          if let r = s.range(of: "://") {
+            title = String(s[r.upperBound...])
+          }
+        }
+        shelfStore.parkLink(first, title: title)
+        model.refreshShelf()
+        return true
+      }
+    }
+
+    return false
+  }
+
+  func shelfItemDragBegan(item: ShelfItem) {
+    pressStartedOnIsland = true
+    machine.dragBegan()
+    settle()
+  }
+
+  func shelfItemDragEnded(item: ShelfItem, operation: NSDragOperation, screenPoint: NSPoint) {
+    if operation == [] {
+      model.shelfStore?.itemRefused(id: item.id)
+    } else {
+      model.shelfStore?.itemAccepted(id: item.id)
+      model.refreshShelf()
+    }
+    pressStartedOnIsland = false
+    let (_, inside) = pointerInside()
+    machine.dragEnded(inside: inside, at: now)
+    settle()
   }
 
   @objc private func quit() {
