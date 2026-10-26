@@ -396,6 +396,16 @@ public final class ShelfStore: @unchecked Sendable {
     }
     let decoder = JSONDecoder()
     decoder.dateDecodingStrategy = .iso8601
-    return (try? decoder.decode([ShelfItem].self, from: data)) ?? []
+    do {
+      return try decoder.decode([ShelfItem].self, from: data)
+    } catch {
+      let dir = file.deletingLastPathComponent()
+      let timestamp = Int(Date().timeIntervalSince1970)
+      let prefix = UUID().uuidString.prefix(8)
+      let corruptName = "\(file.lastPathComponent).corrupt-\(timestamp)-\(prefix)"
+      let corruptURL = dir.appendingPathComponent(corruptName)
+      try? FileManager.default.moveItem(at: file, to: corruptURL)
+      return []
+    }
   }
 }
