@@ -127,6 +127,18 @@ async function launchDropStandIn(world, options = {}) {
         `expected drop-stand-in to receive ${filename}, but received: ${JSON.stringify(data)}`
       );
     },
+    assertEmpty: () => {
+      try {
+        const content = fs.readFileSync(log, 'utf8').trim();
+        const data = content ? JSON.parse(content) : null;
+        assert.ok(
+          !data || !data.received || data.received.length === 0,
+          `expected drop-stand-in to be empty, but received: ${JSON.stringify(data)}`
+        );
+      } catch (err) {
+        if (err.code === 'ERR_ASSERTION') throw err;
+      }
+    },
   };
 }
 
