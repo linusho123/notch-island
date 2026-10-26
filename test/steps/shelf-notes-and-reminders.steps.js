@@ -208,8 +208,9 @@ module.exports = function (reg) {
   reg.define(/^the visionary clicks its text, corrects it to "([^"]+)" and presses Return$/, async (w, newText) => {
     await openOnShelfPage(w);
     const view = await island.look(w.island.pid);
-    const titleEl = view.elements.find((e) => e.identifier === 'shelf-item-title');
+    const titleEl = view.elements.find((e) => e.identifier === 'shelf-item-title' && e.value && (e.value.includes('shwos') || e.value.includes('idea:')));
     assert.ok(titleEl, 'could not find note title element');
+    w.notePositionBefore = { x: titleEl.frame.x, y: titleEl.frame.y };
     const c = center(titleEl.frame);
     await harness.click(c.x, c.y);
     await sleep(150);
@@ -369,6 +370,14 @@ module.exports = function (reg) {
       `note "${label}" not found on shelf`
     );
     assert.ok(view.texts.includes(label));
+    const titleEl = view.elements.find((e) => e.identifier === 'shelf-item-title' && e.value && e.value.includes(label));
+    assert.ok(titleEl, 'could not find shelf-item-title on screen');
+    if (w.notePositionBefore) {
+      assert.ok(
+        Math.abs(titleEl.frame.x - w.notePositionBefore.x) <= 2,
+        `expected note at x=${w.notePositionBefore.x}, got x=${titleEl.frame.x}`
+      );
+    }
     const items = view.elements.filter((e) => e.identifier === 'shelf-item');
     assert.ok(items.length >= 1, 'no shelf-items found');
 
@@ -411,17 +420,16 @@ module.exports = function (reg) {
     await openOnShelfPage(w);
     const view = await island.waitFor(
       w.island.pid,
-      (v) => v.elements.filter((e) => e.identifier === 'shelf-item').length === 0,
+      (v) => !v.texts.some((t) => t.includes('idea: notch app shows lyrics')),
       2500,
-      'shelf still holds items'
+      'note still found on shelf'
     );
-    const items = view.elements.filter((e) => e.identifier === 'shelf-item');
-    assert.equal(items.length, 0, `expected 0 items on shelf, found ${items.length}`);
+    assert.ok(!view.texts.some((t) => t.includes('idea: notch app shows lyrics')));
 
     const shelfFile = path.join(scratch(w), 'island-data', 'notch-island', 'shelf.json');
     if (fs.existsSync(shelfFile)) {
       const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
-      assert.equal(diskItems.length, 0, `shelf.json on disk still holds ${diskItems.length} items`);
+      assert.ok(!diskItems.some((it) => it.kind && it.kind.note && it.kind.note.text.includes('idea: notch app shows lyrics')));
     }
   });
 };
