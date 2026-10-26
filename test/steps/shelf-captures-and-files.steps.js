@@ -1064,6 +1064,9 @@ function countFinderTrashTaxReturn() {
   });
 
   reg.define(/^the visionary sees the screenshot gone from the shelf page$/, async (w) => {
+    if (w.standIn) {
+      await w.standIn.assertReceived('Screenshot 2026-10-18 at 10.15.02.png');
+    }
     await openOnShelfPage(w);
     await island.waitFor(
       w.island.pid,
