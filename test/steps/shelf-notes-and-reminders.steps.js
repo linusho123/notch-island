@@ -5,6 +5,7 @@ const path = require('node:path');
 const harness = require('../support/harness');
 const island = require('../support/island');
 const { scratch } = require('../support/sandbox');
+const { launchDropStandIn } = require('../support/shelf');
 const { helpers } = require('./music-panel.steps');
 
 const {
@@ -437,6 +438,334 @@ module.exports = function (reg) {
     if (fs.existsSync(shelfFile)) {
       const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
       assert.ok(!diskItems.some((it) => it.kind && it.kind.note && it.kind.note.text.includes('idea: notch app shows lyrics')));
+    }
+  });
+
+  // ------------------------------------------------------------- U2: Notes & Reminders Toggle, Check-off, Drag & Week
+
+  reg.define(/^the plain note "([^"]+)" is on the shelf$/, async (w, label) => {
+    const raw = label.startsWith('✎ ') ? label.slice(2) : label;
+    island.feed(w, {
+      clearShelf: true,
+      clockDate: null,
+      seedShelf: [{ kind: 'note', text: raw, isReminder: false }],
+    });
+    await playing(w, 'Wonderwall', 0);
+    await ensureIsland(w);
+    await openOnShelfPage(w);
+    await island.waitFor(
+      w.island.pid,
+      (v) => v.page === 'shelf' && v.texts.includes(label),
+      2500,
+      `shelf does not show plain note "${label}"`
+    );
+  });
+
+  reg.define(/^the visionary clicks the small box beside it$/, async (w) => {
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.buttons.some((b) => b.label === 'small box'),
+      2000,
+      'could not find small box button beside note'
+    );
+    const btn = view.buttons.find((b) => b.label === 'small box');
+    assert.ok(btn, 'small box button not found');
+    const c = center(btn.frame);
+    await harness.click(c.x, c.y);
+    await sleep(250);
+  });
+
+  reg.define(/^the visionary sees "([^"]+)" as a reminder with an empty box$/, async (w, label) => {
+    await openOnShelfPage(w);
+    const raw = label.startsWith('✎ ') ? label.slice(2) : label;
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.page === 'shelf' &&
+             v.texts.includes(raw) &&
+             !v.texts.includes(`✎ ${raw}`) &&
+             v.buttons.some((b) => b.label === 'box'),
+      3000,
+      `expected reminder "${raw}" with empty box on shelf`
+    );
+    assert.ok(view.texts.includes(raw), `reminder text "${raw}" missing`);
+    assert.ok(!view.texts.includes(`✎ ${raw}`), `reminder still has ✎ prefix`);
+    assert.ok(view.buttons.some((b) => b.label === 'box'), 'empty box button missing');
+
+    const shelfFile = path.join(scratch(w), 'island-data', 'shelf.json');
+    assert.ok(fs.existsSync(shelfFile), 'shelf.json missing');
+    const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
+    const diskNote = diskItems.find((it) => it.kind && it.kind.note && it.kind.note.text === raw);
+    assert.ok(diskNote, `reminder "${raw}" missing from shelf.json`);
+    assert.equal(diskNote.kind.note.isReminder, true, 'isReminder not true on disk');
+  });
+
+  reg.define(/^the reminder "([^"]+)" is on the shelf with an empty box$/, async (w, label) => {
+    const raw = label.startsWith('✎ ') ? label.slice(2) : label;
+    island.feed(w, {
+      clearShelf: true,
+      clockDate: null,
+      seedShelf: [{ kind: 'note', text: raw, isReminder: true }],
+    });
+    await playing(w, 'Wonderwall', 0);
+    await ensureIsland(w);
+    await openOnShelfPage(w);
+    await island.waitFor(
+      w.island.pid,
+      (v) => v.page === 'shelf' && v.texts.includes(raw) && v.buttons.some((b) => b.label === 'box'),
+      2500,
+      `shelf does not show reminder "${raw}" with empty box`
+    );
+  });
+
+  reg.define(/^the visionary clicks the pencil beside it$/, async (w) => {
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.buttons.some((b) => b.label === 'pencil'),
+      2000,
+      'could not find pencil button beside reminder'
+    );
+    const btn = view.buttons.find((b) => b.label === 'pencil');
+    assert.ok(btn, 'pencil button not found');
+    const c = center(btn.frame);
+    await harness.click(c.x, c.y);
+    await sleep(250);
+  });
+
+  reg.define(/^the visionary sees "([^"]+)" as a plain note with no box$/, async (w, label) => {
+    await openOnShelfPage(w);
+    const raw = label.startsWith('✎ ') ? label.slice(2) : label;
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.page === 'shelf' &&
+             v.texts.includes(`✎ ${raw}`) &&
+             !v.buttons.some((b) => b.label === 'box'),
+      3000,
+      `expected plain note "✎ ${raw}" with no reminder box`
+    );
+    assert.ok(view.texts.includes(`✎ ${raw}`), `plain note "✎ ${raw}" missing`);
+    assert.ok(!view.buttons.some((b) => b.label === 'box'), 'reminder box should not be present');
+
+    const shelfFile = path.join(scratch(w), 'island-data', 'shelf.json');
+    assert.ok(fs.existsSync(shelfFile), 'shelf.json missing');
+    const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
+    const diskNote = diskItems.find((it) => it.kind && it.kind.note && it.kind.note.text === raw);
+    assert.ok(diskNote, `note "${raw}" missing on disk`);
+    assert.equal(diskNote.kind.note.isReminder, false, 'isReminder should be false on disk');
+  });
+
+  reg.define(/^the visionary clicks its box$/, async (w) => {
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.buttons.some((b) => b.label === 'box'),
+      2000,
+      'could not find reminder box'
+    );
+    const btn = view.buttons.find((b) => b.label === 'box');
+    assert.ok(btn, 'reminder box not found');
+    const c = center(btn.frame);
+    await harness.click(c.x, c.y);
+    await sleep(250);
+  });
+
+  reg.define(/^the visionary sees "([^"]+)" gone from the shelf at once, with no struck-through step$/, async (w, label) => {
+    await openOnShelfPage(w);
+    const raw = label.startsWith('✎ ') ? label.slice(2) : label;
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => !v.texts.some((t) => t.includes(raw)),
+      2500,
+      `reminder "${raw}" still found on shelf`
+    );
+    assert.ok(!view.texts.some((t) => t.includes(raw)), `reminder "${raw}" still on screen`);
+
+    const shelfFile = path.join(scratch(w), 'island-data', 'shelf.json');
+    if (fs.existsSync(shelfFile)) {
+      const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
+      assert.ok(!diskItems.some((it) => it.kind && it.kind.note && it.kind.note.text.includes(raw)), `reminder "${raw}" still in shelf.json`);
+    }
+  });
+
+  reg.define(/^the note "([^"]+)" and the reminder "([^"]+)" are on the shelf$/, async (w, noteText, reminderText) => {
+    const rawNote = noteText.startsWith('✎ ') ? noteText.slice(2) : noteText;
+    const rawReminder = reminderText.startsWith('✎ ') ? reminderText.slice(2) : reminderText;
+    island.feed(w, {
+      clearShelf: true,
+      clockDate: null,
+      seedShelf: [
+        { type: 'note', text: rawNote, isReminder: false },
+        { type: 'note', text: rawReminder, isReminder: true },
+      ],
+    });
+    await playing(w, 'Wonderwall', 0);
+    await ensureIsland(w);
+    await openOnShelfPage(w);
+    await island.waitFor(
+      w.island.pid,
+      (v) => v.page === 'shelf' &&
+             v.texts.includes(`✎ ${rawNote}`) &&
+             v.texts.includes(rawReminder),
+      3000,
+      'shelf does not show both note and reminder'
+    );
+  });
+
+  reg.define(/^the visionary drags the (note|reminder) "([^"]+)" into a Messages chat$/, async (w, kind, text) => {
+    w.standIn = await launchDropStandIn(w, { title: 'Messages' });
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item'),
+      2000,
+      'no shelf items found'
+    );
+    const targetText = kind === 'note' ? (text.startsWith('✎ ') ? text : `✎ ${text}`) : text;
+    const itemEl = view.elements.find(
+      (e) => e.identifier === 'shelf-item' && (e.description === targetText || (e.value && e.value.includes(text)))
+    ) || view.elements.find(
+      (e) => e.identifier === 'shelf-item-title' && (e.value === targetText || (e.value && e.value.includes(text)))
+    );
+    assert.ok(itemEl, `could not find shelf-item for ${kind} "${text}"`);
+    const from = center(itemEl.frame);
+    const to = {
+      x: w.standIn.window.x + w.standIn.window.w / 2,
+      y: w.standIn.window.y + w.standIn.window.h / 2,
+    };
+    await harness.drag(from.x, from.y, to.x, to.y, 20, 15, false);
+    await sleep(300);
+  });
+
+  reg.define(/^the visionary sees "([^"]+)" in the chat's message field, as if typed$/, async (w, expectedText) => {
+    assert.ok(w.standIn, 'no standIn launched');
+    await w.standIn.assertReceivedText(expectedText);
+  });
+
+  reg.define(/^the visionary sees the (note|reminder) still on the shelf, (.+)$/, async (w, kind, stateDesc) => {
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item'),
+      2000,
+      'no shelf items found'
+    );
+    if (kind === 'note') {
+      assert.ok(view.texts.some((t) => t.includes('idea: notch app shows lyrics')), 'note missing from shelf');
+      assert.ok(view.buttons.some((b) => b.label === 'small box'), 'small box toggle missing from note');
+    } else {
+      assert.ok(view.texts.includes('renew passport'), 'reminder missing from shelf');
+      assert.ok(view.buttons.some((b) => b.label === 'box'), "reminder's box missing or not empty");
+    }
+
+    const shelfFile = path.join(scratch(w), 'island-data', 'shelf.json');
+    assert.ok(fs.existsSync(shelfFile), 'shelf.json missing');
+    const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
+    if (kind === 'note') {
+      const diskNote = diskItems.find((it) => it.kind && it.kind.note && it.kind.note.text.includes('idea: notch app shows lyrics'));
+      assert.ok(diskNote, 'note missing on disk');
+      assert.equal(diskNote.kind.note.isReminder, false);
+    } else {
+      const diskReminder = diskItems.find((it) => it.kind && it.kind.note && it.kind.note.text.includes('renew passport'));
+      assert.ok(diskReminder, 'reminder missing on disk');
+      assert.equal(diskReminder.kind.note.isReminder, true);
+    }
+  });
+
+  reg.define(/^the note "([^"]+)" and the reminder "([^"]+)", its box empty, were put on the shelf 7 days ago$/, async (w, noteText, reminderText) => {
+    const rawNote = noteText.startsWith('✎ ') ? noteText.slice(2) : noteText;
+    const rawReminder = reminderText.startsWith('✎ ') ? reminderText.slice(2) : reminderText;
+
+    const baseTime = new Date('2026-10-18T10:00:00Z').getTime();
+    const tMinus7Days = new Date(baseTime - 7 * 24 * 3600 * 1000).toISOString();
+    w.weekBaseTime = baseTime;
+    w.weekStartTime = tMinus7Days;
+
+    island.feed(w, {
+      clearShelf: true,
+      clockDate: tMinus7Days,
+      seedShelf: [
+        { type: 'note', text: rawNote, isReminder: false, landedAt: tMinus7Days },
+        { type: 'note', text: rawReminder, isReminder: true, landedAt: tMinus7Days },
+      ],
+    });
+    await playing(w, 'Wonderwall', 0);
+    await ensureIsland(w);
+  });
+
+  reg.define(/^the island has stayed closed since$/, async (w) => {
+    const { notch } = await harness.builtIn();
+    let initialView = await island.look(w.island.pid);
+    assert.ok(!initialView.open, 'island is open initially');
+    assert.ok(!initialView.wing, 'wing is showing initially');
+
+    const baselineRegion = await harness.regionStats(
+      Math.max(0, Math.floor(notch.x - 120)),
+      0,
+      Math.floor(notch.w + 140),
+      Math.floor(notch.h + 40)
+    );
+
+    w.weekSamples = [];
+
+    for (let day = 1; day <= 7; day++) {
+      const stepDate = new Date(new Date(w.weekStartTime).getTime() + day * 24 * 3600 * 1000).toISOString();
+      island.feed(w, { clockDate: stepDate });
+      await sleep(60);
+
+      const view = await island.look(w.island.pid);
+      const region = await harness.regionStats(
+        Math.max(0, Math.floor(notch.x - 120)),
+        0,
+        Math.floor(notch.w + 140),
+        Math.floor(notch.h + 40)
+      );
+
+      w.weekSamples.push({ day, view, region });
+      assert.ok(!view.open, `island opened on day ${day}`);
+      assert.ok(!view.wing, `wing popped out on day ${day}`);
+      assert.ok(
+        Math.abs(region.mean - baselineRegion.mean) < 0.05,
+        `pixel stats shifted significantly on day ${day}: was ${baselineRegion.mean}, now ${region.mean}`
+      );
+    }
+  });
+
+  reg.define(/^the visionary opens the shelf page$/, async (w) => {
+    await openOnShelfPage(w);
+  });
+
+  reg.define(/^the visionary sees the note and the reminder still on the shelf, the reminder's box still empty$/, async (w) => {
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.page === 'shelf' &&
+             v.texts.includes('✎ idea: notch app shows lyrics') &&
+             v.texts.includes('renew passport') &&
+             v.buttons.some((b) => b.label === 'box'),
+      3000,
+      'shelf does not show both note and reminder with empty box'
+    );
+    assert.ok(view.texts.includes('✎ idea: notch app shows lyrics'), 'plain note missing from shelf');
+    assert.ok(view.texts.includes('renew passport'), 'reminder missing from shelf');
+    assert.ok(view.buttons.some((b) => b.label === 'box'), "reminder's empty box missing");
+
+    const shelfFile = path.join(scratch(w), 'island-data', 'shelf.json');
+    assert.ok(fs.existsSync(shelfFile), 'shelf.json missing');
+    const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
+    const diskNote = diskItems.find((it) => it.kind && it.kind.note && it.kind.note.text.includes('idea: notch app shows lyrics'));
+    assert.ok(diskNote, 'plain note missing from shelf.json');
+    assert.equal(diskNote.kind.note.isReminder, false);
+    const diskReminder = diskItems.find((it) => it.kind && it.kind.note && it.kind.note.text.includes('renew passport'));
+    assert.ok(diskReminder, 'reminder missing from shelf.json');
+    assert.equal(diskReminder.kind.note.isReminder, true);
+  });
+
+  reg.define(/^the visionary saw no wings and no pop-out for the reminder in those 7 days$/, async (w) => {
+    assert.ok(w.weekSamples && w.weekSamples.length > 0, 'no week samples recorded');
+    for (const sample of w.weekSamples) {
+      assert.ok(!sample.view.open, `island opened on day ${sample.day}`);
+      assert.ok(!sample.view.wing, `wing popped out on day ${sample.day}`);
     }
   });
 };
