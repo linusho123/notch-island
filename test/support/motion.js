@@ -4,6 +4,7 @@
 // fast by the harness while it moves, against the menu bar items' own
 // frames and macOS's own hit test. Nothing here reads the test input.
 const { spawn } = require('node:child_process');
+const assert = require('node:assert/strict');
 let harness;
 function getHarness() {
   if (!harness) harness = require('./harness');
@@ -95,4 +96,13 @@ async function statusStandIn(world, title = 'NI') {
   return { handle, frame: item.frame, clicks: () => lines.filter((l) => l.clicked).length };
 }
 
-module.exports = { geometry, framesOf, parts, inStrip, overlaps, center, watchWhile, nearest, statusStandIn };
+/**
+ * Asserts the status item is to the right of the notch.
+ * A collision with Meter's width fails as plain environment (S4 carried).
+ */
+function assertStatusItemRightOfNotch(f, n) {
+  assert.ok(f.x >= n.x + n.w - 0.5,
+    `environment: the status item (x ${f.x}) is not right of the notch: Meter is too wide for this screen geometry (S4 carried)`);
+}
+
+module.exports = { geometry, framesOf, parts, inStrip, overlaps, center, watchWhile, nearest, statusStandIn, assertStatusItemRightOfNotch };

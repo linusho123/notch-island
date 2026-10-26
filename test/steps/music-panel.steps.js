@@ -1110,7 +1110,7 @@ module.exports = (reg) => {
     // never Meter's, which is only read), asked about by macOS's hit test.
     w.status = await motion.statusStandIn(w);
     const f = w.status.frame;
-    assert.ok(f.x >= n.x + n.w - 0.5, `the status item (x ${f.x}) is not right of the notch`);
+    motion.assertStatusItemRightOfNotch(f, n);
     // Every status item where a card as wide as the open one would reach if it
     // were in the strip (Meter's readings among them): their frames read once,
     // never clicked, never asked about again.
