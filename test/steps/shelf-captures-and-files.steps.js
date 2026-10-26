@@ -917,15 +917,15 @@ module.exports = function (reg) {
   });
 
 function countFinderTrashTaxReturn() {
-  try {
-    const out = execSync("osascript -e 'tell application \"Finder\" to count (every item of trash whose name begins with \"tax-return\")'", {
-      encoding: 'utf8',
-      timeout: 5000,
-    }).trim();
-    return parseInt(out, 10) || 0;
-  } catch {
-    return 0;
+  const out = execSync("osascript -e 'tell application \"Finder\" to count (every item of trash whose name begins with \"tax-return\")'", {
+    encoding: 'utf8',
+    timeout: 5000,
+  }).trim();
+  const n = parseInt(out, 10);
+  if (Number.isNaN(n)) {
+    throw new Error(`countFinderTrashTaxReturn returned non-number: ${out}`);
   }
+  return n;
 }
 
   reg.define(/^the visionary moves "tax-return\.pdf" to the Trash in Finder$/, async (w) => {
