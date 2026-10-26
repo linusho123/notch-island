@@ -861,7 +861,8 @@ struct ShelfStoreTests {
     #expect(items1.count == 3)
     #expect(items1[0].id == n1.id)
     #expect(items1[1].id == n2.id)
-    #expect(items1[1].title == "idea: notch app shows lyrics") // no ✎ prefix for reminders
+    // No ✎ prefix for reminders
+    #expect(items1[1].title == "idea: notch app shows lyrics")
     #expect(items1[1].noteText == "idea: notch app shows lyrics")
     if case .note(_, let isReminder) = items1[1].kind {
       #expect(isReminder == true)

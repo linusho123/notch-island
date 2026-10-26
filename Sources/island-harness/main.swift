@@ -1229,6 +1229,7 @@ case "drop-stand-in":
     var moveToDir: String?
     var copyToDir: String?
     var logPath: String = ""
+    weak var messageField: NSTextField?
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
       if refuse { return [] }
@@ -1287,11 +1288,29 @@ case "drop-stand-in":
         urlsList = allURLs.map { $0.absoluteString }
       }
 
-      let payload: [String: Any] = [
+      var droppedText: String? = nil
+      if let str = pb.string(forType: .string), !str.isEmpty {
+        droppedText = str
+      } else if let strings = pb.readObjects(
+        forClasses: [NSString.self], options: nil) as? [String],
+        let first = strings.first, !first.isEmpty
+      {
+        droppedText = first
+      }
+
+      var payload: [String: Any] = [
         "received": received,
         "urls": urlsList,
         "time": Date().timeIntervalSince1970,
       ]
+
+      if let text = droppedText {
+        payload["text"] = text
+        payload["messageField"] = text
+        DispatchQueue.main.async { [weak self] in
+          self?.messageField?.stringValue = text
+        }
+      }
 
       if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted])
       {
@@ -1320,6 +1339,17 @@ case "drop-stand-in":
   dropView.registerForDraggedTypes([.fileURL, .URL, .string])
   dropView.autoresizingMask = [.width, .height]
   window.contentView?.addSubview(dropView)
+
+  let msgField = NSTextField(frame: NSRect(x: 16, y: 16, width: winW - 32, height: 26))
+  msgField.isEditable = false
+  msgField.isSelectable = true
+  msgField.stringValue = ""
+  msgField.placeholderString = "Message"
+  msgField.setAccessibilityLabel("message field")
+  msgField.setAccessibilityIdentifier("message-field")
+  msgField.autoresizingMask = [.width, .maxYMargin]
+  dropView.messageField = msgField
+  window.contentView?.addSubview(msgField)
 
   window.makeKeyAndOrderFront(nil)
   app.activate(ignoringOtherApps: true)

@@ -103,6 +103,16 @@ final class IslandModel: ObservableObject {
     shelfItems = shelfStore?.items() ?? []
   }
 
+  func toggleNoteKind(id: UUID) {
+    shelfStore?.toggleNoteKind(id: id)
+    refreshShelf()
+  }
+
+  func checkOffReminder(id: UUID) {
+    shelfStore?.checkOffReminder(id: id)
+    refreshShelf()
+  }
+
   /// The clicked position of a seek, held until Music confirms it.
   private var seekHold = SeekHold()
 
@@ -938,13 +948,24 @@ private struct ShelfItemView: View {
 
   @ViewBuilder
   private var noteView: some View {
+    let isReminder: Bool = {
+      if case .note(_, let r) = item.kind { return r }
+      return false
+    }()
+
     ZStack(alignment: .topTrailing) {
       VStack(alignment: .leading, spacing: 4) {
         if isEditingThisNote {
           HStack(spacing: 4) {
-            Text("✎")
-              .font(.system(size: 11))
-              .foregroundColor(.white.opacity(0.7))
+            if isReminder {
+              Image(systemName: "square")
+                .font(.system(size: 11))
+                .foregroundColor(.white.opacity(0.8))
+            } else {
+              Text("✎")
+                .font(.system(size: 11))
+                .foregroundColor(.white.opacity(0.7))
+            }
             NoteTextFieldRepresentable(
               text: $model.editingNoteText,
               accessibilityIdentifier: "edit-note-field",
@@ -960,17 +981,60 @@ private struct ShelfItemView: View {
           }
           .frame(minWidth: 100, maxWidth: 220)
         } else {
-          Text(item.title)
-            .font(.system(size: 11, weight: .regular))
-            .foregroundColor(.white)
-            .multilineTextAlignment(.leading)
-            .lineLimit(3)
-            .frame(minWidth: 60, maxWidth: 220, alignment: .topLeading)
-            .contentShape(Rectangle())
-            .onTapGesture {
-              model.startEditingNote(id: item.id, currentText: item.noteText ?? item.title)
+          HStack(alignment: .top, spacing: 6) {
+            if isReminder {
+              // Reminder box (check-off, D40)
+              Button(action: {
+                model.checkOffReminder(id: item.id)
+              }) {
+                Image(systemName: "square")
+                  .font(.system(size: 11))
+                  .foregroundColor(.white.opacity(0.85))
+                  .frame(width: 14, height: 14)
+              }
+              .buttonStyle(.plain)
+              .accessibilityIdentifier("reminder-box")
+              .accessibilityLabel("box")
+
+              // Pencil beside reminder (toggle back to plain note, D39)
+              Button(action: {
+                model.toggleNoteKind(id: item.id)
+              }) {
+                Text("✎")
+                  .font(.system(size: 11))
+                  .foregroundColor(.white.opacity(0.7))
+                  .frame(width: 14, height: 14)
+              }
+              .buttonStyle(.plain)
+              .accessibilityIdentifier("reminder-pencil")
+              .accessibilityLabel("pencil")
+            } else {
+              // Small box beside plain note (toggle to reminder, D39)
+              Button(action: {
+                model.toggleNoteKind(id: item.id)
+              }) {
+                Image(systemName: "square")
+                  .font(.system(size: 11))
+                  .foregroundColor(.white.opacity(0.6))
+                  .frame(width: 14, height: 14)
+              }
+              .buttonStyle(.plain)
+              .accessibilityIdentifier("note-toggle-box")
+              .accessibilityLabel("small box")
             }
-            .accessibilityIdentifier("shelf-item-title")
+
+            Text(item.title)
+              .font(.system(size: 11, weight: .regular))
+              .foregroundColor(.white)
+              .multilineTextAlignment(.leading)
+              .lineLimit(3)
+              .frame(minWidth: 60, maxWidth: 220, alignment: .topLeading)
+              .contentShape(Rectangle())
+              .onTapGesture {
+                model.startEditingNote(id: item.id, currentText: item.noteText ?? item.title)
+              }
+              .accessibilityIdentifier("shelf-item-title")
+          }
         }
       }
       .padding(8)
@@ -1226,6 +1290,11 @@ private final class DraggableContainerView<Content: View>: NSView, NSDraggingSou
     if item.isStack && point.y <= 26 {
       return view
     }
+    if case .note = item.kind {
+      if point.x <= 56 {
+        return view
+      }
+    }
     return self
   }
 
@@ -1275,7 +1344,8 @@ private final class DraggableContainerView<Content: View>: NSView, NSDraggingSou
       dragItem.setDraggingFrame(self.bounds, contents: img)
       draggingItems.append(dragItem)
     case .note(let text, _):
-      let dragItem = NSDraggingItem(pasteboardWriter: text as NSString)
+      let dragText = (item.noteText ?? text) as NSString
+      let dragItem = NSDraggingItem(pasteboardWriter: dragText)
       let img = snapshot()
       dragItem.setDraggingFrame(self.bounds, contents: img)
       draggingItems.append(dragItem)
