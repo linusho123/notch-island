@@ -186,6 +186,30 @@ async function assertShelfItem(w, label, expectedCount = 1) {
   assert.ok(view.texts.includes(label), `expected exact label "${label}" on shelf, found: ${view.texts.join(', ')}`);
 }
 
+async function assert24HourBoundary(w, filename, openShelfFn) {
+  const t859 = '2026-10-19T08:59:00Z';
+  island.feed(w, { clockDate: t859 });
+  if (openShelfFn) {
+    await openShelfFn(w);
+  }
+  const view = await island.waitFor(
+    w.island.pid,
+    (v) => v.open && v.page === 'shelf' && v.texts.includes(filename),
+    3000,
+    `${filename} aged off early at 8:59 am (before 24 hours)`
+  );
+  assert.ok(view.texts.includes(filename), `${filename} aged off early at 8:59 am (before 24 hours)`);
+
+  const t900 = '2026-10-19T09:00:00Z';
+  island.feed(w, { clockDate: t900 });
+  await island.waitFor(
+    w.island.pid,
+    (v) => !v.texts.includes(filename),
+    3000,
+    `${filename} did not leave the shelf at 9:00 am (after 24 hours)`
+  );
+}
+
 module.exports = {
   scratchDesktop,
   scratchDocuments,
@@ -197,4 +221,5 @@ module.exports = {
   restartIsland,
   launchDropStandIn,
   assertShelfItem,
+  assert24HourBoundary,
 };
