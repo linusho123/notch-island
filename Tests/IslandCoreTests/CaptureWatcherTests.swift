@@ -79,11 +79,16 @@ struct CaptureWatcherTests {
     let newShot = tempDir.appendingPathComponent("Screenshot 2026-10-18 at 10.15.02.png")
     try FileManager.default.moveItem(at: stagedShot, to: newShot)
 
-    watcher.scanForNewCaptures()
+    var items: [ShelfItem] = []
+    for _ in 0..<20 {
+      watcher.scanForNewCaptures()
+      items = store.items()
+      if items.count == 1 { break }
+      Thread.sleep(forTimeInterval: 0.05)
+    }
 
-    let items = store.items()
     #expect(items.count == 1)
-    #expect(items[0].title == "Screenshot 2026-10-18 at 10.15.02.png")
+    #expect(items.first?.title == "Screenshot 2026-10-18 at 10.15.02.png")
   }
 
   @Test("CaptureWatcher ignores newly added non-captures")

@@ -19,6 +19,8 @@ final class IslandModel: ObservableObject {
   @Published var faceID: String?
   /// Items parked on the shelf (D30, D64, D65).
   @Published var shelfItems: [ShelfItem] = []
+  @Published var isDraggingShelfItem: Bool = false
+  var currentDraggedItem: ShelfItem?
   var shelfStore: ShelfStore?
 
   var onBack: () -> Void = {}
@@ -29,6 +31,8 @@ final class IslandModel: ObservableObject {
   var onFlip: () -> Void = {}
   var onRemoveShelfItem: (UUID) -> Void = { _ in }
   var onExpandShelfStack: (UUID) -> Void = { _ in }
+  var onShelfDragBegan: ((ShelfItem) -> Void)?
+  var onShelfDragEnded: ((ShelfItem, NSDragOperation, NSPoint) -> Void)?
 
   /// Refreshes shelf items from the store, pruning aged-out or trashed items (D57, D58).
   func refreshShelf() {
@@ -445,7 +449,7 @@ private struct ShelfPageView: View {
       .allowsHitTesting(false)
 
       // Actual shelf UI
-      VStack {
+      VStack(spacing: 6) {
         if model.shelfItems.isEmpty {
           Spacer()
           Text("Shelf")
@@ -453,21 +457,32 @@ private struct ShelfPageView: View {
             .foregroundColor(.white.opacity(0.3))
           Spacer()
         } else {
-          HStack(spacing: 10) {
-            ForEach(model.shelfItems) { item in
-              ShelfItemView(
-                item: item,
-                onRemove: {
-                  model.onRemoveShelfItem(item.id)
-                },
-                onExpand: {
-                  model.onExpandShelfStack(item.id)
+          ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+              ForEach(model.shelfItems) { item in
+                DraggableItemContainer(item: item, model: model) {
+                  ShelfItemView(
+                    item: item,
+                    onRemove: {
+                      model.onRemoveShelfItem(item.id)
+                    },
+                    onExpand: {
+                      model.onExpandShelfStack(item.id)
+                    }
+                  )
                 }
-              )
+              }
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
           }
-          .padding(.horizontal, 16)
-          .padding(.vertical, 8)
+
+          if model.isDraggingShelfItem {
+            RemoveAreaDropHost(model: model)
+              .frame(height: 28)
+              .padding(.horizontal, 16)
+              .transition(.opacity)
+          }
           Spacer()
         }
       }
@@ -580,5 +595,188 @@ private struct ShelfItemView: View {
         .font(.system(size: 20))
         .foregroundColor(.yellow.opacity(0.8))
     }
+  }
+}
+
+private struct RemoveAreaDropHost: NSViewRepresentable {
+  let model: IslandModel
+
+  func makeNSView(context: Context) -> RemoveAreaNSView {
+    RemoveAreaNSView(model: model)
+  }
+
+  func updateNSView(_ nsView: RemoveAreaNSView, context: Context) {
+    nsView.model = model
+  }
+}
+
+private final class RemoveAreaNSView: NSView {
+  weak var model: IslandModel?
+
+  init(model: IslandModel) {
+    self.model = model
+    super.init(frame: .zero)
+    registerForDraggedTypes([.fileURL, .URL, .string])
+    setAccessibilityElement(true)
+    setAccessibilityRole(.group)
+    setAccessibilityLabel("Remove area")
+    setAccessibilityIdentifier("remove-area")
+  }
+
+  required init?(coder: NSCoder) { fatalError() }
+
+  override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+    .delete
+  }
+
+  override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+    .delete
+  }
+
+  override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+    guard let model = model, let item = model.currentDraggedItem else { return false }
+    model.onRemoveShelfItem(item.id)
+    return true
+  }
+
+  override func draw(_ dirtyRect: NSRect) {
+    super.draw(dirtyRect)
+    let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 6, yRadius: 6)
+    NSColor.systemRed.withAlphaComponent(0.2).setFill()
+    path.fill()
+    NSColor.systemRed.withAlphaComponent(0.6).setStroke()
+    path.lineWidth = 1
+    path.stroke()
+
+    let str = "Remove from shelf" as NSString
+    let attrs: [NSAttributedString.Key: Any] = [
+      .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+      .foregroundColor: NSColor.white.withAlphaComponent(0.8),
+    ]
+    let size = str.size(withAttributes: attrs)
+    let p = NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2)
+    str.draw(at: p, withAttributes: attrs)
+  }
+}
+
+private struct DraggableItemContainer<Content: View>: NSViewRepresentable {
+  let item: ShelfItem
+  let model: IslandModel
+  let content: () -> Content
+
+  func makeNSView(context: Context) -> DraggableContainerView<Content> {
+    DraggableContainerView(item: item, model: model, rootView: content())
+  }
+
+  func updateNSView(_ nsView: DraggableContainerView<Content>, context: Context) {
+    nsView.item = item
+    nsView.model = model
+    nsView.hosting.rootView = content()
+  }
+}
+
+private final class DraggableContainerView<Content: View>: NSView, NSDraggingSource {
+  var item: ShelfItem
+  weak var model: IslandModel?
+  let hosting: FirstClickHostingView<Content>
+  private var dragStartLocation: NSPoint?
+
+  init(item: ShelfItem, model: IslandModel, rootView: Content) {
+    self.item = item
+    self.model = model
+    self.hosting = FirstClickHostingView(rootView: rootView)
+    super.init(frame: .zero)
+    self.hosting.translatesAutoresizingMaskIntoConstraints = false
+    addSubview(hosting)
+    NSLayoutConstraint.activate([
+      hosting.leadingAnchor.constraint(equalTo: leadingAnchor),
+      hosting.trailingAnchor.constraint(equalTo: trailingAnchor),
+      hosting.topAnchor.constraint(equalTo: topAnchor),
+      hosting.bottomAnchor.constraint(equalTo: bottomAnchor),
+    ])
+  }
+
+  required init?(coder: NSCoder) { fatalError() }
+
+  override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+    true
+  }
+
+  override func hitTest(_ point: NSPoint) -> NSView? {
+    if let view = super.hitTest(point) {
+      if view is NSButton || view.accessibilityRole() == .button {
+        return view
+      }
+      return self
+    }
+    return nil
+  }
+
+  override func mouseDown(with event: NSEvent) {
+    dragStartLocation = event.locationInWindow
+  }
+
+  override func mouseDragged(with event: NSEvent) {
+    if let start = dragStartLocation {
+      let dx = event.locationInWindow.x - start.x
+      let dy = event.locationInWindow.y - start.y
+      if (dx * dx + dy * dy) > 9 {
+        dragStartLocation = nil
+        startDragging(with: event)
+        return
+      }
+    }
+  }
+
+  private func startDragging(with event: NSEvent) {
+    var draggingItems: [NSDraggingItem] = []
+    switch item.kind {
+    case .file, .folder, .capture, .fileStack, .captureStack:
+      for url in item.urls {
+        let dragItem = NSDraggingItem(pasteboardWriter: url as NSURL)
+        let img = snapshot()
+        dragItem.setDraggingFrame(self.bounds, contents: img)
+        draggingItems.append(dragItem)
+      }
+    case .link(let url, _):
+      let dragItem = NSDraggingItem(pasteboardWriter: url as NSURL)
+      let img = snapshot()
+      dragItem.setDraggingFrame(self.bounds, contents: img)
+      draggingItems.append(dragItem)
+    case .note(let text, _):
+      let dragItem = NSDraggingItem(pasteboardWriter: text as NSString)
+      let img = snapshot()
+      dragItem.setDraggingFrame(self.bounds, contents: img)
+      draggingItems.append(dragItem)
+    }
+
+    guard !draggingItems.isEmpty else { return }
+
+    model?.currentDraggedItem = item
+    model?.isDraggingShelfItem = true
+    model?.onShelfDragBegan?(item)
+
+    let session = beginDraggingSession(with: draggingItems, event: event, source: self)
+    _ = session
+  }
+
+  func draggingSession(
+    _ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext
+  ) -> NSDragOperation {
+    [.copy, .move, .generic, .delete]
+  }
+
+  func draggingSession(
+    _ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation
+  ) {
+    model?.isDraggingShelfItem = false
+    model?.onShelfDragEnded?(item, operation, screenPoint)
+    model?.currentDraggedItem = nil
+  }
+
+  private func snapshot() -> NSImage {
+    guard bounds.width > 0, bounds.height > 0 else { return NSImage() }
+    let pdf = dataWithPDF(inside: bounds)
+    return NSImage(data: pdf) ?? NSImage()
   }
 }

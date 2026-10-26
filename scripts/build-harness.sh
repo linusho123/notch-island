@@ -33,3 +33,26 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 PLIST
 codesign --force --sign - "$app" >/dev/null
 echo "built $app"
+
+# The drop target stand-in: a small Messages-like app that records received drops
+# and can be set to accept or refuse (D92, D103).
+dropApp=build/apps.noindex/DropStandIn.app
+rm -rf "$dropApp"
+mkdir -p "$dropApp/Contents/MacOS"
+cp build/island-harness "$dropApp/Contents/MacOS/island-harness"
+cat > "$dropApp/Contents/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key><string>local.notch-island.drop-stand-in</string>
+  <key>CFBundleName</key><string>drop-stand-in</string>
+  <key>CFBundleExecutable</key><string>island-harness</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>1.0</string>
+  <key>NSPrincipalClass</key><string>NSApplication</string>
+</dict>
+</plist>
+PLIST
+codesign --force --sign - "$dropApp" >/dev/null
+echo "built $dropApp"

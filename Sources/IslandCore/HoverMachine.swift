@@ -133,6 +133,14 @@ public struct HoverMachine: Sendable {
     dragging = false
   }
 
+  /// An external drag arrived on the notch; open the island as a drop target (D33).
+  public mutating func dropTargetOpened() {
+    state = .open
+    restAnchor = nil
+    graceStart = nil
+    dragging = true
+  }
+
   private mutating func open() {
     state = .open
     restAnchor = nil

@@ -85,6 +85,8 @@ module.exports = {
   regionStats: (x, y, w, hh) => h('region-stats', x, y, w, hh),
   drag: (x1, y1, x2, y2, steps = 20, stepMs = 15, hold = false) =>
     h('drag', x1, y1, x2, y2, steps, stepMs, ...(hold ? ['hold'] : [])),
+  dragObject: (type, payload, x1, y1, x2, y2, hold = false) =>
+    h('drag-object', type, payload, x1, y1, x2, y2, ...(hold ? ['hold'] : [])),
   releaseIfHeld,
   release: () => h('release'),
   leftHeld: async () => (await h('button')).left,

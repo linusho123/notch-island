@@ -1139,6 +1139,265 @@ case "menu-stand-in":
   }
   DispatchQueue.main.async { app.activate(ignoringOtherApps: true) }
   app.run()
+case "drop-stand-in":
+  // drop-stand-in seconds logfile [options]
+  let app = NSApplication.shared
+  app.setActivationPolicy(.regular)
+
+  let seconds = num(1)
+  let logPath = arg(2)
+
+  var title = "Drop Stand-In"
+  var winX = 200.0
+  var winY = 250.0
+  var winW = 350.0
+  var winH = 200.0
+  var refuse = false
+  var maxSize: Int64? = nil
+  var moveToDir: String? = nil
+  var copyToDir: String? = nil
+
+  var i = 3
+  while i < args.count {
+    switch args[i] {
+    case "--title":
+      i += 1
+      if i < args.count { title = args[i] }
+    case "--x":
+      i += 1
+      if i < args.count { winX = Double(args[i]) ?? winX }
+    case "--y":
+      i += 1
+      if i < args.count { winY = Double(args[i]) ?? winY }
+    case "--w":
+      i += 1
+      if i < args.count { winW = Double(args[i]) ?? winW }
+    case "--h":
+      i += 1
+      if i < args.count { winH = Double(args[i]) ?? winH }
+    case "--refuse":
+      refuse = true
+    case "--max-size":
+      i += 1
+      if i < args.count { maxSize = Int64(args[i]) }
+    case "--move-to":
+      i += 1
+      if i < args.count { moveToDir = args[i] }
+    case "--copy-to":
+      i += 1
+      if i < args.count { copyToDir = args[i] }
+    default:
+      break
+    }
+    i += 1
+  }
+
+  final class StandInDropDestinationView: NSView {
+    var refuse: Bool = false
+    var maxSize: Int64?
+    var moveToDir: String?
+    var copyToDir: String?
+    var logPath: String = ""
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+      if refuse { return [] }
+      let pb = sender.draggingPasteboard
+      if let maxSize {
+        if let urls = pb.readObjects(
+          forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
+        {
+          for url in urls {
+            if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let size = attrs[.size] as? Int64, size >= maxSize
+            {
+              return []
+            }
+          }
+        }
+      }
+      return .copy
+    }
+
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+      return draggingEntered(sender)
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+      if refuse { return false }
+      let pb = sender.draggingPasteboard
+      var received: [[String: Any]] = []
+      var urlsList: [String] = []
+
+      if let fileURLs = pb.readObjects(
+        forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL]
+      {
+        for url in fileURLs {
+          let name = url.lastPathComponent
+          let path = url.path
+          let size =
+            (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? Int64) ?? 0
+          if let maxSize, size >= maxSize {
+            return false
+          }
+          if let moveToDir {
+            let dest = URL(fileURLWithPath: moveToDir).appendingPathComponent(name)
+            try? FileManager.default.removeItem(at: dest)
+            try? FileManager.default.moveItem(at: url, to: dest)
+          } else if let copyToDir {
+            let dest = URL(fileURLWithPath: copyToDir).appendingPathComponent(name)
+            try? FileManager.default.removeItem(at: dest)
+            try? FileManager.default.copyItem(at: url, to: dest)
+          }
+          received.append(["name": name, "path": path, "size": size])
+        }
+      }
+
+      if let allURLs = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] {
+        urlsList = allURLs.map { $0.absoluteString }
+      }
+
+      let payload: [String: Any] = [
+        "received": received,
+        "urls": urlsList,
+        "time": Date().timeIntervalSince1970,
+      ]
+
+      if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted])
+      {
+        try? data.write(to: URL(fileURLWithPath: logPath))
+      }
+      return true
+    }
+  }
+
+  let appKitY = primaryHeight - winY - winH
+  let window = NSWindow(
+    contentRect: NSRect(x: winX, y: appKitY, width: winW, height: winH),
+    styleMask: [.titled, .closable, .resizable],
+    backing: .buffered,
+    defer: false
+  )
+  window.title = title
+  window.isReleasedWhenClosed = false
+
+  let dropView = StandInDropDestinationView(frame: window.contentView!.bounds)
+  dropView.refuse = refuse
+  dropView.maxSize = maxSize
+  dropView.moveToDir = moveToDir
+  dropView.copyToDir = copyToDir
+  dropView.logPath = logPath
+  dropView.registerForDraggedTypes([.fileURL, .URL, .string])
+  dropView.autoresizingMask = [.width, .height]
+  window.contentView?.addSubview(dropView)
+
+  window.makeKeyAndOrderFront(nil)
+  app.activate(ignoringOtherApps: true)
+
+  line([
+    "pid": Int(getpid()),
+    "window": ["x": winX, "y": winY, "w": winW, "h": winH],
+  ])
+
+  if let owner = ProcessInfo.processInfo.environment["NOTCH_ISLAND_OWNER_PID"].flatMap(Int32.init) {
+    Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+      if kill(owner, 0) != 0 { exit(0) }
+    }
+  }
+
+  DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { exit(0) }
+  app.run()
+case "drag-object":
+  // drag-object type payload startX startY endX endY [hold]
+  let dragType = arg(1)
+  let payload = arg(2)
+  let startX = num(3)
+  let startY = num(4)
+  let endX = num(5)
+  let endY = num(6)
+  let hold = args.count > 7 && args[7] == "hold"
+
+  let app = NSApplication.shared
+  app.setActivationPolicy(.accessory)
+
+  final class SourceDragView: NSView, NSDraggingSource {
+    func draggingSession(
+      _ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext
+    ) -> NSDragOperation {
+      return [.copy, .move, .generic]
+    }
+  }
+
+  let sourceWin = NSWindow(
+    contentRect: NSRect(x: startX - 25, y: primaryHeight - startY - 25, width: 50, height: 50),
+    styleMask: [.borderless],
+    backing: .buffered,
+    defer: false
+  )
+  sourceWin.isOpaque = false
+  sourceWin.backgroundColor = .clear
+  sourceWin.level = .floating
+
+  let srcView = SourceDragView(frame: NSRect(x: 0, y: 0, width: 50, height: 50))
+  sourceWin.contentView?.addSubview(srcView)
+  sourceWin.orderFrontRegardless()
+
+  var dragItems: [NSDraggingItem] = []
+  switch dragType {
+  case "file", "folder":
+    let url = URL(fileURLWithPath: payload)
+    let item = NSDraggingItem(pasteboardWriter: url as NSURL)
+    item.setDraggingFrame(NSRect(x: 0, y: 0, width: 32, height: 32), contents: NSImage())
+    dragItems.append(item)
+  case "files":
+    let paths = payload.split(separator: ",").map(String.init)
+    for p in paths {
+      let url = URL(fileURLWithPath: p)
+      let item = NSDraggingItem(pasteboardWriter: url as NSURL)
+      item.setDraggingFrame(NSRect(x: 0, y: 0, width: 32, height: 32), contents: NSImage())
+      dragItems.append(item)
+    }
+  case "link":
+    let url = URL(string: payload) ?? URL(string: "https://\(payload)")!
+    let item = NSDraggingItem(pasteboardWriter: url as NSURL)
+    item.setDraggingFrame(NSRect(x: 0, y: 0, width: 32, height: 32), contents: NSImage())
+    dragItems.append(item)
+  case "text":
+    let item = NSDraggingItem(pasteboardWriter: payload as NSString)
+    item.setDraggingFrame(NSRect(x: 0, y: 0, width: 32, height: 32), contents: NSImage())
+    dragItems.append(item)
+  default:
+    fail("unknown drag-object type: \(dragType)")
+  }
+
+  let fakeEvent = NSEvent.mouseEvent(
+    with: .leftMouseDown,
+    location: NSPoint(x: 25, y: 25),
+    modifierFlags: [],
+    timestamp: ProcessInfo.processInfo.systemUptime,
+    windowNumber: sourceWin.windowNumber,
+    context: nil,
+    eventNumber: 0,
+    clickCount: 1,
+    pressure: 1.0
+  )!
+
+  let session = srcView.beginDraggingSession(with: dragItems, event: fakeEvent, source: srcView)
+  _ = session
+
+  warp(to: CGPoint(x: startX, y: startY))
+  sleepMs(30)
+  post(.leftMouseDown, CGPoint(x: startX, y: startY))
+  sleepMs(40)
+  glide(to: CGPoint(x: endX, y: endY), steps: 20, stepMs: 15, dragging: true)
+  if !hold {
+    sleepMs(50)
+    post(.leftMouseUp, CGPoint(x: endX, y: endY))
+    sleepMs(100)
+    sourceWin.orderOut(nil)
+    emit(["ok": true])
+  } else {
+    emit(["ok": true, "holding": true])
+  }
 case "move-window":
   // move-window pid x y: put an app's front window's top-left corner at
   // (x, y), as dragging its title bar would (onto another screen, say).

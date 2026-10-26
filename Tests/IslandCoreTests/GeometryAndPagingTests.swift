@@ -95,6 +95,15 @@ struct PageScrollerTests {
     p.reset()
     #expect(p.page == .music)
   }
+
+  @Test func showingAPageDirectlyTurnsToItD33() {
+    var p = PageScroller()
+    #expect(p.page == .music)
+    p.show(.shelf)
+    #expect(p.page == .shelf)
+    p.show(.music)
+    #expect(p.page == .music)
+  }
 }
 
 /// risk-2: the pointer is on the island only where the shape is drawn, not in

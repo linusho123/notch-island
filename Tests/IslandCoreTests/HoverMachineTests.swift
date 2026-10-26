@@ -189,4 +189,16 @@ struct LostMouseUpTests {
     #expect(m.nextDeadline == nil)
     #expect(m.state == .open)
   }
+
+  @Test func anExternalDragArrivingOnTheClosedNotchOpensItAsADropTargetD33() {
+    var m = HoverMachine(timing: timing)
+    #expect(m.state == .closed)
+    m.dropTargetOpened()
+    #expect(m.state == .open)
+    #expect(m.isDragging)
+    #expect(m.nextDeadline == nil)
+    m.dragEnded(inside: true, at: 1.0)
+    #expect(!m.isDragging)
+    #expect(m.state == .open)
+  }
 }

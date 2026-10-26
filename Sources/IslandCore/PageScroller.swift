@@ -32,6 +32,13 @@ public struct PageScroller: Sendable {
     turnedThisGesture = false
   }
 
+  /// Turn directly to a page (e.g. drop target opened to the shelf) (D33).
+  public mutating func show(_ target: IslandPage) {
+    page = target
+    travel = 0
+    turnedThisGesture = false
+  }
+
   /// One scroll event. `continuous` is a trackpad (or Magic Mouse) scroll;
   /// `gestureBegan` starts a new two-finger gesture; `momentum` events after
   /// the fingers lift never turn a page. Returns true when the page changed.
