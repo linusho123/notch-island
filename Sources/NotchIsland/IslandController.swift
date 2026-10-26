@@ -7,6 +7,8 @@ import SwiftUI
 /// the menu bar on every space, fullscreen ones included, and is kept out of
 /// every screen capture (D108, D110).
 final class IslandPanel: NSPanel {
+  var allowsKeyWindow: Bool = false
+
   init() {
     super.init(
       contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered,
@@ -24,7 +26,7 @@ final class IslandPanel: NSPanel {
     becomesKeyOnlyIfNeeded = true
   }
 
-  override var canBecomeKey: Bool { false }
+  override var canBecomeKey: Bool { allowsKeyWindow }
   override var canBecomeMain: Bool { false }
 }
 
@@ -155,6 +157,15 @@ final class IslandController: NSObject, NSMenuDelegate {
     }
     model.onShelfDragEnded = { [weak self] item, op, pt in
       self?.shelfItemDragEnded(item: item, operation: op, screenPoint: pt)
+    }
+    model.onEditingNoteChanged = { [weak self] editing in
+      guard let self else { return }
+      self.cardPanel.allowsKeyWindow = editing
+      if editing {
+        self.cardPanel.makeKey()
+      } else {
+        self.cardPanel.resignKey()
+      }
     }
     monitor = NSEvent.addLocalMonitorForEvents(
       matching: [.leftMouseDown, .leftMouseUp, .rightMouseDown, .scrollWheel]

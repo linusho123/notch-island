@@ -24,6 +24,69 @@ final class IslandModel: ObservableObject {
   var currentDraggedItem: ShelfItem?
   var shelfStore: ShelfStore?
 
+  // P5 Notes writing and editing state (D37, D61, D62, D63)
+  @Published var isEnteringNewNote: Bool = false
+  @Published var newNoteText: String = ""
+  @Published var editingNoteID: UUID? = nil
+  @Published var editingNoteText: String = ""
+  var onEditingNoteChanged: ((Bool) -> Void)?
+
+  func startEnteringNewNote() {
+    isEnteringNewNote = true
+    newNoteText = ""
+    editingNoteID = nil
+    editingNoteText = ""
+    onEditingNoteChanged?(true)
+  }
+
+  func cancelNewNote() {
+    isEnteringNewNote = false
+    newNoteText = ""
+    onEditingNoteChanged?(false)
+  }
+
+  func commitNewNote(_ text: String) {
+    let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !clean.isEmpty {
+      let capped = NoteCap.capped(text)
+      shelfStore?.addNote(text: capped)
+      refreshShelf()
+    }
+    isEnteringNewNote = false
+    newNoteText = ""
+    onEditingNoteChanged?(false)
+  }
+
+  func startEditingNote(id: UUID, currentText: String) {
+    isEnteringNewNote = false
+    newNoteText = ""
+    editingNoteID = id
+    let raw = currentText.hasPrefix("✎ ") ? String(currentText.dropFirst(2)) : currentText
+    editingNoteText = raw
+    onEditingNoteChanged?(true)
+  }
+
+  func cancelEditingNote() {
+    editingNoteID = nil
+    editingNoteText = ""
+    onEditingNoteChanged?(false)
+  }
+
+  func commitEditingNote(id: UUID, newText: String) {
+    let raw = newText.hasPrefix("✎ ") ? String(newText.dropFirst(2)) : newText
+    let clean = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    if clean.isEmpty {
+      shelfStore?.remove(id: id)
+    } else {
+      let capped = NoteCap.capped(raw)
+      shelfStore?.updateNoteText(id: id, text: capped)
+    }
+    refreshShelf()
+    editingNoteID = nil
+    editingNoteText = ""
+    onEditingNoteChanged?(false)
+  }
+
   var onBack: () -> Void = {}
   var onPlayPause: () -> Void = {}
   var onSkip: () -> Void = {}
@@ -404,6 +467,132 @@ private struct Controls: View {
   }
 }
 
+/// An AppKit NSTextField representable that enforces the 140-character cap (D62, D104, D123)
+/// on typing and pasting, never truncates text that was already kept, and handles Return/Escape.
+struct NoteTextFieldRepresentable: NSViewRepresentable {
+  @Binding var text: String
+  var accessibilityIdentifier: String
+  var accessibilityLabel: String
+  var onCommit: (String) -> Void
+  var onCancel: () -> Void
+
+  func makeCoordinator() -> Coordinator {
+    Coordinator(self)
+  }
+
+  func makeNSView(context: Context) -> NSTextField {
+    let field = CustomNoteNSTextField()
+    field.isBordered = false
+    field.drawsBackground = false
+    field.textColor = .white
+    field.font = .systemFont(ofSize: 11)
+    field.focusRingType = .none
+    field.delegate = context.coordinator
+    field.stringValue = text
+    field.setAccessibilityElement(true)
+    field.setAccessibilityRole(.textField)
+    field.setAccessibilityIdentifier(accessibilityIdentifier)
+    field.setAccessibilityLabel(accessibilityLabel)
+    context.coordinator.textField = field
+
+    DispatchQueue.main.async {
+      if let window = field.window {
+        window.makeFirstResponder(field)
+      }
+    }
+    return field
+  }
+
+  func updateNSView(_ nsView: NSTextField, context: Context) {
+    if nsView.stringValue != text && !context.coordinator.isEditing {
+      nsView.stringValue = text
+    }
+    nsView.setAccessibilityIdentifier(accessibilityIdentifier)
+    nsView.setAccessibilityLabel(accessibilityLabel)
+  }
+
+  final class Coordinator: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
+    var parent: NoteTextFieldRepresentable
+    weak var textField: NSTextField?
+    var isEditing = false
+
+    init(_ parent: NoteTextFieldRepresentable) {
+      self.parent = parent
+    }
+
+    func controlTextDidBeginEditing(_ obj: Notification) {
+      isEditing = true
+      if let field = obj.object as? NSTextField, let editor = field.currentEditor() as? NSTextView {
+        editor.delegate = self
+      }
+    }
+
+    func controlTextDidChange(_ obj: Notification) {
+      guard let field = obj.object as? NSTextField else { return }
+      parent.text = field.stringValue
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+      isEditing = false
+    }
+
+    func control(
+      _ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector
+    ) -> Bool {
+      if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+        parent.onCommit(textView.string)
+        return true
+      } else if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+        parent.onCancel()
+        return true
+      }
+      return false
+    }
+
+    func textView(
+      _ textView: NSTextView,
+      shouldChangeTextIn affectedCharRange: NSRange,
+      replacementString: String?
+    ) -> Bool {
+      guard let replacement = replacementString else { return true }
+      let current = textView.string
+      guard let range = Range(affectedCharRange, in: current) else { return true }
+
+      let prefix = current[..<range.lowerBound]
+      let suffix = current[range.upperBound...]
+      let keptCount = prefix.count + suffix.count
+      let room = max(0, NoteCap.maximumLength - keptCount)
+
+      if replacement.count <= room {
+        return true
+      }
+
+      if room == 0 {
+        return false
+      }
+
+      let taken = String(replacement.prefix(room))
+      let newText = String(prefix) + taken + String(suffix)
+      textView.string = newText
+      let newCursorPos = affectedCharRange.location + (taken as NSString).length
+      textView.setSelectedRange(NSRange(location: newCursorPos, length: 0))
+      parent.text = newText
+      return false
+    }
+  }
+}
+
+final class CustomNoteNSTextField: NSTextField {
+  override func becomeFirstResponder() -> Bool {
+    let ok = super.becomeFirstResponder()
+    if ok, let editor = currentEditor() as? NSTextView {
+      let len = (stringValue as NSString).length
+      editor.setSelectedRange(NSRange(location: len, length: 0))
+    }
+    return ok
+  }
+}
+
 /// The shelf page (D30, D64, D65). Displays parked captures, stacks, files,
 /// links and notes.
 private struct ShelfPageView: View {
@@ -451,19 +640,75 @@ private struct ShelfPageView: View {
 
       // Actual shelf UI
       VStack(spacing: 6) {
-        if model.shelfItems.isEmpty {
+        // Shelf header with title and "+ note" button
+        HStack {
+          Text("Shelf")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundColor(.white.opacity(0.4))
+            .accessibilityIdentifier("shelf-header-title")
+
+          Spacer()
+
+          if !model.isEnteringNewNote {
+            Button(action: {
+              model.startEnteringNewNote()
+            }) {
+              HStack(spacing: 3) {
+                Text("+ note")
+                  .font(.system(size: 11, weight: .medium))
+              }
+              .foregroundColor(.white.opacity(0.85))
+              .padding(.horizontal, 8)
+              .padding(.vertical, 2)
+              .background(Capsule().fill(Color.white.opacity(0.15)))
+              .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("+ note")
+            .accessibilityIdentifier("add-note")
+          }
+        }
+        .padding(.horizontal, 16)
+
+        // When entering a new note, show the one-line entry
+        if model.isEnteringNewNote {
+          HStack(spacing: 6) {
+            Text("✎")
+              .font(.system(size: 12))
+              .foregroundColor(.white.opacity(0.7))
+            NoteTextFieldRepresentable(
+              text: $model.newNoteText,
+              accessibilityIdentifier: "new-note-field",
+              accessibilityLabel: "New note text",
+              onCommit: { text in
+                model.commitNewNote(text)
+              },
+              onCancel: {
+                model.cancelNewNote()
+              }
+            )
+            .frame(height: 20)
+          }
+          .padding(.horizontal, 8)
+          .padding(.vertical, 3)
+          .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.12)))
+          .padding(.horizontal, 16)
+        }
+
+        if model.shelfItems.isEmpty && !model.isEnteringNewNote {
           Spacer()
           Text("Shelf")
             .font(.system(size: 12, weight: .semibold))
             .foregroundColor(.white.opacity(0.3))
           Spacer()
-        } else {
+        } else if !model.shelfItems.isEmpty {
           ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
               ForEach(model.shelfItems) { item in
                 DraggableItemContainer(item: item, model: model) {
                   ShelfItemView(
                     item: item,
+                    model: model,
                     onRemove: {
                       model.onRemoveShelfItem(item.id)
                     },
@@ -500,12 +745,91 @@ private struct ShelfPageView: View {
 
 private struct ShelfItemView: View {
   let item: ShelfItem
+  @ObservedObject var model: IslandModel
   let onRemove: () -> Void
   let onExpand: () -> Void
 
   @State private var isHovered = false
 
   var body: some View {
+    switch item.kind {
+    case .note:
+      noteView
+    default:
+      standardItemView
+    }
+  }
+
+  private var isEditingThisNote: Bool {
+    model.editingNoteID == item.id
+  }
+
+  @ViewBuilder
+  private var noteView: some View {
+    ZStack(alignment: .topTrailing) {
+      VStack(alignment: .leading, spacing: 4) {
+        if isEditingThisNote {
+          HStack(spacing: 4) {
+            Text("✎")
+              .font(.system(size: 11))
+              .foregroundColor(.white.opacity(0.7))
+            NoteTextFieldRepresentable(
+              text: $model.editingNoteText,
+              accessibilityIdentifier: "edit-note-field",
+              accessibilityLabel: "Edit note text",
+              onCommit: { newText in
+                model.commitEditingNote(id: item.id, newText: newText)
+              },
+              onCancel: {
+                model.cancelEditingNote()
+              }
+            )
+            .frame(height: 20)
+          }
+          .frame(minWidth: 100, maxWidth: 220)
+        } else {
+          Button(action: {
+            model.startEditingNote(id: item.id, currentText: item.title)
+          }) {
+            Text(item.title)
+              .font(.system(size: 11, weight: .regular))
+              .foregroundColor(.white)
+              .multilineTextAlignment(.leading)
+              .lineLimit(3)
+              .frame(minWidth: 60, maxWidth: 220, alignment: .topLeading)
+              .contentShape(Rectangle())
+          }
+          .buttonStyle(.plain)
+          .accessibilityIdentifier("shelf-item-title")
+          .accessibilityLabel(item.title)
+        }
+      }
+      .padding(8)
+      .background(
+        RoundedRectangle(cornerRadius: 8)
+          .fill(Color.white.opacity(0.12))
+      )
+
+      Button(action: onRemove) {
+        Image(systemName: "xmark.circle.fill")
+          .font(.system(size: 14))
+          .foregroundColor(.white.opacity(isHovered ? 0.9 : 0.01))
+          .background(Circle().fill(Color.black.opacity(isHovered ? 0.6 : 0.01)))
+      }
+      .buttonStyle(.plain)
+      .frame(width: 20, height: 20)
+      .contentShape(Rectangle())
+      .offset(x: 4, y: -4)
+      .accessibilityLabel("Remove \(item.title)")
+      .accessibilityIdentifier("remove-\(item.title)")
+    }
+    .onHover { isHovered = $0 }
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel(item.title)
+    .accessibilityIdentifier("shelf-item")
+  }
+
+  private var standardItemView: some View {
     VStack(spacing: 4) {
       ZStack(alignment: .topTrailing) {
         itemIcon
