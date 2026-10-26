@@ -196,4 +196,50 @@ struct CaptureWatcherTests {
     #expect(items.count == 1)
     #expect(items.first?.title == "Screenshot 2026-10-18 at 10.15.02.png")
   }
+
+  @Test("Recording detection retries for about 5 seconds after file appears (SF9, m1)")
+  func recordingDetectionRetriesForAboutFiveSeconds() throws {
+    let tempDir = makeTempDir()
+    let stagingDir = makeTempDir()
+    defer {
+      try? FileManager.default.removeItem(at: tempDir)
+      try? FileManager.default.removeItem(at: stagingDir)
+    }
+
+    let store = ShelfStore(directory: tempDir)
+    let watcher = CaptureWatcher(directory: tempDir, store: store)
+    watcher.start()
+    defer { watcher.stop() }
+
+    // Place a .mov without capture metadata initially
+    let stagedRecording = stagingDir.appendingPathComponent(
+      "Screen Recording 2026-10-18 at 10.15.02.mov")
+    try Data("recording-bytes".utf8).write(to: stagedRecording)
+
+    let watchedRecording = tempDir.appendingPathComponent(
+      "Screen Recording 2026-10-18 at 10.15.02.mov")
+    try FileManager.default.moveItem(at: stagedRecording, to: watchedRecording)
+
+    // Watcher scans and sees file without metadata, starting its retry window
+    watcher.scanForNewCaptures()
+    #expect(store.isEmpty)
+
+    // Wait 0.6 seconds (exceeding the old 0.3s window, but within 5s)
+    Thread.sleep(forTimeInterval: 0.6)
+
+    // Metadata is written late (e.g. ReplayKit/macOS finishing writing metadata)
+    let val = "bplist00"
+    setxattr(watchedRecording.path, CaptureDetector.screenCaptureAttr, val, val.utf8.count, 0, 0)
+
+    // Wait for the retry loop to pick it up (up to 1.0s)
+    var items: [ShelfItem] = []
+    for _ in 0..<20 {
+      items = store.items()
+      if items.count == 1 { break }
+      Thread.sleep(forTimeInterval: 0.05)
+    }
+
+    #expect(items.count == 1)
+    #expect(items.first?.title == "Screen Recording 2026-10-18 at 10.15.02.mov")
+  }
 }
