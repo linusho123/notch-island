@@ -777,7 +777,7 @@ case "key":
   }
   for down in [true, false] {
     if let e = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down) {
-      if !flags.isEmpty { e.flags = flags }
+      e.flags = flags
       postTagged(e)
     }
   }
@@ -788,10 +788,12 @@ case "type":
   for char in text {
     let utf16 = Array(String(char).utf16)
     if let down = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) {
+      down.flags = []
       down.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
       postTagged(down)
     }
     if let up = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) {
+      up.flags = []
       up.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
       postTagged(up)
     }
