@@ -26,18 +26,37 @@ const {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const center = (f) => ({ x: f.x + f.w / 2, y: f.y + f.h / 2 });
 
+async function scrollToShelf(w) {
+  const view = await island.look(w.island.pid);
+  assert.ok(view.panel, 'the island is not open');
+  w.beforeScroll = view;
+  const c = center(view.panel);
+  await harness.glide(c.x, c.y, 4, 8);
+  await sleep(60);
+  await harness.scroll(-80, 'trackpad');
+}
+
+async function scrollToMusic(w) {
+  const view = await island.look(w.island.pid);
+  assert.ok(view.panel, 'the island is not open');
+  w.beforeScroll = view;
+  const c = center(view.panel);
+  await harness.glide(c.x, c.y, 4, 8);
+  await sleep(60);
+  await harness.scroll(80, 'trackpad');
+}
+
 async function openOnShelfPage(w) {
   await ensureIsland(w);
   let view = await island.look(w.island.pid);
   if (!view.open) {
     await pointerAway();
     await sleep(50);
-    await rest(w, 200);
+    await openByRest(w);
     view = await island.waitFor(w.island.pid, (v) => v.open, 2000, 'island did not open');
   }
   if (view.page !== 'shelf') {
-    w.beforeScroll = view;
-    await harness.scroll(-80, 'trackpad');
+    await scrollToShelf(w);
     view = await island.waitFor(w.island.pid, (v) => v.open && v.page === 'shelf', 2000, 'shelf page did not open');
   }
   return view;
@@ -49,6 +68,7 @@ module.exports = function (reg) {
   reg.define(/^the island is open on the music page over "Wonderwall"$/, async (w) => {
     await playing(w, 'Wonderwall', 0);
     await ensureIsland(w);
+    await rest(w, 350);
     await openOnMusicPage(w);
   });
 
@@ -217,15 +237,11 @@ module.exports = function (reg) {
   // ------------------------------------------------------------- Whens
 
   reg.define(/^the visionary scrolls down with two fingers$/, async (w) => {
-    const view = await island.look(w.island.pid);
-    w.beforeScroll = view;
-    await harness.scroll(-80, 'trackpad');
+    await scrollToShelf(w);
   });
 
   reg.define(/^the visionary scrolls up with two fingers$/, async (w) => {
-    const view = await island.look(w.island.pid);
-    w.beforeScroll = view;
-    await harness.scroll(80, 'trackpad');
+    await scrollToMusic(w);
   });
 
   reg.define(/^the visionary takes a screenshot that saves as a file$/, async (w) => {
@@ -360,8 +376,12 @@ module.exports = function (reg) {
   });
 
   reg.define(/^the visionary sees the music page come back over "Wonderwall"$/, async (w) => {
-    const view = await island.waitFor(w.island.pid, (v) => v.open && v.page === 'music', 2000, 'music page did not come back');
-    assert.ok(view.texts.includes('Wonderwall'), `music page does not show Wonderwall: ${view.texts.join(', ')}`);
+    await island.waitFor(
+      w.island.pid,
+      (v) => v.open && v.page === 'music' && v.texts.includes('Wonderwall'),
+      3000,
+      'music page did not come back over Wonderwall'
+    );
   });
 
   reg.define(/^the visionary sees the small bar at the side mark the music page as showing$/, async (w) => {

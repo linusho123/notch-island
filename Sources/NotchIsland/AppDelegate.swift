@@ -78,18 +78,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     self.captureWatcher = watcher
 
     #if ISLAND_TEST_INPUT
+      var handledClear = false
+      var handledSeed = false
+
+      if TestInput.clearShelf {
+        self.shelfStore.clear()
+        handledClear = true
+      }
+      if let seeds = TestInput.seedShelf {
+        for seed in seeds {
+          self.seedItem(seed)
+        }
+        handledSeed = true
+      }
+      model.refreshShelf()
+
       TestInput.onChange { [weak self] in
         guard let self else { return }
         if let dir = TestInput.screenshotDirectory {
           self.captureWatcher?.updateDirectory(dir)
         }
-        if TestInput.clearShelf {
+        if !TestInput.clearShelf {
+          handledClear = false
+        } else if !handledClear {
           self.shelfStore.clear()
+          handledClear = true
         }
-        if let seeds = TestInput.seedShelf {
+        if TestInput.seedShelf == nil {
+          handledSeed = false
+        } else if !handledSeed, let seeds = TestInput.seedShelf {
           for seed in seeds {
             self.seedItem(seed)
           }
+          handledSeed = true
         }
         self.island?.model.refreshShelf()
       }
@@ -257,20 +278,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       switch type {
       case "screenshot", "screenRecording", "capture":
         if let path = seed["path"] as? String {
+          captureWatcher?.addSeenPath(path)
           let url = URL(fileURLWithPath: path)
           let capType: CaptureType =
             (type == "screenRecording" || url.pathExtension.lowercased() == "mov")
             ? .screenRecording : .screenshot
-          try? shelfStore.parkCapture(at: url, type: capType, landedAt: landedAt)
+          _ = try? shelfStore.parkCapture(at: url, type: capType, landedAt: landedAt)
         }
       case "file", "folder":
         if let path = seed["path"] as? String {
-          try? shelfStore.parkFile(at: URL(fileURLWithPath: path), landedAt: landedAt)
+          captureWatcher?.addSeenPath(path)
+          _ = try? shelfStore.parkFile(at: URL(fileURLWithPath: path), landedAt: landedAt)
         }
       case "files", "fileStack":
         if let paths = seed["paths"] as? [String] {
+          for p in paths { captureWatcher?.addSeenPath(p) }
           let urls = paths.map { URL(fileURLWithPath: $0) }
-          try? shelfStore.parkFiles(at: urls, landedAt: landedAt)
+          _ = try? shelfStore.parkFiles(at: urls, landedAt: landedAt)
         }
       case "link":
         if let urlStr = seed["url"] as? String, let url = URL(string: urlStr) {

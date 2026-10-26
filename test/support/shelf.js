@@ -61,6 +61,7 @@ function setupScreenshotLocation(w, targetDir) {
 }
 
 async function restartIsland(w, how) {
+  island.feed(w, { clearShelf: false, seedShelf: null });
   const old = w.island;
   if (old && !old.exited) {
     if (how === 'after a crash') {

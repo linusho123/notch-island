@@ -125,9 +125,9 @@ private struct OpenPanel: View {
       ZStack(alignment: .trailing) {
         VStack(spacing: 0) {
           MusicPageView(model: model)
-            .frame(height: height)
+            .frame(width: proxy.size.width, height: height)
           ShelfPageView(model: model)
-            .frame(height: height)
+            .frame(width: proxy.size.width, height: height)
         }
         .offset(y: model.page == .music ? 0 : -height)
         .animation(.easeOut(duration: 0.3), value: model.page)
@@ -176,6 +176,7 @@ private struct MusicPageView: View {
     }
     .padding(.horizontal, 22)
     .padding(.vertical, 10)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Music page")
   }
@@ -400,36 +401,34 @@ private struct ShelfPageView: View {
   @ObservedObject var model: IslandModel
 
   var body: some View {
-    Group {
+    VStack {
       if model.shelfItems.isEmpty {
-        VStack {
-          Spacer()
-          Text("Shelf")
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundColor(.white.opacity(0.3))
-          Spacer()
-        }
+        Spacer()
+        Text("Shelf")
+          .font(.system(size: 12, weight: .semibold))
+          .foregroundColor(.white.opacity(0.3))
+        Spacer()
       } else {
-        ScrollView(.horizontal, showsIndicators: false) {
-          HStack(spacing: 12) {
-            ForEach(model.shelfItems) { item in
-              ShelfItemView(
-                item: item,
-                onRemove: {
-                  model.onRemoveShelfItem(item.id)
-                },
-                onExpand: {
-                  model.onExpandShelfStack(item.id)
-                }
-              )
-            }
+        HStack(spacing: 12) {
+          ForEach(model.shelfItems) { item in
+            ShelfItemView(
+              item: item,
+              onRemove: {
+                model.onRemoveShelfItem(item.id)
+              },
+              onExpand: {
+                model.onExpandShelfStack(item.id)
+              }
+            )
           }
-          .padding(.horizontal, 16)
-          .padding(.vertical, 8)
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        Spacer()
       }
     }
-    .padding(.top, 6)
+    .padding(.horizontal, 22)
+    .padding(.vertical, 10)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Shelf page")

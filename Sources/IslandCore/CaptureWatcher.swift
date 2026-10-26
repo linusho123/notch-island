@@ -73,6 +73,13 @@ public final class CaptureWatcher: @unchecked Sendable {
     lock.unlock()
   }
 
+  /// Marks a file path as seen so the watcher does not re-park it.
+  public func addSeenPath(_ path: String) {
+    lock.lock()
+    seenPaths.insert(path)
+    lock.unlock()
+  }
+
   // MARK: - Private helpers
 
   private func snapshotExistingFiles() {
