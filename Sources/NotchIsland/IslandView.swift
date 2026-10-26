@@ -477,13 +477,14 @@ private struct ShelfPageView: View {
             .padding(.vertical, 4)
           }
 
+          Spacer()
+
           if model.isDraggingShelfItem {
             RemoveAreaDropHost(model: model)
-              .frame(height: 28)
+              .frame(height: 36)
               .padding(.horizontal, 16)
               .transition(.opacity)
           }
-          Spacer()
         }
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -703,17 +704,27 @@ private final class DraggableContainerView<Content: View>: NSView, NSDraggingSou
   }
 
   override func hitTest(_ point: NSPoint) -> NSView? {
-    if let view = super.hitTest(point) {
-      if view is NSButton || view.accessibilityRole() == .button {
-        return view
-      }
-      return self
+    guard let view = super.hitTest(point) else { return nil }
+    if point.x >= bounds.width - 32 && point.y >= bounds.height - 30 {
+      return view
     }
-    return nil
+    if item.isStack && point.y <= 26 {
+      return view
+    }
+    return self
   }
 
   override func mouseDown(with event: NSEvent) {
     dragStartLocation = event.locationInWindow
+  }
+
+  override func mouseUp(with event: NSEvent) {
+    if dragStartLocation != nil {
+      dragStartLocation = nil
+      if item.isStack {
+        model?.onExpandShelfStack(item.id)
+      }
+    }
   }
 
   override func mouseDragged(with event: NSEvent) {

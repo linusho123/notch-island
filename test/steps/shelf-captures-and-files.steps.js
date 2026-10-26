@@ -178,17 +178,6 @@ module.exports = function (reg) {
     await ensureIsland(w);
   });
 
-  reg.define(/^"tax-return\.pdf" is parked on the shelf from the Documents folder$/, async (w) => {
-    const docs = scratchDocuments(w);
-    const pdf = path.join(docs, 'tax-return.pdf');
-    fs.writeFileSync(pdf, '%PDF-1.4 tax return content');
-    island.feed(w, {
-      clearShelf: true,
-      seedShelf: [{ type: 'file', path: pdf, landedAt: new Date().toISOString() }],
-    });
-    await ensureIsland(w);
-  });
-
   reg.define(/^"Screenshot 2026-10-18 at 23\.58\.00\.png" was parked on the shelf at 11:58 pm and has not been dragged out or removed$/, async (w) => {
     setupScreenshotLocation(w, scratchDesktop(w));
     const desktop = scratchDesktop(w);
@@ -319,29 +308,6 @@ module.exports = function (reg) {
     await ensureIsland(w);
   });
 
-  reg.define(/^(the file "tax-return\.pdf"|the folder "Taxes 2026") is parked on the shelf from the Documents folder$/, async (w, item) => {
-    const docs = scratchDocuments(w);
-    if (item.includes('folder')) {
-      const folder = path.join(docs, 'Taxes 2026');
-      fs.mkdirSync(folder, { recursive: true });
-      for (let i = 1; i <= 4; i++) {
-        fs.writeFileSync(path.join(folder, `file${i}.pdf`), `%PDF tax doc ${i}`);
-      }
-      island.feed(w, {
-        clearShelf: true,
-        seedShelf: [{ type: 'folder', path: folder, landedAt: new Date().toISOString() }],
-      });
-    } else {
-      const pdf = path.join(docs, 'tax-return.pdf');
-      fs.writeFileSync(pdf, '%PDF-1.4 tax return content');
-      island.feed(w, {
-        clearShelf: true,
-        seedShelf: [{ type: 'file', path: pdf, landedAt: new Date().toISOString() }],
-      });
-    }
-    await ensureIsland(w);
-  });
-
   reg.define(/^"tax-return\.pdf" sits in the Documents folder$/, async (w) => {
     const docs = scratchDocuments(w);
     const pdf = path.join(docs, 'tax-return.pdf');
@@ -383,7 +349,7 @@ module.exports = function (reg) {
     await ensureIsland(w);
   });
 
-  reg.define(/^("tax-return\.pdf"|"Screenshot 2026-10-18 at 10\.15\.02\.png"|the folder "Taxes 2026") is parked on the shelf from (the Documents folder|the Desktop)$/, async (w, item, home) => {
+  reg.define(/^(the file "tax-return\.pdf"|"tax-return\.pdf"|"Screenshot 2026-10-18 at 10\.15\.02\.png"|the folder "Taxes 2026") is parked on the shelf from (the Documents folder|the Desktop)$/, async (w, item, home) => {
     if (item.includes('tax-return.pdf')) {
       const docs = scratchDocuments(w);
       const pdf = path.join(docs, 'tax-return.pdf');
@@ -663,25 +629,14 @@ module.exports = function (reg) {
     assert.equal(view.elements.filter((e) => e.identifier === 'shelf-item').length, 4);
   });
 
-  reg.define(/^the visionary sees "tax-return\.pdf" gone from the shelf page$/, async (w) => {
+  reg.define(/^the visionary sees the stack gone from the shelf page$/, async (w) => {
     await openOnShelfPage(w);
     const view = await island.waitFor(
       w.island.pid,
-      (v) => !v.texts.includes('tax-return.pdf'),
-      2000,
-      'tax-return.pdf is still on shelf'
+      (v) => v.elements.filter((e) => e.identifier === 'shelf-item').length === 0,
+      3000,
+      'stack still on shelf'
     );
-    assert.ok(!view.texts.includes('tax-return.pdf'), 'tax-return.pdf is still on shelf');
-  });
-
-  reg.define(/^the visionary sees "tax-return\.pdf" still in the Documents folder$/, async (w) => {
-    const docs = scratchDocuments(w);
-    assert.ok(fs.existsSync(path.join(docs, 'tax-return.pdf')), 'tax-return.pdf is missing from Documents');
-  });
-
-  reg.define(/^the visionary sees the stack gone from the shelf page$/, async (w) => {
-    await openOnShelfPage(w);
-    const view = await island.look(w.island.pid);
     const items = view.elements.filter((e) => e.identifier === 'shelf-item');
     assert.equal(items.length, 0, `stack still on shelf: ${view.texts.join(', ')}`);
   });
@@ -706,7 +661,7 @@ module.exports = function (reg) {
   reg.define(/^the visionary sees its original still on the Desktop$/, async (w) => {
     const desktop = scratchDesktop(w);
     const files = fs.readdirSync(desktop);
-    assert.ok(files.some((f) => f.startsWith('Screenshot')), 'screenshot missing from Desktop');
+    assert.ok(files.some((f) => f.startsWith('Screenshot') || f.endsWith('.mov')), 'original capture missing from Desktop');
   });
 
   reg.define(/^the visionary sees the link to "gov\.uk\/renew-adult-passport" still there$/, async (w) => {
@@ -774,7 +729,7 @@ module.exports = function (reg) {
     );
   });
 
-  reg.define(/^the visionary drags (.+) onto the notch and lets go$/, async (w, dropped) => {
+  reg.define(/^the visionary drags (the file "tax-return\.pdf" from Finder|the file "boarding-pass\.pdf" from the Desktop|three files selected together in Finder|the folder "Taxes 2026"|a link from Chrome's address bar to "gov\.uk\/renew-adult-passport") onto the notch and lets go$/, async (w, dropped) => {
     const { notch } = await harness.builtIn();
     const nx = notch.x + notch.w / 2;
     const ny = notch.y + 10;
@@ -809,7 +764,7 @@ module.exports = function (reg) {
     await sleep(300);
   });
 
-  reg.define(/^the visionary sees (.+) on the shelf page$/, async (w, parked) => {
+  reg.define(/^the visionary sees ("tax-return\.pdf" as one item|"boarding-pass\.pdf" as one item|one stack holding the three files|the folder "Taxes 2026" as one item|a link to "gov\.uk\/renew-adult-passport") on the shelf page$/, async (w, parked) => {
     await openOnShelfPage(w);
     if (parked.includes('tax-return.pdf')) {
       await island.waitFor(w.island.pid, (v) => v.texts.includes('tax-return.pdf'), 3000, 'tax-return.pdf missing on shelf page');

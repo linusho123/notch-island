@@ -446,9 +446,12 @@ final class IslandController: NSObject, NSMenuDelegate {
     if isTextOnlyDrag(sender) {
       return []
     }
-    if machine.state == .closed {
-      model.page = .shelf
-      pager.show(.shelf)
+    if model.isDraggingShelfItem {
+      return .delete
+    }
+    model.page = .shelf
+    pager.show(.shelf)
+    if machine.state != .open {
       machine.dropTargetOpened()
       settle()
     }
@@ -459,6 +462,17 @@ final class IslandController: NSObject, NSMenuDelegate {
     if isTextOnlyDrag(sender) {
       return []
     }
+    if model.isDraggingShelfItem {
+      return .delete
+    }
+    if model.page != .shelf {
+      model.page = .shelf
+      pager.show(.shelf)
+    }
+    if machine.state != .open {
+      machine.dropTargetOpened()
+      settle()
+    }
     return .copy
   }
 
@@ -466,6 +480,14 @@ final class IslandController: NSObject, NSMenuDelegate {
     if isTextOnlyDrag(sender) {
       if let str = sender.draggingPasteboard.string(forType: .string) {
         _ = model.shelfStore?.parkDroppedText(str)
+      }
+      return false
+    }
+
+    if model.isDraggingShelfItem {
+      if let item = model.currentDraggedItem {
+        model.onRemoveShelfItem(item.id)
+        return true
       }
       return false
     }
