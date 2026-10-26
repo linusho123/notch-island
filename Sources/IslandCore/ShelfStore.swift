@@ -342,7 +342,8 @@ public final class ShelfStore: @unchecked Sendable {
         return ShelfItem(id: item.id, landedAt: remaining[0].landedAt, kind: .capture(remaining[0]))
       } else {
         stack.captures = remaining
-        return ShelfItem(id: item.id, landedAt: item.landedAt, kind: .captureStack(stack))
+        let survivorLandedAt = remaining.first?.landedAt ?? item.landedAt
+        return ShelfItem(id: item.id, landedAt: survivorLandedAt, kind: .captureStack(stack))
       }
 
     case .fileStack(var stack):
