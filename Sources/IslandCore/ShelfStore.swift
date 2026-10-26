@@ -294,39 +294,57 @@ public final class ShelfStore: @unchecked Sendable {
         return nil
       }
       let origBookmark = ptr.bookmarkData
-      guard ptr.resolve() != nil else {
+      let status = fileResolver?(&ptr) ?? ptr.resolveStatus()
+      switch status {
+      case .resolved:
+        if ptr.bookmarkData != origBookmark {
+          changed = true
+        }
+        return ShelfItem(id: item.id, landedAt: item.landedAt, kind: .file(ptr))
+      case .volumeMissing:
+        // Volume unmounted: keep item and keep ageing (SF8, M2, Q3)
+        return ShelfItem(id: item.id, landedAt: item.landedAt, kind: .file(ptr))
+      case .missing:
         return nil
       }
-      if ptr.bookmarkData != origBookmark {
-        changed = true
-      }
-      return ShelfItem(id: item.id, landedAt: item.landedAt, kind: .file(ptr))
 
     case .folder(var ptr):
       if now.timeIntervalSince(item.landedAt) >= Self.ageingDuration {
         return nil
       }
       let origBookmark = ptr.bookmarkData
-      guard ptr.resolve() != nil else {
+      let status = fileResolver?(&ptr) ?? ptr.resolveStatus()
+      switch status {
+      case .resolved:
+        if ptr.bookmarkData != origBookmark {
+          changed = true
+        }
+        return ShelfItem(id: item.id, landedAt: item.landedAt, kind: .folder(ptr))
+      case .volumeMissing:
+        // Volume unmounted: keep item and keep ageing (SF8, M2, Q3)
+        return ShelfItem(id: item.id, landedAt: item.landedAt, kind: .folder(ptr))
+      case .missing:
         return nil
       }
-      if ptr.bookmarkData != origBookmark {
-        changed = true
-      }
-      return ShelfItem(id: item.id, landedAt: item.landedAt, kind: .folder(ptr))
 
     case .capture(var cap):
       if now.timeIntervalSince(cap.landedAt) >= Self.ageingDuration {
         return nil
       }
       let origBookmark = cap.pointer.bookmarkData
-      guard cap.pointer.resolve() != nil else {
+      let status = fileResolver?(&cap.pointer) ?? cap.pointer.resolveStatus()
+      switch status {
+      case .resolved:
+        if cap.pointer.bookmarkData != origBookmark {
+          changed = true
+        }
+        return ShelfItem(id: item.id, landedAt: item.landedAt, kind: .capture(cap))
+      case .volumeMissing:
+        // Volume unmounted: keep item and keep ageing (SF8, M2, Q3)
+        return ShelfItem(id: item.id, landedAt: item.landedAt, kind: .capture(cap))
+      case .missing:
         return nil
       }
-      if cap.pointer.bookmarkData != origBookmark {
-        changed = true
-      }
-      return ShelfItem(id: item.id, landedAt: item.landedAt, kind: .capture(cap))
 
     case .captureStack(var stack):
       let originalCount = stack.captures.count
@@ -335,10 +353,13 @@ public final class ShelfStore: @unchecked Sendable {
         if now.timeIntervalSince(cap.landedAt) >= Self.ageingDuration {
           continue
         }
-        guard cap.pointer.resolve() != nil else {
+        let status = fileResolver?(&cap.pointer) ?? cap.pointer.resolveStatus()
+        switch status {
+        case .resolved, .volumeMissing:
+          remaining.append(cap)
+        case .missing:
           continue
         }
-        remaining.append(cap)
       }
       if remaining.count != originalCount {
         changed = true
@@ -360,10 +381,13 @@ public final class ShelfStore: @unchecked Sendable {
       let originalCount = stack.files.count
       var remaining: [FilePointer] = []
       for var f in stack.files {
-        guard f.resolve() != nil else {
+        let status = fileResolver?(&f) ?? f.resolveStatus()
+        switch status {
+        case .resolved, .volumeMissing:
+          remaining.append(f)
+        case .missing:
           continue
         }
-        remaining.append(f)
       }
       if remaining.count != originalCount {
         changed = true

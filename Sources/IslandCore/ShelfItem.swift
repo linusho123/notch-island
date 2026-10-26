@@ -29,9 +29,8 @@ public struct FilePointer: Equatable, Sendable, Codable {
     )
   }
 
-  /// Resolves the bookmark to its current location on disk.
-  /// Returns nil if the file has been trashed, deleted, or cannot be resolved.
-  public mutating func resolve() -> URL? {
+  /// Resolves the bookmark to its current status on disk.
+  public mutating func resolveStatus() -> FileResolution {
     var isStale = false
     guard
       let resolved = try? URL(
@@ -41,7 +40,10 @@ public struct FilePointer: Equatable, Sendable, Codable {
         bookmarkDataIsStale: &isStale
       )
     else {
-      return nil
+      if isVolumeMissing(originalURL) {
+        return .volumeMissing
+      }
+      return .missing
     }
     let standardized = resolved.standardizedFileURL.resolvingSymlinksInPath()
     if isStale,
@@ -54,12 +56,38 @@ public struct FilePointer: Equatable, Sendable, Codable {
       self.bookmarkData = refreshed
     }
     guard FileManager.default.fileExists(atPath: standardized.path) else {
-      return nil
+      if isVolumeMissing(standardized) || isVolumeMissing(originalURL) {
+        return .volumeMissing
+      }
+      return .missing
     }
     if Self.isInTrash(standardized) {
-      return nil
+      return .missing
     }
-    return standardized
+    return .resolved(standardized)
+  }
+
+  private func isVolumeMissing(_ url: URL) -> Bool {
+    let path = url.path
+    if path.hasPrefix("/Volumes/") {
+      let comps = path.split(separator: "/")
+      if comps.count >= 2 {
+        let volumePath = "/Volumes/" + comps[1]
+        if !FileManager.default.fileExists(atPath: volumePath) {
+          return true
+        }
+      }
+    }
+    return false
+  }
+
+  /// Resolves the bookmark to its current location on disk.
+  /// Returns nil if the file has been trashed, deleted, or cannot be resolved.
+  public mutating func resolve() -> URL? {
+    if case .resolved(let url) = resolveStatus() {
+      return url
+    }
+    return nil
   }
 
   /// Non-mutating URL resolution. Returns nil if the file is missing or in the Trash.
