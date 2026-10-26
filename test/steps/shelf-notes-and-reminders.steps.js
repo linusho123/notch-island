@@ -308,7 +308,7 @@ module.exports = function (reg) {
     assert.ok(view.texts.includes(label), `expected note "${label}" on screen`);
 
     // Far-side check on disk (shelf.json)
-    const shelfFile = path.join(scratch(w), 'island-data', 'notch-island', 'shelf.json');
+    const shelfFile = path.join(scratch(w), 'island-data', 'shelf.json');
     assert.ok(fs.existsSync(shelfFile), 'shelf.json does not exist on disk');
     const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
     const cleanText = label.startsWith('✎ ') ? label.slice(2) : label;
@@ -330,7 +330,7 @@ module.exports = function (reg) {
     assert.equal(items.length, 1, `expected exactly 1 item on shelf, found ${items.length}`);
     assert.ok(view.texts.includes(label), `expected note "${label}" on shelf`);
 
-    const shelfFile = path.join(scratch(w), 'island-data', 'notch-island', 'shelf.json');
+    const shelfFile = path.join(scratch(w), 'island-data', 'shelf.json');
     if (fs.existsSync(shelfFile)) {
       const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
       assert.equal(diskItems.length, 1, `expected 1 item in shelf.json, found ${diskItems.length}`);
@@ -359,7 +359,7 @@ module.exports = function (reg) {
     assert.equal(actualCharCount, expectedCount, `expected ${expectedCount} characters, got ${actualCharCount}`);
 
     // Far-side check on disk (shelf.json)
-    const shelfFile = path.join(scratch(w), 'island-data', 'notch-island', 'shelf.json');
+    const shelfFile = path.join(scratch(w), 'island-data', 'shelf.json');
     assert.ok(fs.existsSync(shelfFile), 'shelf.json does not exist on disk');
     const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
     assert.ok(diskItems.length >= 1, 'no items in shelf.json on disk');
@@ -388,7 +388,7 @@ module.exports = function (reg) {
     const items = view.elements.filter((e) => e.identifier === 'shelf-item');
     assert.ok(items.length >= 1, 'no shelf-items found');
 
-    const shelfFile = path.join(scratch(w), 'island-data', 'notch-island', 'shelf.json');
+    const shelfFile = path.join(scratch(w), 'island-data', 'shelf.json');
     assert.ok(fs.existsSync(shelfFile));
     const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
     const clean = label.startsWith('✎ ') ? label.slice(2) : label;
@@ -415,7 +415,7 @@ module.exports = function (reg) {
     assert.equal(actualCharCount, expectedCount, `expected ${expectedCount} characters, got ${actualCharCount}`);
 
     // Far-side check on disk (shelf.json)
-    const shelfFile = path.join(scratch(w), 'island-data', 'notch-island', 'shelf.json');
+    const shelfFile = path.join(scratch(w), 'island-data', 'shelf.json');
     assert.ok(fs.existsSync(shelfFile));
     const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
     const diskNote = diskItems.find((it) => it.kind && it.kind.note);
@@ -433,7 +433,7 @@ module.exports = function (reg) {
     );
     assert.ok(!view.texts.some((t) => t.includes('idea: notch app shows lyrics')));
 
-    const shelfFile = path.join(scratch(w), 'island-data', 'notch-island', 'shelf.json');
+    const shelfFile = path.join(scratch(w), 'island-data', 'shelf.json');
     if (fs.existsSync(shelfFile)) {
       const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
       assert.ok(!diskItems.some((it) => it.kind && it.kind.note && it.kind.note.text.includes('idea: notch app shows lyrics')));
