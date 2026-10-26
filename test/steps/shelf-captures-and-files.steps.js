@@ -20,6 +20,7 @@ const {
   playing,
   rest,
   openOnMusicPage,
+  openByRest,
   pointerAway,
 } = helpers;
 

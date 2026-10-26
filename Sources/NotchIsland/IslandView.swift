@@ -401,31 +401,81 @@ private struct ShelfPageView: View {
   @ObservedObject var model: IslandModel
 
   var body: some View {
-    VStack {
-      if model.shelfItems.isEmpty {
-        Spacer()
-        Text("Shelf")
-          .font(.system(size: 12, weight: .semibold))
-          .foregroundColor(.white.opacity(0.3))
-        Spacer()
-      } else {
-        HStack(spacing: 12) {
-          ForEach(model.shelfItems) { item in
-            ShelfItemView(
-              item: item,
-              onRemove: {
-                model.onRemoveShelfItem(item.id)
-              },
-              onExpand: {
-                model.onExpandShelfStack(item.id)
-              }
-            )
-          }
+    ZStack(alignment: .topLeading) {
+      // Invisible geometry anchor matching MusicPageView's accessible bounds (D30)
+      VStack(alignment: .leading, spacing: 10) {
+        HStack(alignment: .top, spacing: 8) {
+          Rectangle()
+            .fill(Color.white.opacity(0.001))
+            .frame(width: 48, height: 48)
+            .accessibilityElement()
+            .accessibilityLabel("Shelf anchor top")
+            .accessibilityIdentifier("shelf-anchor-top")
+          Spacer()
+          Rectangle()
+            .fill(Color.white.opacity(0.001))
+            .frame(width: 20, height: 20)
+            .accessibilityElement()
+            .accessibilityLabel("Shelf anchor right")
+            .accessibilityIdentifier("shelf-anchor-right")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        Spacer()
+        HStack(spacing: 8) {
+          Rectangle()
+            .fill(Color.white.opacity(0.001))
+            .frame(width: 44, height: 14)
+            .accessibilityElement()
+            .accessibilityLabel("Shelf anchor mid-left")
+            .accessibilityIdentifier("shelf-anchor-mid-left")
+          GeometryReader { _ in
+            Capsule().fill(Color.white.opacity(0.001)).frame(height: 4)
+          }
+          .frame(height: 14)
+          Rectangle()
+            .fill(Color.white.opacity(0.001))
+            .frame(width: 44, height: 14)
+            .accessibilityElement()
+            .accessibilityLabel("Shelf anchor mid-right")
+            .accessibilityIdentifier("shelf-anchor-mid-right")
+        }
+        HStack(spacing: 36) {
+          Rectangle()
+            .fill(Color.white.opacity(0.001))
+            .frame(width: 32, height: 32)
+            .accessibilityElement()
+            .accessibilityLabel("Shelf anchor bottom")
+            .accessibilityIdentifier("shelf-anchor-bottom")
+        }
       }
+      .opacity(0.001)
+
+      // Actual shelf UI
+      VStack {
+        if model.shelfItems.isEmpty {
+          Spacer()
+          Text("Shelf")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(.white.opacity(0.3))
+          Spacer()
+        } else {
+          HStack(spacing: 12) {
+            ForEach(model.shelfItems) { item in
+              ShelfItemView(
+                item: item,
+                onRemove: {
+                  model.onRemoveShelfItem(item.id)
+                },
+                onExpand: {
+                  model.onExpandShelfStack(item.id)
+                }
+              )
+            }
+          }
+          .padding(.horizontal, 16)
+          .padding(.vertical, 8)
+          Spacer()
+        }
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     .padding(.horizontal, 22)
     .padding(.vertical, 10)
