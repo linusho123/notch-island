@@ -442,11 +442,28 @@ final class IslandController: NSObject, NSMenuDelegate {
     return false
   }
 
+  private func isOverRemoveArea(_ sender: NSDraggingInfo) -> Bool {
+    guard sender.draggingDestinationWindow === cardPanel else {
+      return false
+    }
+    guard let view = model.removeAreaView, let window = view.window, window === cardPanel,
+      !view.isHiddenOrHasHiddenAncestor, view.bounds.width > 0, view.bounds.height > 0
+    else {
+      return false
+    }
+    let loc = sender.draggingLocation
+    let frameInWindow = view.convert(view.bounds, to: nil)
+    return frameInWindow.insetBy(dx: -4, dy: -4).contains(loc)
+  }
+
   private func handleDragEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
     if isTextOnlyDrag(sender) {
       return []
     }
     if model.isDraggingShelfItem {
+      if isOverRemoveArea(sender) {
+        return .delete
+      }
       return []
     }
     model.page = .shelf
@@ -463,6 +480,9 @@ final class IslandController: NSObject, NSMenuDelegate {
       return []
     }
     if model.isDraggingShelfItem {
+      if isOverRemoveArea(sender) {
+        return .delete
+      }
       return []
     }
     if model.page != .shelf {
@@ -485,6 +505,12 @@ final class IslandController: NSObject, NSMenuDelegate {
     }
 
     if model.isDraggingShelfItem {
+      if isOverRemoveArea(sender) {
+        if let item = model.currentDraggedItem {
+          model.onRemoveShelfItem(item.id)
+          return true
+        }
+      }
       return false
     }
 

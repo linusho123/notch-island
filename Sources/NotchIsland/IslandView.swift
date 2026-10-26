@@ -20,6 +20,7 @@ final class IslandModel: ObservableObject {
   /// Items parked on the shelf (D30, D64, D65).
   @Published var shelfItems: [ShelfItem] = []
   @Published var isDraggingShelfItem: Bool = false
+  weak var removeAreaView: NSView?
   var currentDraggedItem: ShelfItem?
   var shelfStore: ShelfStore?
 
@@ -608,6 +609,9 @@ private struct RemoveAreaDropHost: NSViewRepresentable {
 
   func updateNSView(_ nsView: RemoveAreaNSView, context: Context) {
     nsView.model = model
+    if nsView.window != nil {
+      model.removeAreaView = nsView
+    }
   }
 }
 
@@ -625,6 +629,15 @@ private final class RemoveAreaNSView: NSView {
   }
 
   required init?(coder: NSCoder) { fatalError() }
+
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    if window != nil {
+      model?.removeAreaView = self
+    } else if model?.removeAreaView === self {
+      model?.removeAreaView = nil
+    }
+  }
 
   override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
     .delete
@@ -781,6 +794,7 @@ private final class DraggableContainerView<Content: View>: NSView, NSDraggingSou
     _ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation
   ) {
     model?.isDraggingShelfItem = false
+    model?.removeAreaView = nil
     model?.onShelfDragEnded?(item, operation, screenPoint)
     model?.currentDraggedItem = nil
   }
