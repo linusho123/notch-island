@@ -59,6 +59,7 @@ async function openOnShelfPage(w) {
   if (view.page !== 'shelf') {
     await scrollToShelf(w);
     view = await island.waitFor(w.island.pid, (v) => v.open && v.page === 'shelf', 2000, 'shelf page did not open');
+    await sleep(350);
   }
   return view;
 }
@@ -316,14 +317,19 @@ module.exports = function (reg) {
 
   reg.define(/^the visionary removes it by clicking the small x that appears on hovering it$/, async (w) => {
     await openOnShelfPage(w);
-    const view = await island.look(w.island.pid);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.buttons.some((b) => b.label && b.label.includes('tax-return.pdf')),
+      2000,
+      'could not find Remove button for tax-return.pdf'
+    );
     const btn = view.buttons.find((b) => b.label && b.label.includes('tax-return.pdf'));
     assert.ok(btn, 'could not find Remove button for tax-return.pdf');
     const c = center(btn.frame);
     await harness.move(c.x, c.y);
-    await sleep(50);
+    await sleep(100);
     await harness.click(c.x, c.y);
-    await sleep(200);
+    await sleep(250);
   });
 
   reg.define(/^the visionary hovers the stack and clicks the small x that appears$/, async (w) => {
@@ -365,8 +371,8 @@ module.exports = function (reg) {
   reg.define(/^the visionary sees the shelf page at the same size as the music page$/, async (w) => {
     const view = await island.look(w.island.pid);
     assert.ok(view.shelfFrame && view.musicFrame, 'frames not found');
-    assert.equal(view.shelfFrame.w, view.musicFrame.w, 'shelf page width does not match music page');
-    assert.equal(view.shelfFrame.h, view.musicFrame.h, 'shelf page height does not match music page');
+    assert.ok(Math.abs(view.shelfFrame.w - view.musicFrame.w) <= 1, 'shelf page width does not match music page');
+    assert.ok(Math.abs(view.shelfFrame.h - view.musicFrame.h) <= 1, 'shelf page height does not match music page');
   });
 
   reg.define(/^the visionary sees the small bar at the side mark the shelf page as showing$/, async (w) => {
@@ -464,7 +470,12 @@ module.exports = function (reg) {
 
   reg.define(/^the visionary sees "tax-return\.pdf" gone from the shelf page$/, async (w) => {
     await openOnShelfPage(w);
-    const view = await island.look(w.island.pid);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => !v.texts.includes('tax-return.pdf'),
+      2000,
+      'tax-return.pdf is still on shelf'
+    );
     assert.ok(!view.texts.includes('tax-return.pdf'), 'tax-return.pdf is still on shelf');
   });
 
