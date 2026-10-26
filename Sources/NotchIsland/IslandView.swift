@@ -549,6 +549,24 @@ struct NoteTextFieldRepresentable: NSViewRepresentable {
       return false
     }
 
+    func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+      if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+        parent.onCommit(textView.string)
+        return true
+      } else if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+        parent.onCancel()
+        return true
+      }
+      return false
+    }
+
+    func textDidChange(_ notification: Notification) {
+      if let textView = notification.object as? NSTextView {
+        parent.text = textView.string
+        textField?.stringValue = textView.string
+      }
+    }
+
     func textView(
       _ textView: NSTextView,
       shouldChangeTextIn affectedCharRange: NSRange,
@@ -577,6 +595,7 @@ struct NoteTextFieldRepresentable: NSViewRepresentable {
       let newCursorPos = affectedCharRange.location + (taken as NSString).length
       textView.setSelectedRange(NSRange(location: newCursorPos, length: 0))
       parent.text = newText
+      textField?.stringValue = newText
       return false
     }
   }
