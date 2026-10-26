@@ -19,6 +19,7 @@ const {
   restartIsland,
   launchDropStandIn,
   assertShelfItem,
+  assert24HourBoundary,
 } = require('../support/shelf');
 
 const {
@@ -719,15 +720,7 @@ module.exports = function (reg) {
   });
 
   reg.define(/^the visionary sees "tax-return\.pdf" leave the shelf at 9:00 am the next day, 24 hours after it was parked$/, async (w) => {
-    const t9amNext = '2026-10-19T09:00:00Z';
-    island.feed(w, { clockDate: t9amNext });
-    await openOnShelfPage(w);
-    await island.waitFor(
-      w.island.pid,
-      (v) => !v.texts.includes('tax-return.pdf'),
-      2000,
-      'tax-return.pdf did not leave the shelf after 24 hours'
-    );
+    await assert24HourBoundary(w, 'tax-return.pdf', openOnShelfPage);
   });
 
   // U4 Whens and Thens
