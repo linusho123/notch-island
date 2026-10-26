@@ -49,6 +49,7 @@ const UI_FILES = [
   'last-song-controls.test.js',
   'lost-mouse-up.test.js',
   'seek-no-flicker.test.js',
+  'shelf-drop-on-island.test.js',
 ];
 
 for (const file of UI_FILES) {
