@@ -5,6 +5,9 @@
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const { harness } = require('./paths');
+const { assertInIdleRun } = require('./require-idle');
+
+assertInIdleRun();
 
 const run = promisify(execFile);
 
