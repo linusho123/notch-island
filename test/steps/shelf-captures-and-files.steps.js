@@ -27,6 +27,7 @@ const {
   openOnMusicPage,
   openByRest,
   pointerAway,
+  shelfFromBelow,
 } = helpers;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -556,7 +557,7 @@ module.exports = function (reg) {
   // ------------------------------------------------------------- Thens
 
   reg.define(/^the visionary sees the music page slide up and out and the shelf page come up from below$/, async (w) => {
-    await island.waitFor(w.island.pid, (v) => v.open && v.page === 'shelf', 2000, 'the shelf page did not come up');
+    await shelfFromBelow(w);
   });
 
   reg.define(/^the visionary sees the shelf page at the same size as the music page$/, async (w) => {
@@ -574,12 +575,16 @@ module.exports = function (reg) {
   });
 
   reg.define(/^the visionary sees the music page come back over "Wonderwall"$/, async (w) => {
-    await island.waitFor(
+    const before = w.beforeScroll;
+    assert.ok(before && before.musicFrame && before.shelfFrame, 'beforeScroll missing frames');
+    const view = await island.waitFor(
       w.island.pid,
       (v) => v.open && v.page === 'music' && v.texts.includes('Wonderwall'),
       3000,
       'music page did not come back over Wonderwall'
     );
+    assert.ok(view.musicFrame.y > before.musicFrame.y, 'the music page did not move down into place');
+    assert.ok(view.shelfFrame.y > before.shelfFrame.y, 'the shelf page did not move down and out');
   });
 
   reg.define(/^the visionary sees the small bar at the side mark the music page as showing$/, async (w) => {
