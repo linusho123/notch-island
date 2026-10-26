@@ -629,4 +629,99 @@ struct ShelfStoreTests {
     // Original file still on disk
     #expect(FileManager.default.fileExists(atPath: f.path))
   }
+
+  @Test func stackAgeingShrinksAndSurvivorKeepsItsOwnClockD57D118() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+    let clock = TestClock(t0)
+    let store = ShelfStore(file: storeFile, clock: { clock.now })
+
+    let s1 = try createTempFile(in: dir, named: "s1.png")
+    let s2 = try createTempFile(in: dir, named: "s2.png")
+    let s3 = try createTempFile(in: dir, named: "s3.png")
+
+    try store.parkCapture(at: s1, landedAt: t0)
+    clock.advance(by: 10)
+    let t1 = clock.now
+    try store.parkCapture(at: s2, landedAt: t1)
+    clock.advance(by: 10)
+    let t2 = clock.now
+    try store.parkCapture(at: s3, landedAt: t2)
+
+    #expect(store.count == 1)
+    #expect(store.items()[0].isStack)
+    #expect(store.items()[0].title == "3 screenshots")
+
+    // Advance to 24h after s1: s1 expires, stack shrinks to 2 screenshots (s2, s3)
+    clock.now = t0.addingTimeInterval(86400)
+    let items = store.items()
+    #expect(items.count == 1)
+    #expect(items[0].isStack)
+    #expect(items[0].title == "2 screenshots")
+    // The surviving stack keeps the clock of its oldest survivor (s2)
+    #expect(items[0].landedAt == t1)
+
+    // Advance to 24h after s2: s2 expires, stack shrinks to 1 capture (s3)
+    clock.now = t1.addingTimeInterval(86400)
+    let items2 = store.items()
+    #expect(items2.count == 1)
+    #expect(!items2[0].isStack)
+    #expect(items2[0].title == "s3.png")
+    #expect(items2[0].landedAt == t2)
+
+    // At 24h after s3: aged off
+    clock.now = t2.addingTimeInterval(86400)
+    #expect(store.count == 0)
+  }
+
+  @Test func restartPreservesCaptureStackFileStackAndLinkD59() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+    let clock = TestClock(t0)
+
+    let store1 = ShelfStore(file: storeFile, clock: { clock.now })
+    let s1 = try createTempFile(in: dir, named: "s1.png")
+    let s2 = try createTempFile(in: dir, named: "s2.png")
+    try store1.parkCapture(at: s1, landedAt: t0)
+    try store1.parkCapture(at: s2, landedAt: t0.addingTimeInterval(10))
+
+    let f1 = try createTempFile(in: dir, named: "f1.pdf")
+    let f2 = try createTempFile(in: dir, named: "f2.pdf")
+    try store1.parkFiles(at: [f1, f2], landedAt: t0.addingTimeInterval(20))
+
+    let linkURL = URL(string: "https://example.com/guide")!
+    store1.parkLink(linkURL, title: "Guide", landedAt: t0.addingTimeInterval(30))
+
+    #expect(store1.count == 3)
+
+    // Restart
+    clock.advance(by: 3600)
+    let store2 = ShelfStore(file: storeFile, clock: { clock.now })
+    let items = store2.items()
+    #expect(items.count == 3)
+
+    let capStack = items.first(where: {
+      if case .captureStack = $0.kind { return true }
+      return false
+    })
+    #expect(capStack != nil)
+    #expect(capStack?.landedAt == t0)
+
+    let fileStack = items.first(where: {
+      if case .fileStack = $0.kind { return true }
+      return false
+    })
+    #expect(fileStack != nil)
+    #expect(fileStack?.landedAt == t0.addingTimeInterval(20))
+
+    let linkItem = items.first(where: {
+      if case .link = $0.kind { return true }
+      return false
+    })
+    #expect(linkItem != nil)
+    #expect(linkItem?.landedAt == t0.addingTimeInterval(30))
+    #expect(linkItem?.title == "Guide")
+  }
 }
