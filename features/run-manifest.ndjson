@@ -31,7 +31,7 @@
 {"file":"music-panel.feature","title":"Clicking the cover art brings Chrome showing that youtube.com tab, not the Gmail tab to the front [2]","status":"passed"}
 {"file":"music-panel.feature","title":"Clicking the source line brings Chrome showing that soundcloud.com tab, not the Gmail tab to the front [3]","status":"passed"}
 {"file":"music-panel.feature","title":"Clicking the source line brings the Apple Music window to the front [1]","status":"passed"}
-{"file":"music-panel.feature","title":"Dragging the parked \"tax-return.pdf\" far from the island keeps it open until let go [2]","status":"unbound"}
+{"file":"music-panel.feature","title":"Dragging the parked \"tax-return.pdf\" far from the island keeps it open until let go [2]","status":"passed"}
 {"file":"music-panel.feature","title":"Dragging the progress dot far from the island keeps it open until let go [1]","status":"passed"}
 {"file":"music-panel.feature","title":"In fullscreen, resting on the notch still opens the panel","status":"passed"}
 {"file":"music-panel.feature","title":"Moving the progress dot by clicking the bar to 1:45:00 jumps the concert file there [2]","status":"passed"}
@@ -109,7 +109,7 @@
 {"file":"music-sources.feature","title":"When the visionary closes the YouTube tab, the newest remaining source shows [2]","status":"passed"}
 {"file":"music-sources.feature","title":"When the visionary quits Apple Music, the newest remaining source shows [1]","status":"passed"}
 {"file":"music-sources.feature","title":"When the visionary quits IINA, the newest remaining source shows [3]","status":"passed"}
-{"file":"music-sources.feature","title":"With Apple Music and a youtube.com tab in Chrome playing, the newest shows the count 1 of 2 [1]","status":"passed"}
+{"file":"music-sources.feature","title":"With Apple Music and a youtube.com tab in Chrome playing, the newest shows the count 1 of 2 [1]","status":"failed"}
 {"file":"music-sources.feature","title":"With Apple Music, QuickTime Player and a youtube.com tab in Chrome playing, the newest shows the count 1 of 3 [2]","status":"passed"}
 {"file":"music-sources.feature","title":"With nothing before it, back twice within the first 3 seconds on the island goes to Apple Music [2]","status":"passed"}
 {"file":"music-sources.feature","title":"With nothing next after it, skip on the island goes to QuickTime Player [1]","status":"passed"}
@@ -125,69 +125,69 @@
 {"file":"new-song-notice.feature","title":"A new song in a youtube.com playlist in Chrome brings the wing out within a second [3]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in fullscreen pops no wing","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song slides a small wing out left of the notch","status":"passed"}
-{"file":"new-song-notice.feature","title":"Moving onto the notch while the wing is out opens the full panel","status":"passed"}
+{"file":"new-song-notice.feature","title":"Moving onto the notch while the wing is out opens the full panel","status":"failed"}
 {"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, art too wide [4]","status":"passed"}
 {"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, menus reach it [5]","status":"passed"}
 {"file":"new-song-notice.feature","title":"The new-song notice finds room: the art alone [3]","status":"passed"}
 {"file":"new-song-notice.feature","title":"The new-song notice finds room: the title shortened [2]","status":"passed"}
-{"file":"new-song-notice.feature","title":"The new-song notice finds room: the whole title [1]","status":"failed"}
+{"file":"new-song-notice.feature","title":"The new-song notice finds room: the whole title [1]","status":"passed"}
 {"file":"new-song-notice.feature","title":"The wing slides out of the notch's left edge and back in","status":"passed"}
 {"file":"new-song-notice.feature","title":"The wings checked 1 minute after a new song starts [4]","status":"passed"}
 {"file":"new-song-notice.feature","title":"The wings checked 1 second after a new song starts [1]","status":"passed"}
 {"file":"new-song-notice.feature","title":"The wings checked 3.5 seconds after a new song starts [2]","status":"passed"}
 {"file":"new-song-notice.feature","title":"The wings checked 4.5 seconds after a new song starts [3]","status":"passed"}
-{"file":"new-song-notice.feature","title":"With an external monitor connected, the wing still pops at the built-in notch","status":"passed"}
-{"file":"shelf-captures-and-files.feature","title":"A capture 10 seconds after the previous one joins it [1]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A capture 30 seconds after the previous one joins it [5]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A capture 59 seconds after the previous one joins it [2]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A capture 60 seconds after the previous one joins it [3]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A capture 61 seconds after the previous one starts a new item [4]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A capture 61 seconds after the previous one starts a new item [6]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A new screen recording lands on the shelf by itself [2]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A new screenshot lands on the shelf by itself [1]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A parked file dropped on the Desktop leaves the shelf","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A parked file moved to the Trash leaves the shelf","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A parked folder drags out whole","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A parked link never ages off the shelf","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A parked stack of files drags out as a group","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A refused drop leaves the 2 GB screen recording \"bug-repro.mov\" on the shelf [1]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A refused drop leaves the screenshot \"Screenshot 2026-10-18 at 10.15.02.png\" on the shelf [2]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A screenshot copied only to the clipboard stays off the shelf [1]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A screenshot parked at 11:58 pm, checked at 11:57 pm the next night [2]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A screenshot parked at 11:58 pm, checked at 11:59 pm the next night [3]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A screenshot parked at 11:58 pm, checked at 12:01 am the next morning [1]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A screenshot saved by another screenshot tool stays off the shelf [2]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A stack drags out as one group","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A stack expands into its captures","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"A thirty-first screenshot joins the stack of thirty","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"After a restart after a crash, the whole shelf comes back [2]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"After a restart for an update, the whole shelf comes back [1]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"An accepted drop takes the screenshot off the shelf","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Dragging a file onto the closed notch opens the shelf as a drop target","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Dragging a parked file out behaves as if dragged from its folder","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Dragging a parked screenshot into a Gmail draft in Chrome attaches it [2]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Dragging a parked screenshot into a Messages chat attaches it [1]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Dropped highlighted text is refused","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Dropping a link from Chrome's address bar to \"gov.uk/renew-adult-passport\" onto the notch parks a link to \"gov.uk/renew-adult-passport\" [5]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Dropping a parked file on a Chrome window is a real drop [2]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Dropping a parked file on the Desktop is a real drop [1]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Dropping the file \"boarding-pass.pdf\" from the Desktop onto the notch parks \"boarding-pass.pdf\" as one item [2]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Dropping the file \"tax-return.pdf\" from Finder onto the notch parks \"tax-return.pdf\" as one item [1]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Dropping the folder \"Taxes 2026\" onto the notch parks the folder \"Taxes 2026\" as one item [4]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Dropping three files selected together in Finder onto the notch parks one stack holding the three files [3]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Letting go over the open shelf parks the file","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Moving the file \"tax-return.pdf\" in Finder keeps it on the shelf at its new place [1]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Moving the folder \"Taxes 2026\" in Finder keeps it on the shelf at its new place [2]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Parking a file leaves it in its folder","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Removing \"Screenshot 2026-10-18 at 10.15.02.png\" from the shelf by dropping it on the remove area at the panel's edge [2]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Removing \"tax-return.pdf\" from the shelf by clicking the small x that appears on hovering it [1]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Removing a link by the remove area","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Removing a stack leaves its captures where they are","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Removing the folder \"Taxes 2026\" from the shelf by dropping it on the remove area at the panel's edge [3]","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Scrolling down on the music page brings up the shelf page","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Scrolling up on the shelf page brings the music page back","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"The remove area shows only while a shelf item is being dragged","status":"unbound"}
-{"file":"shelf-captures-and-files.feature","title":"Thirty screenshots in a row while documenting a bug make one stack","status":"unbound"}
+{"file":"new-song-notice.feature","title":"With an external monitor connected, the wing still pops at the built-in notch","status":"failed"}
+{"file":"shelf-captures-and-files.feature","title":"A capture 10 seconds after the previous one joins it [1]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A capture 30 seconds after the previous one joins it [5]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A capture 59 seconds after the previous one joins it [2]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A capture 60 seconds after the previous one joins it [3]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A capture 61 seconds after the previous one starts a new item [4]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A capture 61 seconds after the previous one starts a new item [6]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A new screen recording lands on the shelf by itself [2]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A new screenshot lands on the shelf by itself [1]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked file dropped on the Desktop leaves the shelf","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked file moved to the Trash leaves the shelf","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked folder drags out whole","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked link never ages off the shelf","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked stack of files drags out as a group","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A refused drop leaves the 2 GB screen recording \"bug-repro.mov\" on the shelf [1]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A refused drop leaves the screenshot \"Screenshot 2026-10-18 at 10.15.02.png\" on the shelf [2]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A screenshot copied only to the clipboard stays off the shelf [1]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A screenshot parked at 11:58 pm, checked at 11:57 pm the next night [2]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A screenshot parked at 11:58 pm, checked at 11:59 pm the next night [3]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A screenshot parked at 11:58 pm, checked at 12:01 am the next morning [1]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A screenshot saved by another screenshot tool stays off the shelf [2]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A stack drags out as one group","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A stack expands into its captures","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A thirty-first screenshot joins the stack of thirty","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"After a restart after a crash, the whole shelf comes back [2]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"After a restart for an update, the whole shelf comes back [1]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"An accepted drop takes the screenshot off the shelf","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Dragging a file onto the closed notch opens the shelf as a drop target","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Dragging a parked file out behaves as if dragged from its folder","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Dragging a parked screenshot into a Gmail draft in Chrome attaches it [2]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Dragging a parked screenshot into a Messages chat attaches it [1]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Dropped highlighted text is refused","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Dropping a link from Chrome's address bar to \"gov.uk/renew-adult-passport\" onto the notch parks a link to \"gov.uk/renew-adult-passport\" [5]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Dropping a parked file on a Chrome window is a real drop [2]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Dropping a parked file on the Desktop is a real drop [1]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Dropping the file \"boarding-pass.pdf\" from the Desktop onto the notch parks \"boarding-pass.pdf\" as one item [2]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Dropping the file \"tax-return.pdf\" from Finder onto the notch parks \"tax-return.pdf\" as one item [1]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Dropping the folder \"Taxes 2026\" onto the notch parks the folder \"Taxes 2026\" as one item [4]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Dropping three files selected together in Finder onto the notch parks one stack holding the three files [3]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Letting go over the open shelf parks the file","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Moving the file \"tax-return.pdf\" in Finder keeps it on the shelf at its new place [1]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Moving the folder \"Taxes 2026\" in Finder keeps it on the shelf at its new place [2]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Parking a file leaves it in its folder","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Removing \"Screenshot 2026-10-18 at 10.15.02.png\" from the shelf by dropping it on the remove area at the panel's edge [2]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Removing \"tax-return.pdf\" from the shelf by clicking the small x that appears on hovering it [1]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Removing a link by the remove area","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Removing a stack leaves its captures where they are","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Removing the folder \"Taxes 2026\" from the shelf by dropping it on the remove area at the panel's edge [3]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Scrolling down on the music page brings up the shelf page","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Scrolling up on the shelf page brings the music page back","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"The remove area shows only while a shelf item is being dragged","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"Thirty screenshots in a row while documenting a bug make one stack","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"+ note puts a short note on the shelf","status":"unbound"}
 {"file":"shelf-notes-and-reminders.feature","title":"A new note of 1 character keeps that 1 character [1]","status":"unbound"}
 {"file":"shelf-notes-and-reminders.feature","title":"A new note of 139 characters keeps all 139 characters [2]","status":"unbound"}
