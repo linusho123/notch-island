@@ -1098,14 +1098,26 @@ function countFinderTrashTaxReturn() {
   });
 
   reg.define(/^the visionary sees (the 2 GB screen recording "bug-repro\.mov"|the screenshot "Screenshot 2026-10-18 at 10\.15\.02\.png") on the shelf page as it was$/, async (w, item) => {
-    await openOnShelfPage(w);
-    const targetText = item.includes('bug-repro.mov') ? 'bug-repro.mov' : 'Screenshot';
     await island.waitFor(
       w.island.pid,
-      (v) => v.texts.some((t) => t.includes(targetText)),
+      (v) => !v.elements.some((e) => e.identifier === 'remove-area'),
       3000,
-      `${targetText} not on shelf page as it was`
+      'remove-area did not disappear after refused drag ended'
     );
+    await sleep(500);
+    await openOnShelfPage(w);
+    const targetText = item.includes('bug-repro.mov') ? 'bug-repro.mov' : 'Screenshot';
+    for (let i = 0; i < 4; i++) {
+      await sleep(300);
+      const view = await island.look(w.island.pid);
+      assert.ok(
+        view.texts.some((t) => t.includes(targetText)),
+        `${targetText} not on shelf page as it was during settle`
+      );
+    }
+    if (w.standIn) {
+      w.standIn.assertEmpty();
+    }
   });
 
   reg.define(/^the visionary removes it by dropping it on the remove area at the panel's edge$/, async (w) => {
