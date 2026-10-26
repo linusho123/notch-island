@@ -18,6 +18,7 @@ const {
   setupScreenshotLocation,
   restartIsland,
   launchDropStandIn,
+  assertShelfItem,
 } = require('../support/shelf');
 
 const {
@@ -802,20 +803,15 @@ module.exports = function (reg) {
   reg.define(/^the visionary sees ("tax-return\.pdf" as one item|"boarding-pass\.pdf" as one item|one stack holding the three files|the folder "Taxes 2026" as one item|a link to "gov\.uk\/renew-adult-passport") on the shelf page$/, async (w, parked) => {
     await openOnShelfPage(w);
     if (parked.includes('tax-return.pdf')) {
-      await island.waitFor(w.island.pid, (v) => v.texts.includes('tax-return.pdf'), 3000, 'tax-return.pdf missing on shelf page');
+      await assertShelfItem(w, 'tax-return.pdf', 1);
     } else if (parked.includes('boarding-pass.pdf')) {
-      await island.waitFor(w.island.pid, (v) => v.texts.includes('boarding-pass.pdf'), 3000, 'boarding-pass.pdf missing on shelf page');
+      await assertShelfItem(w, 'boarding-pass.pdf', 1);
     } else if (parked.includes('one stack holding the three files')) {
-      await island.waitFor(
-        w.island.pid,
-        (v) => v.texts.some((t) => t.includes('3 files') || t.includes('files')) || v.elements.filter((e) => e.identifier === 'shelf-item').length === 1,
-        3000,
-        'stack of 3 files missing on shelf page'
-      );
+      await assertShelfItem(w, '3 files', 1);
     } else if (parked.includes('Taxes 2026')) {
-      await island.waitFor(w.island.pid, (v) => v.texts.includes('Taxes 2026'), 3000, 'Taxes 2026 missing on shelf page');
+      await assertShelfItem(w, 'Taxes 2026', 1);
     } else if (parked.includes('gov.uk/renew-adult-passport')) {
-      await island.waitFor(w.island.pid, (v) => v.texts.some((t) => t.includes('gov.uk/renew-adult-passport')), 3000, 'link missing on shelf page');
+      await assertShelfItem(w, 'gov.uk/renew-adult-passport', 1);
     }
   });
 
