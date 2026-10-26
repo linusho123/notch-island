@@ -1,4 +1,5 @@
 'use strict';
+const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -111,6 +112,20 @@ async function launchDropStandIn(world, options = {}) {
       } catch {
         return null;
       }
+    },
+    assertReceived: async (filename) => {
+      const data = await island.until(() => {
+        try {
+          const content = fs.readFileSync(log, 'utf8').trim();
+          return content ? JSON.parse(content) : null;
+        } catch {
+          return null;
+        }
+      }, 3000, `drop-stand-in never logged receipt of ${filename}`);
+      assert.ok(
+        data && data.received && data.received.some((r) => r.name.includes(filename)),
+        `expected drop-stand-in to receive ${filename}, but received: ${JSON.stringify(data)}`
+      );
     },
   };
 }
