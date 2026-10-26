@@ -69,8 +69,10 @@ test('MF5 / Q2: dropping a shelf item on the island is a refused drop and stays 
 
   // 2. Drag the link onto the shelf page centre and release
   items = view.elements.filter((e) => e.identifier === 'shelf-item');
-  const linkItem = items.find((e) => view.texts.some((t) => t.includes('gov.uk/renew-adult-passport')));
+  const linkItem = items.find((e) => e.description?.includes('gov.uk/renew-adult-passport') || e.description?.includes('passport'))
+    || items.find((e) => e.frame.x !== fileItem.frame.x || e.frame.y !== fileItem.frame.y);
   assert.ok(linkItem, 'link item element not found');
+  assert.notDeepEqual(linkItem.frame, fileItem.frame, 'link item must not be the file item');
   const fromLink = center(linkItem.frame);
 
   await harness.drag(fromLink.x, fromLink.y, shelfCenter.x, shelfCenter.y, 20, 15, false);
