@@ -12,6 +12,10 @@ public final class CaptureWatcher: @unchecked Sendable {
   public var onCaptureParked: (@Sendable (ShelfItem) -> Void)?
   public var locationProvider: (@Sendable () -> URL)?
 
+  /// Number of retries when detecting captures (5.0s total at 50ms interval) (SF9, m1).
+  public static let captureDetectionRetryCount = 100
+  public static let captureDetectionRetryInterval: TimeInterval = 0.05
+
   private let queue = DispatchQueue(label: "notch-island.capture-watcher")
   private var source: DispatchSourceFileSystemObject?
   private var locationTimer: DispatchSourceTimer?
@@ -175,7 +179,7 @@ public final class CaptureWatcher: @unchecked Sendable {
     lock.unlock()
 
     for url in toCheck {
-      checkAndParkCapture(url: url, retriesRemaining: 6)
+      checkAndParkCapture(url: url, retriesRemaining: Self.captureDetectionRetryCount)
     }
   }
 
@@ -188,7 +192,7 @@ public final class CaptureWatcher: @unchecked Sendable {
     }
 
     if retriesRemaining > 0 {
-      queue.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+      queue.asyncAfter(deadline: .now() + Self.captureDetectionRetryInterval) { [weak self] in
         self?.checkAndParkCapture(url: url, retriesRemaining: retriesRemaining - 1)
       }
     }
