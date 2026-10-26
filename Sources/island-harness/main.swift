@@ -1381,28 +1381,42 @@ case "drag-object":
     pressure: 1.0
   )!
 
+  sourceWin.makeKeyAndOrderFront(nil)
+
+  warp(to: CGPoint(x: startX, y: startY))
+  sleepMs(40)
+  post(.leftMouseDown, CGPoint(x: startX, y: startY))
+  sleepMs(40)
+
   let session = srcView.beginDraggingSession(with: dragItems, event: fakeEvent, source: srcView)
   _ = session
 
-  warp(to: CGPoint(x: startX, y: startY))
-  sleepMs(30)
-  post(.leftMouseDown, CGPoint(x: startX, y: startY))
-  sleepMs(40)
-  glide(to: CGPoint(x: endX, y: endY), steps: 20, stepMs: 15, dragging: true)
+  if let owner = ProcessInfo.processInfo.environment["NOTCH_ISLAND_OWNER_PID"].flatMap(Int32.init) {
+    Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+      if kill(owner, 0) != 0 { exit(0) }
+    }
+  }
+
   if !hold {
-    sleepMs(50)
-    post(.leftMouseUp, CGPoint(x: endX, y: endY))
-    sleepMs(100)
-    sourceWin.orderOut(nil)
-    emit(["ok": true])
-  } else {
-    line(["ok": true, "holding": true, "pid": Int(getpid())])
-    if let owner = ProcessInfo.processInfo.environment["NOTCH_ISLAND_OWNER_PID"].flatMap(Int32.init)
-    {
-      Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
-        if kill(owner, 0) != 0 { exit(0) }
+    DispatchQueue.global(qos: .userInteractive).async {
+      glide(to: CGPoint(x: endX, y: endY), steps: 25, stepMs: 20, dragging: true)
+      sleepMs(100)
+      post(.leftMouseUp, CGPoint(x: endX, y: endY))
+      sleepMs(150)
+      DispatchQueue.main.async {
+        sourceWin.orderOut(nil)
+        emit(["ok": true])
+        exit(0)
       }
     }
+    app.run()
+  } else {
+    DispatchQueue.global(qos: .userInteractive).async {
+      glide(to: CGPoint(x: endX, y: endY), steps: 25, stepMs: 20, dragging: true)
+      sleepMs(100)
+      line(["ok": true, "holding": true, "pid": Int(getpid())])
+    }
+
     let input = FileHandle.standardInput
     input.readabilityHandler = { handle in
       let data = handle.availableData
@@ -1410,7 +1424,7 @@ case "drag-object":
         input.readabilityHandler = nil
         DispatchQueue.main.async {
           post(.leftMouseUp, CGPoint(x: endX, y: endY))
-          sleepMs(50)
+          sleepMs(100)
           sourceWin.orderOut(nil)
           exit(0)
         }
