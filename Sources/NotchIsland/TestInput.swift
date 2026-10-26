@@ -55,6 +55,35 @@ enum TestInput {
     /// folder's path is too long for a socket. Read once, at launch.
     static let chromeSocket: String? = read()?["chromeSocket"] as? String
 
+    /// Injected clock date for testing 24-hour ageing and stacking (D57, D118).
+    static var clockDate: Date? {
+      if let str = read()?["clockDate"] as? String {
+        let formatter = ISO8601DateFormatter()
+        return formatter.date(from: str)
+      } else if let ts = (read()?["clockTimestamp"] as? NSNumber)?.doubleValue {
+        return Date(timeIntervalSince1970: ts)
+      }
+      return nil
+    }
+
+    /// Scratch screenshot directory for testing captures (D64).
+    static var screenshotDirectory: URL? {
+      if let dir = read()?["screenshotDirectory"] as? String {
+        return URL(fileURLWithPath: dir, isDirectory: true)
+      }
+      return nil
+    }
+
+    /// Seeding shelf items in Givens (D59, D66).
+    static var seedShelf: [[String: Any]]? {
+      read()?["seedShelf"] as? [[String: Any]]
+    }
+
+    /// Clearing the shelf in Givens.
+    static var clearShelf: Bool {
+      read()?["clearShelf"] as? Bool ?? false
+    }
+
     private static var watchers: [() -> Void] = []
     private static var source: DispatchSourceFileSystemObject?
 
@@ -96,6 +125,10 @@ enum TestInput {
     static var outputDevice: OutputDevice? { nil }
     static var leftGap: CGFloat? { nil }
     static let chromeSocket: String? = nil
+    static var clockDate: Date? { nil }
+    static var screenshotDirectory: URL? { nil }
+    static var seedShelf: [[String: Any]]? { nil }
+    static var clearShelf: Bool { false }
     static func onChange(_ action: @escaping () -> Void) {}
   #endif
 }

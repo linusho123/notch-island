@@ -17,6 +17,9 @@ final class IslandModel: ObservableObject {
   @Published var output: OutputDevice?
   /// Which source's face the card shows; a change turns the card (D48).
   @Published var faceID: String?
+  /// Items parked on the shelf (D30, D64, D65).
+  @Published var shelfItems: [ShelfItem] = []
+  var shelfStore: ShelfStore?
 
   var onBack: () -> Void = {}
   var onPlayPause: () -> Void = {}
@@ -24,6 +27,13 @@ final class IslandModel: ObservableObject {
   var onSeek: (TimeInterval) -> Void = { _ in }
   var onBringForward: () -> Void = {}
   var onFlip: () -> Void = {}
+  var onRemoveShelfItem: (UUID) -> Void = { _ in }
+  var onExpandShelfStack: (UUID) -> Void = { _ in }
+
+  /// Refreshes shelf items from the store, pruning aged-out or trashed items (D57, D58).
+  func refreshShelf() {
+    shelfItems = shelfStore?.items() ?? []
+  }
 
   /// The clicked position of a seek, held until Music confirms it.
   private var seekHold = SeekHold()
@@ -116,7 +126,7 @@ private struct OpenPanel: View {
         VStack(spacing: 0) {
           MusicPageView(model: model)
             .frame(height: height)
-          ShelfPageView()
+          ShelfPageView(model: model)
             .frame(height: height)
         }
         .offset(y: model.page == .music ? 0 : -height)
@@ -138,7 +148,9 @@ private struct PageBar: View {
       Capsule().fill(Color.white.opacity(page == .music ? 0.9 : 0.3)).frame(width: 3, height: 12)
       Capsule().fill(Color.white.opacity(page == .shelf ? 0.9 : 0.3)).frame(width: 3, height: 12)
     }
-    .accessibilityHidden(true)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(page == .shelf ? "Shelf page showing" : "Music page showing")
+    .accessibilityIdentifier("page-bar")
   }
 }
 
@@ -382,18 +394,146 @@ private struct Controls: View {
   }
 }
 
-/// The shelf page. Its items arrive in P4; until then it is empty.
+/// The shelf page (D30, D64, D65). Displays parked captures, stacks, files,
+/// links and notes.
 private struct ShelfPageView: View {
+  @ObservedObject var model: IslandModel
+
   var body: some View {
-    VStack {
-      Text("Shelf")
-        .font(.system(size: 12, weight: .semibold))
-        .foregroundColor(.white.opacity(0.5))
-      Spacer()
+    Group {
+      if model.shelfItems.isEmpty {
+        VStack {
+          Spacer()
+          Text("Shelf")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(.white.opacity(0.3))
+          Spacer()
+        }
+      } else {
+        ScrollView(.horizontal, showsIndicators: false) {
+          HStack(spacing: 12) {
+            ForEach(model.shelfItems) { item in
+              ShelfItemView(
+                item: item,
+                onRemove: {
+                  model.onRemoveShelfItem(item.id)
+                },
+                onExpand: {
+                  model.onExpandShelfStack(item.id)
+                }
+              )
+            }
+          }
+          .padding(.horizontal, 16)
+          .padding(.vertical, 8)
+        }
+      }
     }
-    .padding(.top, 12)
-    .frame(maxWidth: .infinity)
+    .padding(.top, 6)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Shelf page")
+  }
+}
+
+private struct ShelfItemView: View {
+  let item: ShelfItem
+  let onRemove: () -> Void
+  let onExpand: () -> Void
+
+  @State private var isHovered = false
+
+  var body: some View {
+    VStack(spacing: 6) {
+      ZStack(alignment: .topTrailing) {
+        itemIcon
+          .frame(width: 52, height: 52)
+          .background(Color.white.opacity(0.1))
+          .clipShape(RoundedRectangle(cornerRadius: 8))
+
+        Button(action: onRemove) {
+          Image(systemName: "xmark.circle.fill")
+            .font(.system(size: 14))
+            .foregroundColor(.white.opacity(isHovered ? 0.9 : 0.01))
+            .background(Circle().fill(Color.black.opacity(isHovered ? 0.6 : 0.01)))
+        }
+        .buttonStyle(.plain)
+        .frame(width: 20, height: 20)
+        .offset(x: 4, y: -4)
+        .accessibilityLabel("Remove \(item.title)")
+        .accessibilityIdentifier("remove-\(item.title)")
+      }
+
+      Text(item.title)
+        .font(.system(size: 11, weight: .regular))
+        .foregroundColor(.white)
+        .lineLimit(2)
+        .multilineTextAlignment(.center)
+        .frame(width: 86)
+        .accessibilityIdentifier("shelf-item-title")
+
+      if item.isStack {
+        Button(action: onExpand) {
+          Text("Expand")
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundColor(.white.opacity(0.8))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(Color.white.opacity(0.2)))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Expand \(item.title)")
+        .accessibilityIdentifier("expand-\(item.title)")
+      }
+    }
+    .frame(width: 90)
+    .padding(.vertical, 4)
+    .contentShape(Rectangle())
+    .onHover { hovering in
+      isHovered = hovering
+    }
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel(item.title)
+    .accessibilityIdentifier("shelf-item")
+  }
+
+  @ViewBuilder
+  private var itemIcon: some View {
+    switch item.kind {
+    case .capture(let cap):
+      if cap.type == .screenRecording {
+        Image(systemName: "video.fill")
+          .font(.system(size: 22))
+          .foregroundColor(.white.opacity(0.8))
+      } else {
+        Image(systemName: "photo.fill")
+          .font(.system(size: 22))
+          .foregroundColor(.white.opacity(0.8))
+      }
+    case .captureStack:
+      Image(systemName: "square.stack.3d.up.fill")
+        .font(.system(size: 22))
+        .foregroundColor(.white.opacity(0.8))
+    case .fileStack:
+      Image(systemName: "doc.on.doc.fill")
+        .font(.system(size: 22))
+        .foregroundColor(.white.opacity(0.8))
+    case .folder:
+      Image(systemName: "folder.fill")
+        .font(.system(size: 24))
+        .foregroundColor(.blue.opacity(0.8))
+    case .file:
+      Image(systemName: "doc.fill")
+        .font(.system(size: 22))
+        .foregroundColor(.white.opacity(0.8))
+    case .link:
+      Image(systemName: "link")
+        .font(.system(size: 20))
+        .foregroundColor(.blue.opacity(0.8))
+    case .note(_, let isReminder):
+      Image(systemName: isReminder ? "bell.fill" : "note.text")
+        .font(.system(size: 20))
+        .foregroundColor(.yellow.opacity(0.8))
+    }
   }
 }
