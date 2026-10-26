@@ -107,4 +107,93 @@ struct CaptureWatcherTests {
     watcher.scanForNewCaptures()
     #expect(store.isEmpty)
   }
+
+  @Test("Injected location provider update causes watcher to follow and re-arm (SF7, M4)")
+  func watcherFollowsLocationProviderChange() throws {
+    let dir1 = makeTempDir()
+    let dir2 = makeTempDir()
+    let stagingDir = makeTempDir()
+    defer {
+      try? FileManager.default.removeItem(at: dir1)
+      try? FileManager.default.removeItem(at: dir2)
+      try? FileManager.default.removeItem(at: stagingDir)
+    }
+
+    final class ProviderBox: @unchecked Sendable {
+      var current: URL
+      init(_ url: URL) { self.current = url }
+    }
+    let box = ProviderBox(dir1)
+
+    let store = ShelfStore(directory: dir1)
+    let watcher = CaptureWatcher(directory: dir1, store: store, locationProvider: { box.current })
+    watcher.start()
+    defer { watcher.stop() }
+
+    // Change location provider to dir2
+    box.current = dir2
+    watcher.checkLocation()
+
+    #expect(watcher.directory == dir2)
+
+    // Add a capture in dir2
+    let stagedShot = stagingDir.appendingPathComponent("Screenshot 2026-10-18 at 10.15.02.png")
+    try Data("new-shot-dir2".utf8).write(to: stagedShot)
+    let val = "bplist00"
+    setxattr(stagedShot.path, CaptureDetector.screenCaptureAttr, val, val.utf8.count, 0, 0)
+
+    let newShot = dir2.appendingPathComponent("Screenshot 2026-10-18 at 10.15.02.png")
+    try FileManager.default.moveItem(at: stagedShot, to: newShot)
+
+    var items: [ShelfItem] = []
+    for _ in 0..<20 {
+      watcher.scanForNewCaptures()
+      items = store.items()
+      if items.count == 1 { break }
+      Thread.sleep(forTimeInterval: 0.05)
+    }
+
+    #expect(items.count == 1)
+    #expect(items.first?.title == "Screenshot 2026-10-18 at 10.15.02.png")
+  }
+
+  @Test("Watcher arms when directory appears if missing at start (SF7, m9)")
+  func watcherRearmsWhenDirectoryAppears() throws {
+    let tempParent = makeTempDir()
+    let lateDir = tempParent.appendingPathComponent("late-folder")
+    let stagingDir = makeTempDir()
+    defer {
+      try? FileManager.default.removeItem(at: tempParent)
+      try? FileManager.default.removeItem(at: stagingDir)
+    }
+
+    let store = ShelfStore(directory: tempParent)
+    let watcher = CaptureWatcher(directory: lateDir, store: store)
+    watcher.start()
+    defer { watcher.stop() }
+
+    // lateDir does not exist yet; creating it now
+    try FileManager.default.createDirectory(at: lateDir, withIntermediateDirectories: true)
+    watcher.checkLocation()
+
+    // Add capture to lateDir
+    let stagedShot = stagingDir.appendingPathComponent("Screenshot 2026-10-18 at 10.15.02.png")
+    try Data("late-shot".utf8).write(to: stagedShot)
+    let val = "bplist00"
+    setxattr(stagedShot.path, CaptureDetector.screenCaptureAttr, val, val.utf8.count, 0, 0)
+
+    let newShot = lateDir.appendingPathComponent("Screenshot 2026-10-18 at 10.15.02.png")
+    try FileManager.default.moveItem(at: stagedShot, to: newShot)
+
+    var items: [ShelfItem] = []
+    for _ in 0..<20 {
+      watcher.scanForNewCaptures()
+      items = store.items()
+      if items.count == 1 { break }
+      Thread.sleep(forTimeInterval: 0.05)
+    }
+
+    #expect(items.count == 1)
+    #expect(items.first?.title == "Screenshot 2026-10-18 at 10.15.02.png")
+  }
 }

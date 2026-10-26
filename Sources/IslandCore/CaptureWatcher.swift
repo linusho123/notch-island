@@ -10,6 +10,7 @@ public final class CaptureWatcher: @unchecked Sendable {
   public private(set) var directory: URL
   public let store: ShelfStore
   public var onCaptureParked: (@Sendable (ShelfItem) -> Void)?
+  public var locationProvider: (@Sendable () -> URL)?
 
   private let queue = DispatchQueue(label: "notch-island.capture-watcher")
   private var source: DispatchSourceFileSystemObject?
@@ -17,9 +18,14 @@ public final class CaptureWatcher: @unchecked Sendable {
   private var isRunning = false
   private let lock = NSLock()
 
-  public init(directory: URL, store: ShelfStore) {
+  public init(
+    directory: URL,
+    store: ShelfStore,
+    locationProvider: (@Sendable () -> URL)? = nil
+  ) {
     self.directory = directory
     self.store = store
+    self.locationProvider = locationProvider
   }
 
   deinit {
@@ -37,6 +43,9 @@ public final class CaptureWatcher: @unchecked Sendable {
     }
     return FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
   }
+
+  /// Checks whether the screenshot location has changed or needs re-arming.
+  public func checkLocation() {}
 
   /// Starts watching the screenshot location for new captures.
   public func start() {
