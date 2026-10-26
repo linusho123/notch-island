@@ -890,7 +890,20 @@ module.exports = function (reg) {
     assert.ok(!fs.existsSync(path.join(archive, name)), `${name} still in Archive`);
   });
 
+function countFinderTrashTaxReturn() {
+  try {
+    const out = execSync("osascript -e 'tell application \"Finder\" to count (every item of trash whose name begins with \"tax-return\")'", {
+      encoding: 'utf8',
+      timeout: 5000,
+    }).trim();
+    return parseInt(out, 10) || 0;
+  } catch {
+    return 0;
+  }
+}
+
   reg.define(/^the visionary moves "tax-return\.pdf" to the Trash in Finder$/, async (w) => {
+    const beforeCount = countFinderTrashTaxReturn();
     const docs = scratchDocuments(w);
     const pdf = path.join(docs, 'tax-return.pdf');
     execSync(`osascript -e 'tell application "Finder" to delete POSIX file "${pdf}"'`);
@@ -899,6 +912,12 @@ module.exports = function (reg) {
         const trashFile = path.join(os.homedir(), '.Trash', 'tax-return.pdf');
         if (fs.existsSync(trashFile)) fs.rmSync(trashFile, { force: true });
       } catch {}
+      const afterCount = countFinderTrashTaxReturn();
+      assert.equal(
+        afterCount,
+        beforeCount,
+        `Finder's Trash count changed from ${beforeCount} to ${afterCount}: a test deleted into the visionary's real Trash`
+      );
     });
     await sleep(300);
   });

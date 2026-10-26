@@ -117,6 +117,11 @@ struct ShelfStoreTests {
     #expect(store.count == 0)
   }
 
+  @Test func isInTrashRecognizesVolumeTrashes() {
+    let volumeTrashFile = URL(fileURLWithPath: "/Volumes/External/.Trashes/501/tax-return.pdf")
+    #expect(FilePointer.isInTrash(volumeTrashFile))
+  }
+
   @Test func aParkedFileLeavesTheShelfWhenDeletedD36D58D106() throws {
     let dir = try makeScratchDirectory()
     let storeFile = dir.appendingPathComponent("shelf.json")
