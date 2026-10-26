@@ -695,9 +695,9 @@ module.exports = function (reg) {
   });
 
   reg.define(/^the visionary sees its original still on the Desktop$/, async (w) => {
+    assert.ok(w.exactOriginal, 'scenario did not record exact original filename');
     const desktop = scratchDesktop(w);
-    const files = fs.readdirSync(desktop);
-    assert.ok(files.some((f) => f.startsWith('Screenshot') || f.endsWith('.mov')), 'original capture missing from Desktop');
+    assert.ok(fs.existsSync(path.join(desktop, w.exactOriginal)), `exact original "${w.exactOriginal}" missing from Desktop`);
   });
 
   reg.define(/^the visionary sees the link to "gov\.uk\/renew-adult-passport" still there$/, async (w) => {
