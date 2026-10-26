@@ -472,31 +472,53 @@ private struct Controls: View {
 /// enforces the 140-character cap on pasting and typing (D62, D104, D123),
 /// and routes Return to commit and Escape to cancel.
 final class CustomNoteTextView: NSTextView {
+  weak var activeField: CustomNoteNSTextField?
   var onCommit: ((String) -> Void)?
   var onCancel: (() -> Void)?
 
+  override func keyDown(with event: NSEvent) {
+    let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+    if flags.contains(.command) {
+      if performKeyEquivalent(with: event) {
+        return
+      }
+    }
+    if event.keyCode == 36 {
+      insertNewline(nil)
+      return
+    }
+    if event.keyCode == 53 {
+      cancelOperation(nil)
+      return
+    }
+    super.keyDown(with: event)
+  }
+
   override func performKeyEquivalent(with event: NSEvent) -> Bool {
-    if event.modifierFlags.contains(.command) {
-      let chars = event.charactersIgnoringModifiers?.lowercased() ?? ""
-      if chars == "a" {
+    let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+    if flags.contains(.command) {
+      switch event.keyCode {
+      case 0:
         self.selectAll(nil)
         return true
-      } else if chars == "v" {
+      case 9:
         self.paste(nil)
         return true
-      } else if chars == "c" {
+      case 8:
         self.copy(nil)
         return true
-      } else if chars == "x" {
+      case 7:
         self.cut(nil)
         return true
-      } else if chars == "z" {
-        if event.modifierFlags.contains(.shift) {
+      case 6:
+        if flags.contains(.shift) {
           self.undoManager?.redo()
         } else {
           self.undoManager?.undo()
         }
         return true
+      default:
+        break
       }
     }
     return super.performKeyEquivalent(with: event)
@@ -530,18 +552,19 @@ final class CustomNoteTextView: NSTextView {
   }
 
   override func insertNewline(_ sender: Any?) {
-    if let coord = self.delegate as? NoteTextFieldRepresentable.Coordinator {
-      coord.parent.onCommit(self.string)
-    } else if let onCommit {
-      onCommit(self.string)
+    let text = self.string
+    if let commit = activeField?.onCommit ?? onCommit {
+      commit(text)
+    } else if let coord = self.delegate as? NoteTextFieldRepresentable.Coordinator {
+      coord.parent.onCommit(text)
     }
   }
 
   override func cancelOperation(_ sender: Any?) {
-    if let coord = self.delegate as? NoteTextFieldRepresentable.Coordinator {
+    if let cancel = activeField?.onCancel ?? onCancel {
+      cancel()
+    } else if let coord = self.delegate as? NoteTextFieldRepresentable.Coordinator {
       coord.parent.onCancel()
-    } else if let onCancel {
-      onCancel()
     }
   }
 
@@ -569,6 +592,7 @@ final class CustomNoteNSTextField: NSTextField {
       window.makeFirstResponder(self)
       self.selectText(nil)
       if let editor = self.currentEditor() as? CustomNoteTextView {
+        editor.activeField = self
         editor.onCommit = self.onCommit
         editor.onCancel = self.onCancel
         let len = (self.stringValue as NSString).length
@@ -582,6 +606,7 @@ final class CustomNoteNSTextField: NSTextField {
     if ok {
       self.selectText(nil)
       if let editor = currentEditor() as? CustomNoteTextView {
+        editor.activeField = self
         editor.onCommit = self.onCommit
         editor.onCancel = self.onCancel
         let len = (stringValue as NSString).length

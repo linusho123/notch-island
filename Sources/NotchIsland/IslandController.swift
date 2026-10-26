@@ -32,8 +32,11 @@ final class IslandPanel: NSPanel, NSWindowDelegate {
   override var canBecomeMain: Bool { false }
 
   func windowWillReturnFieldEditor(_ sender: NSWindow, to client: Any?) -> Any? {
-    if client is CustomNoteNSTextField {
+    if let field = client as? CustomNoteNSTextField {
       customEditor.isFieldEditor = true
+      customEditor.activeField = field
+      customEditor.onCommit = field.onCommit
+      customEditor.onCancel = field.onCancel
       return customEditor
     }
     return nil
