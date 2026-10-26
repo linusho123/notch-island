@@ -326,7 +326,7 @@ module.exports = function (reg) {
     const btn = view.buttons.find((b) => b.label && b.label.includes('tax-return.pdf'));
     assert.ok(btn, 'could not find Remove button for tax-return.pdf');
     const c = center(btn.frame);
-    await harness.move(c.x, c.y);
+    await harness.glide(c.x, c.y, 4, 8);
     await sleep(100);
     await harness.click(c.x, c.y);
     await sleep(250);
