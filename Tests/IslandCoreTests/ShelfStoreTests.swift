@@ -415,6 +415,37 @@ struct ShelfStoreTests {
     #expect(store.items()[0].title == "3 screenshots")
   }
 
+  @Test func capturesWithinSixtySecondsJoinStackEvenWithInterveningFileD118() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+    let clock = TestClock(t0)
+    let store = ShelfStore(file: storeFile, clock: { clock.now })
+
+    let s1 = try createTempFile(in: dir, named: "s1.png")
+    let f1 = try createTempFile(in: dir, named: "doc.pdf")
+    let s2 = try createTempFile(in: dir, named: "s2.png")
+
+    // First screenshot
+    try store.parkCapture(at: s1, landedAt: t0)
+    #expect(store.count == 1)
+
+    // Intervening file parked 10s later
+    clock.advance(by: 10)
+    try store.parkFile(at: f1, landedAt: clock.now)
+    #expect(store.count == 2)
+
+    // Second screenshot parked 45s after the first screenshot (35s after file, gap <= 60s from s1)
+    clock.advance(by: 35)
+    try store.parkCapture(at: s2, landedAt: clock.now)
+
+    let items = store.items()
+    #expect(items.count == 2)
+    let stacks = items.filter { $0.isStack }
+    #expect(stacks.count == 1)
+    #expect(stacks[0].title == "2 screenshots")
+  }
+
   @Test func aCaptureSixtyOneSecondsAfterThePreviousStartsANewItemD118() throws {
     let dir = try makeScratchDirectory()
     let storeFile = dir.appendingPathComponent("shelf.json")
