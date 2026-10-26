@@ -1073,6 +1073,9 @@ private final class DraggableContainerView<Content: View>: NSView, NSDraggingSou
 
   override func hitTest(_ point: NSPoint) -> NSView? {
     guard let view = super.hitTest(point) else { return nil }
+    if model?.editingNoteID == item.id {
+      return view
+    }
     if point.x >= bounds.width - 32 && point.y >= bounds.height - 30 {
       return view
     }
@@ -1089,8 +1092,13 @@ private final class DraggableContainerView<Content: View>: NSView, NSDraggingSou
   override func mouseUp(with event: NSEvent) {
     if dragStartLocation != nil {
       dragStartLocation = nil
-      if item.isStack {
+      switch item.kind {
+      case .note:
+        model?.startEditingNote(id: item.id, currentText: item.noteText ?? item.title)
+      case _ where item.isStack:
         model?.onExpandShelfStack(item.id)
+      default:
+        break
       }
     }
   }

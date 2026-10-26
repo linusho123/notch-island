@@ -91,6 +91,7 @@ module.exports = {
     try {
       await module.exports.pasteboardSet('general', 'public.utf8-plain-text', text);
       await module.exports.key(9, 'cmd');
+      await new Promise((r) => setTimeout(r, 200));
     } finally {
       await module.exports.pasteboardRestore(saved);
     }
