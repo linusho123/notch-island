@@ -13,6 +13,7 @@ runFeatures(path.join(__dirname, '..', 'features'), {
   'music-sources': require('./steps/music-sources.steps'),
   'new-song-notice': require('./steps/new-song-notice.steps'),
   'shelf-captures-and-files': require('./steps/shelf-captures-and-files.steps'),
+  'shelf-notes-and-reminders': require('./steps/shelf-notes-and-reminders.steps'),
 }, {
   wip: [
     'around-the-clock',
