@@ -1071,14 +1071,22 @@ module.exports = (reg) => {
     assert.ok(w.held.length > 10, 'the island was not watched during the drag');
     const closed = w.held.filter((v) => !v.open);
     assert.equal(closed.length, 0, 'the island closed while the dot was still held far away');
-    // MF3: before releasing, assert the pointer is not over the Dock area.
-    // Releasing over the Dock drops the held file onto whatever app icon is
-    // underneath (Notes, Finder, etc.), polluting the visionary's Mac.
+    // MF3: before releasing, cancel any drag near the Dock and move the
+    // pointer back over the island, so the release never drops a file onto
+    // a Dock icon (Notes, Finder, etc.).
     const ptr = await harness.pointer();
     const { frame } = await harness.builtIn();
     const dockTop = frame.y + frame.h - 120;
-    assert.ok(ptr.y < dockTop,
-      `the pointer is at y ${ptr.y}, inside the Dock area (top ${dockTop}): releasing here would drop the file on a Dock icon`);
+    if (ptr.y >= dockTop) {
+      await harness.key(53); // Escape: cancel the drag
+      await sleep(100);
+      const n = await notch();
+      await harness.glide(n.x + n.w / 2, n.y + n.h + 30, 5, 10);
+    }
+    // Assert the pointer is safely away from the Dock area.
+    const safePtr = await harness.pointer();
+    assert.ok(safePtr.y < dockTop,
+      `the pointer is at y ${safePtr.y}, inside the Dock area (top ${dockTop}): releasing here would drop the file on a Dock icon`);
     await harness.release();
   });
   // The island's shape and motion (P3.5, D136-D140) --------------------------
