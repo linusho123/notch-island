@@ -15,6 +15,9 @@
 //
 // Everything that reads or drives the Mac is passed in, so the logic is
 // tested with a fake clock and stand-in processes (test/when-idle.test.js).
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { spawn } = require('node:child_process');
 
 const IDLE_NEEDED_MS = 3 * 60 * 1000;
@@ -223,10 +226,67 @@ function describe(real) {
   return `${real.signal || 'tap'}: ${real.kind || 'input'} (event type ${real.type}, from pid ${real.sourcePid ?? '?'})`;
 }
 
+// -------------------------------------------------------- cross-run lock (SF10)
+
+const DEFAULT_LOCK_FILE = path.join(os.tmpdir(), 'notch-island-when-idle.lock');
+
+function isPidAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return e.code === 'EPERM';
+  }
+}
+
+function acquireLock(lockPath = DEFAULT_LOCK_FILE, { pid = process.pid } = {}) {
+  try {
+    const fd = fs.openSync(lockPath, 'wx');
+    fs.writeFileSync(fd, `${pid}\n`);
+    fs.closeSync(fd);
+    return { acquired: true, lockPath };
+  } catch (err) {
+    if (err.code === 'EEXIST') {
+      try {
+        const content = fs.readFileSync(lockPath, 'utf8').trim();
+        const holderPid = parseInt(content, 10);
+        if (holderPid && !isPidAlive(holderPid)) {
+          // Stale lock: previous holder is no longer running.
+          fs.rmSync(lockPath, { force: true });
+          const fd = fs.openSync(lockPath, 'wx');
+          fs.writeFileSync(fd, `${pid}\n`);
+          fs.closeSync(fd);
+          return { acquired: true, lockPath, recoveredStale: true };
+        }
+        return { acquired: false, holderPid, reason: `another when-idle run is active (pid ${holderPid || 'unknown'})` };
+      } catch {
+        return { acquired: false, reason: 'another when-idle run is active' };
+      }
+    }
+    throw err;
+  }
+}
+
+function releaseLock(lockPath = DEFAULT_LOCK_FILE, { pid = process.pid } = {}) {
+  try {
+    if (fs.existsSync(lockPath)) {
+      const content = fs.readFileSync(lockPath, 'utf8').trim();
+      const holderPid = parseInt(content, 10);
+      if (!holderPid || holderPid === pid) {
+        fs.rmSync(lockPath, { force: true });
+      }
+    }
+  } catch {}
+}
+
 module.exports = {
   IDLE_NEEDED_MS,
   VOID_EXIT,
   GUARD_FAILED_EXIT,
+  DEFAULT_LOCK_FILE,
+  isPidAlive,
+  acquireLock,
+  releaseLock,
   parseHidIdleMs,
   parseOnAC,
   parseLidOpen,
