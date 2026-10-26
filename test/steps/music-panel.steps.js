@@ -278,6 +278,15 @@ async function concert(w) {
   w.concertAt = Date.now();
 }
 
+async function shelfFromBelow(w) {
+  const before = w.beforeScroll;
+  assert.ok(before.shelfFrame && before.shelfFrame.y >= before.panel.y + before.panel.h - 1,
+    'the shelf page was not waiting below the music page');
+  const view = await island.waitFor(w.island.pid, (v) => v.open && v.page === 'shelf', 1500,
+    'the shelf page did not come up');
+  assert.ok(view.musicFrame.y < before.musicFrame.y, 'the music page did not move up out of the way');
+}
+
 // --------------------------------------------------------------- definer
 
 module.exports = (reg) => {
@@ -827,15 +836,6 @@ module.exports = (reg) => {
     }
   });
 
-  async function shelfFromBelow(w) {
-    const before = w.beforeScroll;
-    assert.ok(before.shelfFrame && before.shelfFrame.y >= before.panel.y + before.panel.h - 1,
-      'the shelf page was not waiting below the music page');
-    const view = await island.waitFor(w.island.pid, (v) => v.open && v.page === 'shelf', 1500,
-      'the shelf page did not come up');
-    assert.ok(view.musicFrame.y < before.musicFrame.y, 'the music page did not move up out of the way');
-  }
-
   reg.define(/^the visionary sees the shelf page come up from below$/, async (w) => {
     await shelfFromBelow(w);
   });
@@ -1361,4 +1361,5 @@ module.exports = (reg) => {
 module.exports.helpers = {
   notch, away, pointerAway, ensureIsland, playing, plainNotch, rest, openOnMusicPage, openByRest,
   button, clickButton, showsSong, musicSays, dotTime, restDeadline, assertFocusKept, RULED_REST_MS,
+  shelfFromBelow,
 };
