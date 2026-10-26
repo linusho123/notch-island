@@ -185,7 +185,8 @@ module.exports = function (reg) {
   reg.define(/^"Screenshot 2026-10-18 at 23\.58\.00\.png" was parked on the shelf at 11:58 pm and has not been dragged out or removed$/, async (w) => {
     setupScreenshotLocation(w, scratchDesktop(w));
     const desktop = scratchDesktop(w);
-    const shot = path.join(desktop, 'Screenshot 2026-10-18 at 23.58.00.png');
+    w.exactOriginal = 'Screenshot 2026-10-18 at 23.58.00.png';
+    const shot = path.join(desktop, w.exactOriginal);
     execSync(`/usr/sbin/screencapture -x "${shot}"`);
     const landedAt = '2026-10-18T23:58:00Z';
     island.feed(w, {
@@ -326,7 +327,8 @@ module.exports = function (reg) {
   reg.define(/^"Screenshot 2026-10-18 at 10\.15\.02\.png" is parked on the shelf and its original is on the Desktop$/, async (w) => {
     setupScreenshotLocation(w, scratchDesktop(w));
     const desktop = scratchDesktop(w);
-    const shot = path.join(desktop, 'Screenshot 2026-10-18 at 10.15.02.png');
+    w.exactOriginal = 'Screenshot 2026-10-18 at 10.15.02.png';
+    const shot = path.join(desktop, w.exactOriginal);
     execSync(`/usr/sbin/screencapture -x "${shot}"`);
     island.feed(w, {
       clearShelf: true,
@@ -338,15 +340,16 @@ module.exports = function (reg) {
   reg.define(/^(the 2 GB screen recording "bug-repro\.mov"|the screenshot "Screenshot 2026-10-18 at 10\.15\.02\.png") is parked on the shelf and its original is on the Desktop$/, async (w, item) => {
     setupScreenshotLocation(w, scratchDesktop(w));
     const desktop = scratchDesktop(w);
+    w.exactOriginal = item.includes('bug-repro.mov') ? 'bug-repro.mov' : 'Screenshot 2026-10-18 at 10.15.02.png';
     if (item.includes('bug-repro.mov')) {
-      const mov = path.join(desktop, 'bug-repro.mov');
+      const mov = path.join(desktop, w.exactOriginal);
       execSync(`/bin/dd if=/dev/zero of="${mov}" bs=1 count=0 seek=2147483648 2>/dev/null`);
       island.feed(w, {
         clearShelf: true,
         seedShelf: [{ type: 'screenRecording', path: mov, landedAt: new Date().toISOString() }],
       });
     } else {
-      const shot = path.join(desktop, 'Screenshot 2026-10-18 at 10.15.02.png');
+      const shot = path.join(desktop, w.exactOriginal);
       execSync(`/usr/sbin/screencapture -x "${shot}"`);
       island.feed(w, {
         clearShelf: true,
@@ -649,6 +652,7 @@ module.exports = function (reg) {
   });
 
   reg.define(/^the visionary sees no new item started beside it$/, async (w) => {
+    await openOnShelfPage(w);
     const view = await island.look(w.island.pid);
     const items = view.elements.filter((e) => e.identifier === 'shelf-item');
     assert.equal(items.length, 1, `expected 1 stack item, found ${items.length}`);
@@ -685,6 +689,7 @@ module.exports = function (reg) {
   });
 
   reg.define(/^the visionary sees (the screenshot still on the shelf|the screenshot gone from the shelf)$/, async (w, state) => {
+    await openOnShelfPage(w);
     const view = await island.look(w.island.pid);
     const hasShot = view.texts.some((t) => t.includes('Screenshot'));
     if (state.includes('still on the shelf')) {
