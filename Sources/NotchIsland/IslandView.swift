@@ -122,19 +122,23 @@ private struct OpenPanel: View {
   var body: some View {
     GeometryReader { proxy in
       let height = proxy.size.height
+      let width = proxy.size.width
       ZStack(alignment: .trailing) {
-        VStack(spacing: 0) {
+        ZStack {
           MusicPageView(model: model)
-            .frame(width: proxy.size.width, height: height)
+            .frame(width: width, height: height)
+            .offset(y: model.page == .music ? 0 : -height)
+            .allowsHitTesting(model.page == .music)
           ShelfPageView(model: model)
-            .frame(width: proxy.size.width, height: height)
+            .frame(width: width, height: height)
+            .offset(y: model.page == .shelf ? 0 : height)
+            .allowsHitTesting(model.page == .shelf)
         }
-        .offset(y: model.page == .music ? 0 : -height)
         .animation(.easeOut(duration: 0.3), value: model.page)
         PageBar(page: model.page)
           .padding(.trailing, 8)
       }
-      .frame(width: proxy.size.width, height: height, alignment: .top)
+      .frame(width: width, height: height, alignment: .top)
       .clipped()
     }
   }
@@ -430,7 +434,7 @@ private struct ShelfPageView: View {
         HStack(spacing: 36) {
           Rectangle()
             .fill(Color.white.opacity(0.001))
-            .frame(width: 32, height: 32)
+            .frame(width: 32, height: 34)
             .accessibilityElement()
             .accessibilityLabel("Shelf anchor bottom")
             .accessibilityIdentifier("shelf-anchor-bottom")
@@ -438,6 +442,7 @@ private struct ShelfPageView: View {
       }
       .frame(width: 394.5)
       .opacity(0.001)
+      .allowsHitTesting(false)
 
       // Actual shelf UI
       VStack {
@@ -448,7 +453,7 @@ private struct ShelfPageView: View {
             .foregroundColor(.white.opacity(0.3))
           Spacer()
         } else {
-          HStack(spacing: 12) {
+          HStack(spacing: 10) {
             ForEach(model.shelfItems) { item in
               ShelfItemView(
                 item: item,
@@ -484,10 +489,10 @@ private struct ShelfItemView: View {
   @State private var isHovered = false
 
   var body: some View {
-    VStack(spacing: 6) {
+    VStack(spacing: 4) {
       ZStack(alignment: .topTrailing) {
         itemIcon
-          .frame(width: 52, height: 52)
+          .frame(width: 44, height: 44)
           .background(Color.white.opacity(0.1))
           .clipShape(RoundedRectangle(cornerRadius: 8))
 
@@ -505,11 +510,11 @@ private struct ShelfItemView: View {
       }
 
       Text(item.title)
-        .font(.system(size: 11, weight: .regular))
+        .font(.system(size: 10, weight: .regular))
         .foregroundColor(.white)
         .lineLimit(2)
         .multilineTextAlignment(.center)
-        .frame(width: 86)
+        .frame(width: 58)
         .accessibilityIdentifier("shelf-item-title")
 
       if item.isStack {
@@ -526,9 +531,8 @@ private struct ShelfItemView: View {
         .accessibilityIdentifier("expand-\(item.title)")
       }
     }
-    .frame(width: 90)
+    .frame(width: 60)
     .padding(.vertical, 4)
-    .contentShape(Rectangle())
     .onHover { hovering in
       isHovered = hovering
     }
