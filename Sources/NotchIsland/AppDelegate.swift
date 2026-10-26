@@ -268,7 +268,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       let type = seed["type"] as? String ?? seed["kind"] as? String ?? ""
       let landedAt: Date? = {
         if let str = seed["landedAt"] as? String {
-          return ISO8601DateFormatter().date(from: str)
+          let f = ISO8601DateFormatter()
+          if let d = f.date(from: str) { return d }
+          f.formatOptions.insert(.withFractionalSeconds)
+          return f.date(from: str)
         } else if let ts = (seed["landedAtTimestamp"] as? NSNumber)?.doubleValue {
           return Date(timeIntervalSince1970: ts)
         }

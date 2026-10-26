@@ -58,8 +58,10 @@ enum TestInput {
     /// Injected clock date for testing 24-hour ageing and stacking (D57, D118).
     static var clockDate: Date? {
       if let str = read()?["clockDate"] as? String {
-        let formatter = ISO8601DateFormatter()
-        return formatter.date(from: str)
+        let f = ISO8601DateFormatter()
+        if let d = f.date(from: str) { return d }
+        f.formatOptions.insert(.withFractionalSeconds)
+        return f.date(from: str)
       } else if let ts = (read()?["clockTimestamp"] as? NSNumber)?.doubleValue {
         return Date(timeIntervalSince1970: ts)
       }

@@ -411,13 +411,6 @@ private struct ShelfPageView: View {
             .accessibilityElement()
             .accessibilityLabel("Shelf anchor top")
             .accessibilityIdentifier("shelf-anchor-top")
-          Spacer()
-          Rectangle()
-            .fill(Color.white.opacity(0.001))
-            .frame(width: 20, height: 20)
-            .accessibilityElement()
-            .accessibilityLabel("Shelf anchor right")
-            .accessibilityIdentifier("shelf-anchor-right")
         }
         HStack(spacing: 8) {
           Rectangle()
@@ -426,10 +419,7 @@ private struct ShelfPageView: View {
             .accessibilityElement()
             .accessibilityLabel("Shelf anchor mid-left")
             .accessibilityIdentifier("shelf-anchor-mid-left")
-          GeometryReader { _ in
-            Capsule().fill(Color.white.opacity(0.001)).frame(height: 4)
-          }
-          .frame(height: 14)
+          Spacer()
           Rectangle()
             .fill(Color.white.opacity(0.001))
             .frame(width: 44, height: 14)
@@ -446,6 +436,7 @@ private struct ShelfPageView: View {
             .accessibilityIdentifier("shelf-anchor-bottom")
         }
       }
+      .frame(width: 394.5)
       .opacity(0.001)
 
       // Actual shelf UI
