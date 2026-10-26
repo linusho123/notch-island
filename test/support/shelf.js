@@ -173,6 +173,19 @@ async function restartIsland(w, how) {
   return await island.launch(w);
 }
 
+async function assertShelfItem(w, label, expectedCount = 1) {
+  const view = await island.waitFor(
+    w.island.pid,
+    (v) => v.elements.filter((e) => e.identifier === 'shelf-item').length === expectedCount &&
+           v.texts.includes(label),
+    3000,
+    `expected ${expectedCount} shelf item(s) showing "${label}"`
+  );
+  const items = view.elements.filter((e) => e.identifier === 'shelf-item');
+  assert.equal(items.length, expectedCount, `expected ${expectedCount} item(s) on shelf, found ${items.length}`);
+  assert.ok(view.texts.includes(label), `expected exact label "${label}" on shelf, found: ${view.texts.join(', ')}`);
+}
+
 module.exports = {
   scratchDesktop,
   scratchDocuments,
@@ -183,4 +196,5 @@ module.exports = {
   setupScreenshotLocation,
   restartIsland,
   launchDropStandIn,
+  assertShelfItem,
 };
