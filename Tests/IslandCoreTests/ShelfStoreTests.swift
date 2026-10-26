@@ -753,4 +753,33 @@ struct ShelfStoreTests {
     #expect(FileManager.default.fileExists(atPath: storeFile.path))
     #expect(store.items()[0].title == "new-doc.pdf")
   }
+
+  @Test("A parked item on an unmounted volume stays and keeps ageing (SF8, M2, Q3)")
+  func unmountedVolumeKeepsItemAndAgesD58Q3() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let dummy = try createTempFile(in: dir, named: "external-doc.txt", content: "data")
+
+    let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+    let clock = TestClock(t0)
+
+    let store = ShelfStore(
+      file: storeFile,
+      clock: { clock.now },
+      fileResolver: { _ in .volumeMissing }
+    )
+
+    try store.parkFile(at: dummy)
+    // Remove the file to simulate volume / file missing on disk
+    try FileManager.default.removeItem(at: dummy)
+
+    // With fake resolver reporting .volumeMissing, item must be KEPT
+    let itemsBefore24h = store.items()
+    #expect(itemsBefore24h.count == 1)
+
+    // After 24 hours on clock, item ages off (Q3: still ages on 24h clock)
+    clock.advance(by: 24 * 3600)
+    let itemsAfter24h = store.items()
+    #expect(itemsAfter24h.count == 0)
+  }
 }

@@ -1,5 +1,12 @@
 import Foundation
 
+/// The resolution status of a file pointer on disk (SF8, M2, Q3).
+public enum FileResolution: Equatable, Sendable {
+  case resolved(URL)
+  case missing
+  case volumeMissing
+}
+
 /// A pointer to a file or folder on disk, held as bookmark data that follows
 /// moves and detects when the file is trashed or deleted (D36, D58, D106).
 /// It never moves, copies or deletes the file it points at.

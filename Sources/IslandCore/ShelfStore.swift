@@ -18,20 +18,27 @@ public final class ShelfStore: @unchecked Sendable {
   /// Gap within which captures join into a stack (D118).
   public static let captureStackingGap: TimeInterval = 60.0
 
+  public var fileResolver: (@Sendable (inout FilePointer) -> FileResolution)?
+
   public init(
     file: URL,
-    clock: @escaping @Sendable () -> Date = { Date() }
+    clock: @escaping @Sendable () -> Date = { Date() },
+    fileResolver: (@Sendable (inout FilePointer) -> FileResolution)? = nil
   ) {
     self.file = file
     self.clock = clock
+    self.fileResolver = fileResolver
     self.storedItems = Self.loadFromDisk(file: file)
   }
 
   public convenience init(
     directory: URL,
-    clock: @escaping @Sendable () -> Date = { Date() }
+    clock: @escaping @Sendable () -> Date = { Date() },
+    fileResolver: (@Sendable (inout FilePointer) -> FileResolution)? = nil
   ) {
-    self.init(file: directory.appendingPathComponent("shelf.json"), clock: clock)
+    self.init(
+      file: directory.appendingPathComponent("shelf.json"), clock: clock,
+      fileResolver: fileResolver)
   }
 
   public convenience init(
