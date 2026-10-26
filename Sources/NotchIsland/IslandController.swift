@@ -6,8 +6,9 @@ import SwiftUI
 /// and never becomes key, so the frontmost app keeps its focus. It sits above
 /// the menu bar on every space, fullscreen ones included, and is kept out of
 /// every screen capture (D108, D110).
-final class IslandPanel: NSPanel {
+final class IslandPanel: NSPanel, NSWindowDelegate {
   var allowsKeyWindow: Bool = false
+  let customEditor = CustomNoteTextView()
 
   init() {
     super.init(
@@ -24,10 +25,19 @@ final class IslandPanel: NSPanel {
     isMovable = false
     acceptsMouseMovedEvents = true
     becomesKeyOnlyIfNeeded = true
+    self.delegate = self
   }
 
   override var canBecomeKey: Bool { allowsKeyWindow }
   override var canBecomeMain: Bool { false }
+
+  func windowWillReturnFieldEditor(_ sender: NSWindow, to client: Any?) -> Any? {
+    if client is CustomNoteNSTextField {
+      customEditor.isFieldEditor = true
+      return customEditor
+    }
+    return nil
+  }
 }
 
 /// The root view: it reports where the pointer is over the island's window.
@@ -140,6 +150,19 @@ final class IslandController: NSObject, NSMenuDelegate {
     machine = HoverMachine(timing: timing)
     self.contextGuard = contextGuard
     super.init()
+    if NSApp.mainMenu == nil {
+      let mainMenu = NSMenu()
+      let editMenuItem = NSMenuItem()
+      let editMenu = NSMenu(title: "Edit")
+      editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+      editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+      editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+      editMenu.addItem(
+        withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+      mainMenu.addItem(editMenuItem)
+      mainMenu.setSubmenu(editMenu, for: editMenuItem)
+      NSApp.mainMenu = mainMenu
+    }
     Self.host(FirstClickHostingView(rootView: NotchView()), in: rootView)
     Self.host(FirstClickHostingView(rootView: CardView(model: model)), in: cardRoot)
     notchPanel.contentView = rootView

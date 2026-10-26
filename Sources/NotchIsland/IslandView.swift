@@ -467,6 +467,115 @@ private struct Controls: View {
   }
 }
 
+/// The custom field editor used for note entry and editing on the island panel.
+/// Supports standard key equivalents (Cmd+A, Cmd+C, Cmd+V, Cmd+X, Cmd+Z) in an LSUIElement app,
+/// enforces the 140-character cap on pasting and typing (D62, D104, D123),
+/// and routes Return to commit and Escape to cancel.
+final class CustomNoteTextView: NSTextView {
+  var onCommit: ((String) -> Void)?
+  var onCancel: (() -> Void)?
+
+  override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    if event.modifierFlags.contains(.command) {
+      let chars = event.charactersIgnoringModifiers?.lowercased() ?? ""
+      if chars == "a" {
+        self.selectAll(nil)
+        return true
+      } else if chars == "v" {
+        self.paste(nil)
+        return true
+      } else if chars == "c" {
+        self.copy(nil)
+        return true
+      } else if chars == "x" {
+        self.cut(nil)
+        return true
+      } else if chars == "z" {
+        if event.modifierFlags.contains(.shift) {
+          self.undoManager?.redo()
+        } else {
+          self.undoManager?.undo()
+        }
+        return true
+      }
+    }
+    return super.performKeyEquivalent(with: event)
+  }
+
+  override func paste(_ sender: Any?) {
+    guard let pasteString = NSPasteboard.general.string(forType: .string) else { return }
+    let sel = selectedRange()
+    guard let r = Range(sel, in: self.string) else { return }
+    let keptCount = self.string[..<r.lowerBound].count + self.string[r.upperBound...].count
+    let room = max(0, NoteCap.maximumLength - keptCount)
+    if room > 0 {
+      let taken = String(pasteString.prefix(room))
+      self.insertText(taken, replacementRange: sel)
+    }
+  }
+
+  override func shouldChangeText(
+    in affectedCharRange: NSRange, replacementString: String?
+  ) -> Bool {
+    guard let replacement = replacementString else { return true }
+    guard let range = Range(affectedCharRange, in: self.string) else { return true }
+    let prefix = self.string[..<range.lowerBound]
+    let suffix = self.string[range.upperBound...]
+    let keptCount = prefix.count + suffix.count
+    let room = max(0, NoteCap.maximumLength - keptCount)
+    if replacement.count > room {
+      return false
+    }
+    return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
+  }
+
+  override func doCommand(by selector: Selector) {
+    if selector == #selector(NSResponder.insertNewline(_:)) {
+      onCommit?(self.string)
+      return
+    } else if selector == #selector(NSResponder.cancelOperation(_:)) {
+      onCancel?()
+      return
+    }
+    super.doCommand(by: selector)
+  }
+}
+
+final class CustomNoteNSTextField: NSTextField {
+  var onCommit: ((String) -> Void)?
+  var onCancel: (() -> Void)?
+
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    guard let window = self.window else { return }
+    DispatchQueue.main.async { [weak self, weak window] in
+      guard let self = self, let window = window else { return }
+      window.makeFirstResponder(self)
+      self.selectText(nil)
+      if let editor = self.currentEditor() as? CustomNoteTextView {
+        editor.onCommit = self.onCommit
+        editor.onCancel = self.onCancel
+        let len = (self.stringValue as NSString).length
+        editor.setSelectedRange(NSRange(location: len, length: 0))
+      }
+    }
+  }
+
+  override func becomeFirstResponder() -> Bool {
+    let ok = super.becomeFirstResponder()
+    if ok {
+      self.selectText(nil)
+      if let editor = currentEditor() as? CustomNoteTextView {
+        editor.onCommit = self.onCommit
+        editor.onCancel = self.onCancel
+        let len = (stringValue as NSString).length
+        editor.setSelectedRange(NSRange(location: len, length: 0))
+      }
+    }
+    return ok
+  }
+}
+
 /// An AppKit NSTextField representable that enforces the 140-character cap (D62, D104, D123)
 /// on typing and pasting, never truncates text that was already kept, and handles Return/Escape.
 struct NoteTextFieldRepresentable: NSViewRepresentable {
@@ -489,6 +598,8 @@ struct NoteTextFieldRepresentable: NSViewRepresentable {
     field.focusRingType = .none
     field.delegate = context.coordinator
     field.stringValue = text
+    field.onCommit = onCommit
+    field.onCancel = onCancel
     field.setAccessibilityElement(true)
     field.setAccessibilityRole(.textField)
     field.setAccessibilityIdentifier(accessibilityIdentifier)
@@ -498,12 +609,23 @@ struct NoteTextFieldRepresentable: NSViewRepresentable {
     DispatchQueue.main.async {
       if let window = field.window {
         window.makeFirstResponder(field)
+        field.selectText(nil)
+        if let editor = field.currentEditor() as? CustomNoteTextView {
+          editor.onCommit = onCommit
+          editor.onCancel = onCancel
+          let len = (field.stringValue as NSString).length
+          editor.setSelectedRange(NSRange(location: len, length: 0))
+        }
       }
     }
     return field
   }
 
   func updateNSView(_ nsView: NSTextField, context: Context) {
+    if let custom = nsView as? CustomNoteNSTextField {
+      custom.onCommit = onCommit
+      custom.onCancel = onCancel
+    }
     if nsView.stringValue != text && !context.coordinator.isEditing {
       nsView.stringValue = text
     }
@@ -584,40 +706,8 @@ struct NoteTextFieldRepresentable: NSViewRepresentable {
       if replacement.count <= room {
         return true
       }
-
-      if room == 0 {
-        return false
-      }
-
-      let taken = String(replacement.prefix(room))
-      let newText = String(prefix) + taken + String(suffix)
-      textView.string = newText
-      let newCursorPos = affectedCharRange.location + (taken as NSString).length
-      textView.setSelectedRange(NSRange(location: newCursorPos, length: 0))
-      parent.text = newText
-      textField?.stringValue = newText
       return false
     }
-  }
-}
-
-final class CustomNoteNSTextField: NSTextField {
-  override func viewDidMoveToWindow() {
-    super.viewDidMoveToWindow()
-    guard let window = self.window else { return }
-    DispatchQueue.main.async { [weak self, weak window] in
-      guard let self = self, let window = window else { return }
-      window.makeFirstResponder(self)
-    }
-  }
-
-  override func becomeFirstResponder() -> Bool {
-    let ok = super.becomeFirstResponder()
-    if ok, let editor = currentEditor() as? NSTextView {
-      let len = (stringValue as NSString).length
-      editor.setSelectedRange(NSRange(location: len, length: 0))
-    }
-    return ok
   }
 }
 
@@ -733,7 +823,7 @@ private struct ShelfPageView: View {
           ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
               ForEach(model.shelfItems) { item in
-                DraggableItemContainer(item: item, model: model) {
+                if model.editingNoteID == item.id {
                   ShelfItemView(
                     item: item,
                     model: model,
@@ -744,6 +834,19 @@ private struct ShelfPageView: View {
                       model.onExpandShelfStack(item.id)
                     }
                   )
+                } else {
+                  DraggableItemContainer(item: item, model: model) {
+                    ShelfItemView(
+                      item: item,
+                      model: model,
+                      onRemove: {
+                        model.onRemoveShelfItem(item.id)
+                      },
+                      onExpand: {
+                        model.onExpandShelfStack(item.id)
+                      }
+                    )
+                  }
                 }
               }
             }
