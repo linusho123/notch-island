@@ -447,7 +447,7 @@ final class IslandController: NSObject, NSMenuDelegate {
       return []
     }
     if model.isDraggingShelfItem {
-      return .delete
+      return []
     }
     model.page = .shelf
     pager.show(.shelf)
@@ -463,7 +463,7 @@ final class IslandController: NSObject, NSMenuDelegate {
       return []
     }
     if model.isDraggingShelfItem {
-      return .delete
+      return []
     }
     if model.page != .shelf {
       model.page = .shelf
@@ -485,10 +485,6 @@ final class IslandController: NSObject, NSMenuDelegate {
     }
 
     if model.isDraggingShelfItem {
-      if let item = model.currentDraggedItem {
-        model.onRemoveShelfItem(item.id)
-        return true
-      }
       return false
     }
 
