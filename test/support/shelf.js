@@ -4,11 +4,46 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execSync, execFileSync } = require('node:child_process');
-const { onCleanup } = require('./cleanup');
+const cleanup = require('./cleanup');
 const { scratch } = require('./sandbox');
 const island = require('./island');
 const procs = require('./procs');
 const paths = require('./paths');
+
+let customHdiutilRunner = null;
+function _setHdiutilRunner(runner) {
+  customHdiutilRunner = runner;
+}
+
+function runHdiutil(args, opts = {}) {
+  if (customHdiutilRunner) {
+    return customHdiutilRunner(args, opts);
+  }
+  return execFileSync('/usr/bin/hdiutil', args, opts);
+}
+
+function detachStaleScratchImages() {
+  try {
+    const out = runHdiutil(['info'], { encoding: 'utf8' });
+    const blocks = String(out || '').split(/^={40,}$/m);
+    const scratchBase = path.join(os.tmpdir(), 'notch-island-tests');
+    for (const block of blocks) {
+      if (!block.trim()) continue;
+      const imagePathMatch = block.match(/image-path\s*:\s*(.+)$/m);
+      const imagePath = imagePathMatch ? imagePathMatch[1].trim() : '';
+      const isUnderScratch = imagePath && (imagePath.includes('/notch-island-tests/') || imagePath.startsWith(scratchBase));
+      const hasExactVolumeName = block.includes('NotchIslandScratchDocs');
+      if (isUnderScratch || hasExactVolumeName) {
+        const devMatches = [...block.matchAll(/\/dev\/disk\d+(?![a-z0-9])/g)].map((m) => m[0]);
+        for (const dev of devMatches) {
+          try {
+            runHdiutil(['detach', dev, '-force', '-quiet']);
+          } catch {}
+        }
+      }
+    }
+  } catch {}
+}
 
 function scratchDesktop(w) {
   const dir = path.join(scratch(w), 'Desktop');
@@ -18,6 +53,7 @@ function scratchDesktop(w) {
 
 function scratchVolume(w) {
   if (w && w._scratchVolumeDir) return w._scratchVolumeDir;
+  detachStaleScratchImages();
   const mountDir = path.join(scratch(w), 'ScratchVolume');
   fs.mkdirSync(mountDir, { recursive: true });
   if (process.env.NOTCH_ISLAND_FORCE_HDIUTIL_FAIL === '1') {
@@ -25,23 +61,35 @@ function scratchVolume(w) {
   }
   if (w) {
     const dmg = path.join(scratch(w), 'documents.dmg');
-    try {
-      execFileSync('/usr/bin/hdiutil', ['create', '-size', '20m', '-fs', 'APFS', '-volname', 'NotchIslandScratchDocs', dmg, '-quiet']);
-      execFileSync('/usr/bin/hdiutil', ['attach', dmg, '-mountpoint', mountDir, '-nobrowse', '-quiet']);
-    } catch (err) {
-      throw new Error(`scratch disk image creation or attach failed: ${err.message}`);
-    }
-    w._scratchDocsMounted = true;
     w._scratchVolumeDir = mountDir;
+    let mounted = false;
     const detach = () => {
-      if (!w._scratchDocsMounted) return;
+      if (!mounted && !w._scratchDocsMounted) return;
+      mounted = false;
       w._scratchDocsMounted = false;
       try {
-        execFileSync('/usr/bin/hdiutil', ['detach', mountDir, '-force', '-quiet']);
+        runHdiutil(['detach', mountDir, '-force', '-quiet']);
       } catch {}
+      detachStaleScratchImages();
     };
     w.defer(detach);
-    onCleanup(detach);
+    cleanup.onCleanup(detach);
+
+    try {
+      runHdiutil(['create', '-size', '20m', '-fs', 'APFS', '-volname', 'NotchIslandScratchDocs', dmg, '-quiet']);
+      mounted = true;
+      w._scratchDocsMounted = true;
+      runHdiutil(['attach', dmg, '-mountpoint', mountDir, '-nobrowse', '-quiet']);
+    } catch (err) {
+      mounted = false;
+      w._scratchDocsMounted = false;
+      delete w._scratchVolumeDir;
+      try {
+        runHdiutil(['detach', mountDir, '-force', '-quiet']);
+      } catch {}
+      detachStaleScratchImages();
+      throw new Error(`scratch disk image creation or attach failed: ${err.message}`);
+    }
   }
   return mountDir;
 }
@@ -61,9 +109,10 @@ function detachScratchDocuments(w) {
     const target = w._scratchVolumeDir || w._scratchDocsDir;
     if (target) {
       try {
-        execFileSync('/usr/bin/hdiutil', ['detach', target, '-force', '-quiet']);
+        runHdiutil(['detach', target, '-force', '-quiet']);
       } catch {}
     }
+    detachStaleScratchImages();
   }
 }
 
@@ -240,4 +289,5 @@ module.exports = {
   launchDropStandIn,
   assertShelfItem,
   assert24HourBoundary,
+  _setHdiutilRunner,
 };
