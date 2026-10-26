@@ -83,7 +83,18 @@ module.exports = {
   click: (x, y, button = 'left') => h('click', x, y, button),
   arriveAndClick: (pid, x, y, sampleMs, steps = 10, stepMs = 10) =>
     h('arrive-and-click', pid, x, y, steps, stepMs, sampleMs),
-  key: (code) => h('key', code),
+  key: (code, ...flags) => h('key', code, ...flags),
+  type: (text) => h('type', text),
+  pasteboardSet: (pbName, type, val) => h('pasteboard-set', pbName, type, val),
+  paste: async (text) => {
+    const saved = await module.exports.pasteboardSave();
+    try {
+      await module.exports.pasteboardSet('general', 'public.utf8-plain-text', text);
+      await module.exports.key(9, 'cmd');
+    } finally {
+      await module.exports.pasteboardRestore(saved);
+    }
+  },
   cgwindows: async () => (await h('cgwindows')).windows,
   regionStats: (x, y, w, hh) => h('region-stats', x, y, w, hh),
   drag: (x1, y1, x2, y2, steps = 20, stepMs = 15, hold = false) =>

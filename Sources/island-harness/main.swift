@@ -763,10 +763,39 @@ case "arrive-and-click":
   } while now() < until
   emit(["clickedAt": t, "samples": samples])
 case "key":
-  // key keycode: press and release one key (53 is Escape).
+  // key keycode [flags...]: press and release one key (53 is Escape, 36 is Return).
   let code = CGKeyCode(num(1))
+  var flags: CGEventFlags = []
+  if args.count > 2 {
+    for i in 2..<args.count {
+      let f = arg(i).lowercased()
+      if f.contains("cmd") || f.contains("command") { flags.insert(.maskCommand) }
+      if f.contains("shift") { flags.insert(.maskShift) }
+      if f.contains("alt") || f.contains("opt") { flags.insert(.maskAlternate) }
+      if f.contains("ctrl") || f.contains("control") { flags.insert(.maskControl) }
+    }
+  }
   for down in [true, false] {
-    if let e = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down) { postTagged(e) }
+    if let e = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down) {
+      if !flags.isEmpty { e.flags = flags }
+      postTagged(e)
+    }
+  }
+  emit(["ok": true])
+case "type":
+  // type text: post keyboard events for each character
+  let text = arg(1)
+  for char in text {
+    let utf16 = Array(String(char).utf16)
+    if let down = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) {
+      down.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
+      postTagged(down)
+    }
+    if let up = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) {
+      up.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
+      postTagged(up)
+    }
+    usleep(1000)
   }
   emit(["ok": true])
 case "tree":
@@ -1530,7 +1559,9 @@ case "pasteboard-set":
   let pbName = arg(1)
   let typeStr = arg(2)
   let val = arg(3)
-  let pb = NSPasteboard(name: .init(pbName))
+  let pb: NSPasteboard =
+    (pbName == "general" || pbName == NSPasteboard.general.name.rawValue)
+    ? .general : NSPasteboard(name: .init(pbName))
   pb.clearContents()
   let item = NSPasteboardItem()
   item.setString(val, forType: .init(typeStr))
