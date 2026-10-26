@@ -271,10 +271,58 @@ public final class ShelfStore: @unchecked Sendable {
     return true
   }
 
+  /// Toggles an item between a plain note and a reminder (D39).
+  /// Preserves the note's text and its position on the shelf.
+  @discardableResult
+  public func toggleNoteKind(id: UUID) -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+
+    guard let index = storedItems.firstIndex(where: { $0.id == id }) else { return false }
+    let old = storedItems[index]
+    guard case .note(let text, let isReminder) = old.kind else { return false }
+
+    storedItems[index] = ShelfItem(
+      id: old.id,
+      landedAt: old.landedAt,
+      kind: .note(text: text, isReminder: !isReminder)
+    )
+    try? saveLocked()
+    return true
+  }
+
+  /// Checks off a reminder and removes it from the shelf at once (D40).
+  /// Plain notes and other items are never removed by check-off.
+  @discardableResult
+  public func checkOffReminder(id: UUID) -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+
+    guard let index = storedItems.firstIndex(where: { $0.id == id }) else { return false }
+    let item = storedItems[index]
+    guard case .note(_, let isReminder) = item.kind, isReminder else {
+      return false
+    }
+
+    storedItems.remove(at: index)
+    try? saveLocked()
+    return true
+  }
+
   /// Removes an item after an accepted drop (D92, D116).
+  /// Notes and reminders stay on the shelf unchanged (D93).
   @discardableResult
   public func itemAccepted(id: UUID) -> Bool {
-    remove(id: id)
+    lock.lock()
+    defer { lock.unlock() }
+
+    guard let index = storedItems.firstIndex(where: { $0.id == id }) else { return false }
+    if case .note = storedItems[index].kind {
+      return false
+    }
+    storedItems.remove(at: index)
+    try? saveLocked()
+    return true
   }
 
   /// A refused drop leaves the item on the shelf unchanged (D92, D103).
