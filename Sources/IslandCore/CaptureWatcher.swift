@@ -14,6 +14,7 @@ public final class CaptureWatcher: @unchecked Sendable {
 
   private let queue = DispatchQueue(label: "notch-island.capture-watcher")
   private var source: DispatchSourceFileSystemObject?
+  private var locationTimer: DispatchSourceTimer?
   private var seenPaths: Set<String> = []
   private var isRunning = false
   private let lock = NSLock()
@@ -45,7 +46,31 @@ public final class CaptureWatcher: @unchecked Sendable {
   }
 
   /// Checks whether the screenshot location has changed or needs re-arming.
-  public func checkLocation() {}
+  public func checkLocation() {
+    lock.lock()
+    let provider = locationProvider
+    let running = isRunning
+    lock.unlock()
+
+    guard running else { return }
+
+    if let provider {
+      let currentLoc = provider()
+      lock.lock()
+      let changed = currentLoc != directory
+      lock.unlock()
+      if changed {
+        updateDirectory(currentLoc)
+      }
+    }
+
+    lock.lock()
+    if source == nil && FileManager.default.fileExists(atPath: directory.path) {
+      snapshotExistingFiles()
+      armSource()
+    }
+    lock.unlock()
+  }
 
   /// Starts watching the screenshot location for new captures.
   public func start() {
@@ -56,6 +81,14 @@ public final class CaptureWatcher: @unchecked Sendable {
 
     snapshotExistingFiles()
     armSource()
+
+    let timer = DispatchSource.makeTimerSource(queue: queue)
+    timer.schedule(deadline: .now() + 1.0, repeating: 1.0)
+    timer.setEventHandler { [weak self] in
+      self?.checkLocation()
+    }
+    timer.resume()
+    self.locationTimer = timer
   }
 
   /// Stops watching.
@@ -64,6 +97,8 @@ public final class CaptureWatcher: @unchecked Sendable {
     defer { lock.unlock() }
     guard isRunning else { return }
     isRunning = false
+    locationTimer?.cancel()
+    locationTimer = nil
     source?.cancel()
     source = nil
   }

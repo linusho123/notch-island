@@ -67,7 +67,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     let watcher = CaptureWatcher(
       directory: TestInput.screenshotDirectory ?? CaptureWatcher.defaultScreenshotLocation(),
-      store: shelfStore
+      store: shelfStore,
+      locationProvider: {
+        #if ISLAND_TEST_INPUT
+          if let dir = TestInput.screenshotDirectory {
+            return dir
+          }
+        #endif
+        return CaptureWatcher.defaultScreenshotLocation()
+      }
     )
     watcher.onCaptureParked = { [weak model] _ in
       DispatchQueue.main.async {
