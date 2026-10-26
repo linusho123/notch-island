@@ -35,7 +35,7 @@ test('the lid is open when the clamshell state reads No', () => {
 
 // --------------------------------------------------------- the conditions
 
-const ready = { idleMs: 200000, onAC: true, lidOpen: true, displayAsleep: false, locked: false, screenSaver: false };
+const ready = { idleMs: 200000, onAC: true, lidOpen: true, displayAsleep: false, locked: false, screenSaver: false, builtInOutput: true };
 
 test('a Mac idle for 3 minutes, on AC, lid open, display awake and unlocked is ready', () => {
   assert.deepEqual(w.conditions(ready), { ready: true, reasons: [] });
@@ -56,6 +56,24 @@ for (const [what, patch, reason] of [
     assert.match(c.reasons.join('; '), reason);
   });
 }
+
+test('the built-in speakers with all else ready is ready', () => {
+  assert.deepEqual(w.conditions({ ...ready, builtInOutput: true }), { ready: true, reasons: [] });
+});
+
+test('headphones as output is not ready with that reason naming the device', () => {
+  const c = w.conditions({ ...ready, builtInOutput: false, outputName: 'AirPods Pro' });
+  assert.equal(c.ready, false);
+  assert.deepEqual(c.reasons, ['the sound goes out through "AirPods Pro", not the built-in speakers']);
+});
+
+test('unknown sound output is not ready', () => {
+  for (const builtInOutput of [undefined, null]) {
+    const c = w.conditions({ ...ready, builtInOutput });
+    assert.equal(c.ready, false);
+    assert.deepEqual(c.reasons, ['the sound output could not be read']);
+  }
+});
 
 test('the idle window is 3 minutes', () => {
   assert.equal(w.IDLE_NEEDED_MS, 180000);

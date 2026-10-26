@@ -72,8 +72,10 @@ nothing may need them hands-off by default:
   and reviewers' scenario and mutation runs, the verifier's, the gate) goes
   through `scripts/when-idle.sh`, which starts the command only after **3
   minutes** with no keyboard or trackpad input (`HIDIdleTime`), on AC power,
-  lid open, screen awake and unlocked. Agents wait for it; they never ask the
-  visionary to step away.
+  lid open, screen awake and unlocked, and with the built-in speakers as the
+  sound output (connected headphones mean the visionary is using the Mac;
+  ruled 2026-10-25). Agents wait for it; they never ask the visionary to step
+  away.
 - **Instant stop:** while a UI run is going, any keyboard or trackpad input
   that the harness did not make stops the run within about a second, returns
   the pointer to where the visionary left it, and marks the run void (exit

@@ -83,6 +83,8 @@ async function read() {
   ]);
   let session = { displayAsleep: true, locked: true, screenSaver: false };
   try { session = await h('session'); } catch { /* read as not ready */ }
+  let output = null;
+  try { output = await h('output-device'); } catch { /* leave unknown */ }
   return {
     idleMs: w.parseHidIdleMs(hid),
     onAC: w.parseOnAC(batt),
@@ -90,6 +92,8 @@ async function read() {
     displayAsleep: session.displayAsleep,
     locked: session.locked || session.onConsole === false,
     screenSaver: session.screenSaver,
+    builtInOutput: output?.builtIn,
+    outputName: output?.name,
   };
 }
 

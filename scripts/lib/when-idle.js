@@ -53,6 +53,8 @@ function conditions(r, idleNeededMs = IDLE_NEEDED_MS) {
   if (r.displayAsleep) reasons.push('the display is asleep');
   if (r.screenSaver) reasons.push('the screen saver is running');
   if (r.locked) reasons.push('the screen is locked');
+  if (r.builtInOutput === false) reasons.push(`the sound goes out through "${r.outputName}", not the built-in speakers`);
+  else if (r.builtInOutput !== true) reasons.push('the sound output could not be read');
   return { ready: reasons.length === 0, reasons };
 }
 
