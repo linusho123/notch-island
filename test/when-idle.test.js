@@ -388,3 +388,34 @@ test('a guard that dies mid-run stops the run rather than leave it unguarded', a
   });
   assert.ok(r.guardError, 'the run went on without its guard');
 });
+
+// ----------------------------------------------------------- the cross-run lock (SF10)
+
+test('a second waiter refuses to run while a lock is held by an active process', () => {
+  const dir = tmp();
+  const lockFile = path.join(dir, 'when-idle.lock');
+  const lock1 = w.acquireLock(lockFile, { pid: process.pid });
+  assert.equal(lock1.acquired, true);
+
+  // A second waiter attempting to acquire the same lock while the first is held
+  const lock2 = w.acquireLock(lockFile, { pid: 99999999 });
+  assert.equal(lock2.acquired, false);
+  assert.match(lock2.reason, /active/);
+
+  // Releasing the lock allows another waiter to acquire it
+  w.releaseLock(lockFile, { pid: process.pid });
+  const lock3 = w.acquireLock(lockFile, { pid: process.pid });
+  assert.equal(lock3.acquired, true);
+  w.releaseLock(lockFile, { pid: process.pid });
+});
+
+test('a stale lock from a dead process is cleared and acquired', () => {
+  const dir = tmp();
+  const lockFile = path.join(dir, 'when-idle.lock');
+  // Write a PID that does not exist
+  fs.writeFileSync(lockFile, '99999999\n');
+  const lock = w.acquireLock(lockFile, { pid: process.pid });
+  assert.equal(lock.acquired, true);
+  w.releaseLock(lockFile, { pid: process.pid });
+});
+
