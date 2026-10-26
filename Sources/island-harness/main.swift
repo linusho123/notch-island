@@ -1462,6 +1462,80 @@ case "make-movie":
   // make-movie path seconds [sound]
   makeMovie(path: arg(1), seconds: Int(num(2)), withSound: CommandLine.arguments.count > 4)
   emit(["ok": true])
+case "pasteboard-save":
+  let pb: NSPasteboard
+  if args.count > 1 {
+    pb = NSPasteboard(name: .init(arg(1)))
+  } else {
+    pb = .general
+  }
+  var itemsJSON: [[String: String]] = []
+  if let items = pb.pasteboardItems {
+    for item in items {
+      var itemDict: [String: String] = [:]
+      for t in item.types {
+        if let data = item.data(forType: t) {
+          itemDict[t.rawValue] = data.base64EncodedString()
+        }
+      }
+      itemsJSON.append(itemDict)
+    }
+  }
+  let types = pb.types?.map { $0.rawValue } ?? []
+  emit([
+    "changeCount": pb.changeCount,
+    "types": types,
+    "items": itemsJSON,
+  ])
+case "pasteboard-restore":
+  let payloadStr = arg(1)
+  let pb: NSPasteboard
+  if args.count > 2 {
+    pb = NSPasteboard(name: .init(arg(2)))
+  } else {
+    pb = .general
+  }
+  let data: Data
+  if FileManager.default.fileExists(atPath: payloadStr) {
+    data = (try? Data(contentsOf: URL(fileURLWithPath: payloadStr))) ?? Data()
+  } else {
+    data = payloadStr.data(using: .utf8) ?? Data()
+  }
+  guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+    let itemsList = json["items"] as? [[String: String]]
+  else {
+    fail("invalid pasteboard data")
+  }
+  pb.clearContents()
+  var pbItems: [NSPasteboardItem] = []
+  for itemDict in itemsList {
+    let item = NSPasteboardItem()
+    for (typeStr, b64) in itemDict {
+      if let d = Data(base64Encoded: b64) {
+        item.setData(d, forType: .init(typeStr))
+      }
+    }
+    pbItems.append(item)
+  }
+  if !pbItems.isEmpty {
+    pb.writeObjects(pbItems)
+  }
+  let types = pb.types?.map { $0.rawValue } ?? []
+  emit([
+    "ok": true,
+    "changeCount": pb.changeCount,
+    "types": types,
+  ])
+case "pasteboard-set":
+  let pbName = arg(1)
+  let typeStr = arg(2)
+  let val = arg(3)
+  let pb = NSPasteboard(name: .init(pbName))
+  pb.clearContents()
+  let item = NSPasteboardItem()
+  item.setString(val, forType: .init(typeStr))
+  pb.writeObjects([item])
+  emit(["ok": true, "changeCount": pb.changeCount, "types": pb.types?.map { $0.rawValue } ?? []])
 default:
   fail("unknown command \(command)")
 }

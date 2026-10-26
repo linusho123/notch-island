@@ -2,7 +2,10 @@
 // The far side's reader and the pointer's driver: build/island-harness, which
 // asks macOS itself (Accessibility, the screens, the frontmost app) and posts
 // real pointer events. Coordinates are global and top-left based.
-const { execFile, spawn } = require('node:child_process');
+const { execFile, execFileSync, spawn } = require('node:child_process');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 const { promisify } = require('node:util');
 const { harness } = require('./paths');
 const { assertInIdleRun } = require('./require-idle');
@@ -125,6 +128,40 @@ module.exports = {
   sweep: async (pid, a, b, steps, stepMs, settleMs) =>
     (await h('sweep', pid, a.x, a.y, b.x, b.y, steps, stepMs, settleMs)).samples,
   makeMovie: (file, seconds) => h('make-movie', file, seconds),
+  pasteboardSave: (name) => h('pasteboard-save', ...(name ? [name] : [])),
+  pasteboardRestore: async (saved, name) => {
+    let payload = saved;
+    let tmpFile = null;
+    if (typeof saved === 'object') {
+      tmpFile = path.join(os.tmpdir(), `pb-save-${process.pid}-${Date.now()}.json`);
+      fs.writeFileSync(tmpFile, JSON.stringify(saved));
+      payload = tmpFile;
+    }
+    try {
+      return await h('pasteboard-restore', payload, ...(name ? [name] : []));
+    } finally {
+      if (tmpFile) {
+        try { fs.rmSync(tmpFile, { force: true }); } catch {}
+      }
+    }
+  },
+  pasteboardRestoreSync: (saved, name) => {
+    let payload = saved;
+    let tmpFile = null;
+    if (typeof saved === 'object') {
+      tmpFile = path.join(os.tmpdir(), `pb-sync-${process.pid}-${Date.now()}.json`);
+      fs.writeFileSync(tmpFile, JSON.stringify(saved));
+      payload = tmpFile;
+    }
+    try {
+      const args = ['pasteboard-restore', payload, ...(name ? [name] : [])];
+      return JSON.parse(execFileSync(harness, args, { encoding: 'utf8', timeout: 5000 }));
+    } finally {
+      if (tmpFile) {
+        try { fs.rmSync(tmpFile, { force: true }); } catch {}
+      }
+    }
+  },
   /**
    * The island's window frames sampled every `everyMs` for `ms`, from
    * Accessibility and the window server; options: `below` (the strip's

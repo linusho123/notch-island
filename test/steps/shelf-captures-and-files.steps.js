@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { execSync } = require('node:child_process');
 const harness = require('../support/harness');
+const { onCleanup } = require('../support/cleanup');
 const island = require('../support/island');
 const scenes = require('../support/scenes');
 const { helpers } = require('./music-panel.steps');
@@ -427,8 +428,25 @@ module.exports = function (reg) {
 
   reg.define(/^the visionary takes a screenshot copied only to the clipboard$/, async (w) => {
     const beforeSave = await harness.pasteboardSave();
+    let restored = false;
+    const restore = async () => {
+      if (restored) return;
+      restored = true;
+      try { await harness.pasteboardRestore(beforeSave); } catch {}
+    };
+    const restoreSync = () => {
+      if (restored) return;
+      restored = true;
+      try { harness.pasteboardRestoreSync(beforeSave); } catch {}
+    };
+    w.defer(restore);
+    onCleanup(restoreSync);
+
     execSync('/usr/sbin/screencapture -c');
+    await sleep(100);
+
     w.defer(async () => {
+      await restore();
       const current = await harness.pasteboardSave();
       assert.deepEqual(
         current.types,
@@ -436,7 +454,6 @@ module.exports = function (reg) {
         `general pasteboard types were not restored after screencapture -c (was ${beforeSave.types.join(', ')}, now ${current.types.join(', ')})`
       );
     });
-    await sleep(100);
   });
 
   reg.define(/^the visionary takes a screenshot saved by another screenshot tool$/, async (w) => {
