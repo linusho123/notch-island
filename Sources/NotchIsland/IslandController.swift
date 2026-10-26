@@ -146,11 +146,9 @@ final class IslandController: NSObject, NSMenuDelegate {
     cardRoot.onPointer = { [weak self] in self?.pointerChanged() }
     rootView.onDragEntered = { [weak self] sender in self?.handleDragEntered(sender) ?? [] }
     rootView.onDragUpdated = { [weak self] sender in self?.handleDragUpdated(sender) ?? [] }
-    rootView.onDragExited = { [weak self] sender in self?.handleDragExited(sender) }
     rootView.onPerformDrop = { [weak self] sender in self?.handlePerformDrop(sender) ?? false }
     cardRoot.onDragEntered = { [weak self] sender in self?.handleDragEntered(sender) ?? [] }
     cardRoot.onDragUpdated = { [weak self] sender in self?.handleDragUpdated(sender) ?? [] }
-    cardRoot.onDragExited = { [weak self] sender in self?.handleDragExited(sender) }
     cardRoot.onPerformDrop = { [weak self] sender in self?.handlePerformDrop(sender) ?? false }
     model.onShelfDragBegan = { [weak self] item in
       self?.shelfItemDragBegan(item: item)
@@ -478,12 +476,6 @@ final class IslandController: NSObject, NSMenuDelegate {
     return .copy
   }
 
-  private func handleDragExited(_ sender: NSDraggingInfo) {
-    let (_, inside) = pointerInside()
-    machine.dragEnded(inside: inside, at: now)
-    settle()
-  }
-
   private func handlePerformDrop(_ sender: NSDraggingInfo) -> Bool {
     if isTextOnlyDrag(sender) {
       if let str = sender.draggingPasteboard.string(forType: .string) {
@@ -514,9 +506,6 @@ final class IslandController: NSObject, NSMenuDelegate {
           try shelfStore.parkFiles(at: fileURLs)
         }
         model.refreshShelf()
-        let (_, inside) = pointerInside()
-        machine.dragEnded(inside: inside, at: now)
-        settle()
         return true
       } catch {
         return false
@@ -535,9 +524,6 @@ final class IslandController: NSObject, NSMenuDelegate {
         }
         shelfStore.parkLink(first, title: title)
         model.refreshShelf()
-        let (_, inside) = pointerInside()
-        machine.dragEnded(inside: inside, at: now)
-        settle()
         return true
       }
     }
