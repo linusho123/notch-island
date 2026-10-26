@@ -724,4 +724,33 @@ struct ShelfStoreTests {
     #expect(linkItem?.landedAt == t0.addingTimeInterval(30))
     #expect(linkItem?.title == "Guide")
   }
+
+  @Test func corruptShelfJsonIsPreservedInCorruptFileAndNotOverwrittenD59() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let corruptContent = "{ this is corrupt json data that cannot be decoded as [ShelfItem] }"
+    try corruptContent.write(to: storeFile, atomically: true, encoding: .utf8)
+
+    let store = ShelfStore(file: storeFile)
+    #expect(store.isEmpty)
+
+    // Park a new file
+    let doc = try createTempFile(in: dir, named: "new-doc.pdf", content: "valid")
+    try store.parkFile(at: doc)
+    #expect(store.count == 1)
+
+    // Verify original corrupt bytes survived in shelf.json.corrupt-*
+    let dirContents = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+    let corruptFiles = dirContents.filter { $0.hasPrefix("shelf.json.corrupt-") }
+    #expect(corruptFiles.count == 1)
+    if let corruptFile = corruptFiles.first {
+      let savedBytes = try String(
+        contentsOf: dir.appendingPathComponent(corruptFile), encoding: .utf8)
+      #expect(savedBytes == corruptContent)
+    }
+
+    // And shelf.json now exists with only the new item
+    #expect(FileManager.default.fileExists(atPath: storeFile.path))
+    #expect(store.items()[0].title == "new-doc.pdf")
+  }
 }
