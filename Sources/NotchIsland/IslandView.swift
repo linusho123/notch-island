@@ -529,12 +529,28 @@ final class CustomNoteTextView: NSTextView {
     return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
   }
 
+  override func insertNewline(_ sender: Any?) {
+    if let coord = self.delegate as? NoteTextFieldRepresentable.Coordinator {
+      coord.parent.onCommit(self.string)
+    } else if let onCommit {
+      onCommit(self.string)
+    }
+  }
+
+  override func cancelOperation(_ sender: Any?) {
+    if let coord = self.delegate as? NoteTextFieldRepresentable.Coordinator {
+      coord.parent.onCancel()
+    } else if let onCancel {
+      onCancel()
+    }
+  }
+
   override func doCommand(by selector: Selector) {
     if selector == #selector(NSResponder.insertNewline(_:)) {
-      onCommit?(self.string)
+      insertNewline(nil)
       return
     } else if selector == #selector(NSResponder.cancelOperation(_:)) {
-      onCancel?()
+      cancelOperation(nil)
       return
     }
     super.doCommand(by: selector)
