@@ -77,6 +77,7 @@ const harness = {
   leftHeld: async () => (await h('button')).left,
   release: () => h('release'),
   move: (x, y) => h('move', x, y),
+  outputDevice: () => h('output-device'),
 };
 
 const text = async (file, args) => {

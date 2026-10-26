@@ -164,7 +164,7 @@ function signalGroup(pid, signal) {
  * visionary's input stopped it, { guardError } when the guard was not up to
  * guarding it (the command then never runs, or is stopped), or { code }.
  */
-async function runGuarded({ command, guardCommand, harness, restore, log = console.error, readyMs = 5000, stopGraceMs = 10000, settleMs = 400, onSpawn = () => {} }) {
+async function runGuarded({ command, guardCommand, harness, restore, log = console.error, readyMs = 5000, stopGraceMs = 10000, settleMs = 400, onSpawn = () => {}, outputPollMs = 250 }) {
   const left = await harness.pointer(); // where the visionary left it
   const guard = startGuard(guardCommand);
   try {
@@ -187,10 +187,31 @@ async function runGuarded({ command, guardCommand, harness, restore, log = conso
       child.on('exit', (code, signal) => { exit = { code: code ?? (signal ? 128 : 1), signal }; resolve(); });
       child.on('error', (e) => { exit = { code: 127, error: e.message }; resolve(); });
     });
+
+    let nonBuiltInReason = null;
+    let stopOutputMonitor = false;
+    const outputMonitor = (async () => {
+      if (!harness.outputDevice) return new Promise(() => {});
+      while (!stopOutputMonitor) {
+        await sleepMs(outputPollMs);
+        if (stopOutputMonitor) break;
+        try {
+          const out = await harness.outputDevice();
+          if (out && out.builtIn === false) {
+            nonBuiltInReason = `the sound goes out through "${out.name}", not the built-in speakers`;
+            return 'output-changed';
+          }
+        } catch { /* transient error */ }
+      }
+      return new Promise(() => {});
+    })();
+
     let outcome = await Promise.race([
       exited.then(() => 'done'),
       guard.until(() => guard.state.real || guard.state.exited).then(() => (guard.state.real ? 'real' : 'guard-died')),
+      outputMonitor,
     ]);
+    stopOutputMonitor = true;
     if (outcome === 'done') {
       // The exit may have won the race against input that landed with it: give
       // the guard a moment to report it before calling the run clean.
@@ -214,6 +235,10 @@ async function runGuarded({ command, guardCommand, harness, restore, log = conso
       const reason = describe(guard.state.real);
       log(`when-idle: input from the visionary (${reason}): run stopped and void`);
       return { void: true, reason };
+    }
+    if (outcome === 'output-changed') {
+      log(`when-idle: sound output changed mid-run (${nonBuiltInReason}): run stopped and void`);
+      return { void: true, reason: nonBuiltInReason };
     }
     return { guardError: `the input guard ended mid-run (${JSON.stringify(guard.state.exited)}); the run was stopped` };
   } finally {
