@@ -248,14 +248,17 @@ module.exports = function (reg) {
     island.feed(w, { clearShelf: true, seedShelf: null });
     await ensureIsland(w);
     await pointerAway();
-    await sleep(600);
+    await island.waitFor(w.island.pid, (v) => !v.open, 3000, 'island did not close');
   });
 
   reg.define(/^the visionary is dragging "tax-return\.pdf" and the island has opened to the shelf page$/, async (w) => {
     const docs = scratchDocuments(w);
     const pdf = path.join(docs, 'tax-return.pdf');
     if (!fs.existsSync(pdf)) fs.writeFileSync(pdf, '%PDF-1.4 tax return content');
+    island.feed(w, { clearShelf: true, seedShelf: null });
     await ensureIsland(w);
+    await pointerAway();
+    await island.waitFor(w.island.pid, (v) => !v.open, 3000, 'island did not close');
     const { notch } = await harness.builtIn();
     w.activeDrag = await harness.startDragObject('file', pdf, notch.x + notch.w / 2, notch.y + 200, notch.x + notch.w / 2, notch.y + 10);
     w.defer(async () => {

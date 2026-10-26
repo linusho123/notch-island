@@ -1319,7 +1319,24 @@ case "drag-object":
   let app = NSApplication.shared
   app.setActivationPolicy(.accessory)
 
+  final class DragSourceWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+  }
+
   final class SourceDragView: NSView, NSDraggingSource {
+    var dragItems: [NSDraggingItem] = []
+    var session: NSDraggingSession?
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func mouseDown(with event: NSEvent) {}
+
+    override func mouseDragged(with event: NSEvent) {
+      if session == nil {
+        session = beginDraggingSession(with: dragItems, event: event, source: self)
+      }
+    }
+
     func draggingSession(
       _ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext
     ) -> NSDragOperation {
@@ -1327,14 +1344,15 @@ case "drag-object":
     }
   }
 
-  let sourceWin = NSWindow(
+  let sourceWin = DragSourceWindow(
     contentRect: NSRect(x: startX - 25, y: primaryHeight - startY - 25, width: 50, height: 50),
     styleMask: [.borderless],
     backing: .buffered,
     defer: false
   )
   sourceWin.isOpaque = false
-  sourceWin.backgroundColor = .clear
+  sourceWin.backgroundColor = NSColor(white: 0.5, alpha: 0.05)
+  sourceWin.ignoresMouseEvents = false
   sourceWin.level = .floating
 
   let srcView = SourceDragView(frame: NSRect(x: 0, y: 0, width: 50, height: 50))
@@ -1369,27 +1387,8 @@ case "drag-object":
     fail("unknown drag-object type: \(dragType)")
   }
 
-  let fakeEvent = NSEvent.mouseEvent(
-    with: .leftMouseDown,
-    location: NSPoint(x: 25, y: 25),
-    modifierFlags: [],
-    timestamp: ProcessInfo.processInfo.systemUptime,
-    windowNumber: sourceWin.windowNumber,
-    context: nil,
-    eventNumber: 0,
-    clickCount: 1,
-    pressure: 1.0
-  )!
-
+  srcView.dragItems = dragItems
   sourceWin.makeKeyAndOrderFront(nil)
-
-  warp(to: CGPoint(x: startX, y: startY))
-  sleepMs(40)
-  post(.leftMouseDown, CGPoint(x: startX, y: startY))
-  sleepMs(40)
-
-  let session = srcView.beginDraggingSession(with: dragItems, event: fakeEvent, source: srcView)
-  _ = session
 
   if let owner = ProcessInfo.processInfo.environment["NOTCH_ISLAND_OWNER_PID"].flatMap(Int32.init) {
     Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
@@ -1397,10 +1396,17 @@ case "drag-object":
     }
   }
 
-  if !hold {
-    DispatchQueue.global(qos: .userInteractive).async {
-      glide(to: CGPoint(x: endX, y: endY), steps: 25, stepMs: 20, dragging: true)
-      sleepMs(100)
+  DispatchQueue.global(qos: .userInteractive).async {
+    warp(to: CGPoint(x: startX, y: startY))
+    sleepMs(40)
+    post(.leftMouseDown, CGPoint(x: startX, y: startY))
+    sleepMs(40)
+    post(.leftMouseDragged, CGPoint(x: startX + 4, y: startY + 4))
+    sleepMs(40)
+    glide(to: CGPoint(x: endX, y: endY), steps: 25, stepMs: 20, dragging: true)
+    sleepMs(100)
+
+    if !hold {
       post(.leftMouseUp, CGPoint(x: endX, y: endY))
       sleepMs(150)
       DispatchQueue.main.async {
@@ -1408,30 +1414,27 @@ case "drag-object":
         emit(["ok": true])
         exit(0)
       }
-    }
-    app.run()
-  } else {
-    DispatchQueue.global(qos: .userInteractive).async {
-      glide(to: CGPoint(x: endX, y: endY), steps: 25, stepMs: 20, dragging: true)
-      sleepMs(100)
+    } else {
       line(["ok": true, "holding": true, "pid": Int(getpid())])
     }
+  }
 
+  if hold {
     let input = FileHandle.standardInput
     input.readabilityHandler = { handle in
       let data = handle.availableData
       if data.isEmpty || String(data: data, encoding: .utf8)?.contains("release") == true {
         input.readabilityHandler = nil
-        DispatchQueue.main.async {
-          post(.leftMouseUp, CGPoint(x: endX, y: endY))
-          sleepMs(100)
+        post(.leftMouseUp, CGPoint(x: endX, y: endY))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
           sourceWin.orderOut(nil)
           exit(0)
         }
       }
     }
-    app.run()
   }
+
+  app.run()
 case "move-window":
   // move-window pid x y: put an app's front window's top-left corner at
   // (x, y), as dragging its title bar would (onto another screen, say).
