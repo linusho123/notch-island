@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execSync, execFileSync } = require('node:child_process');
+const { onCleanup } = require('./cleanup');
 const { scratch } = require('./sandbox');
 const island = require('./island');
 const procs = require('./procs');
@@ -15,9 +16,37 @@ function scratchDesktop(w) {
 }
 
 function scratchDocuments(w) {
+  if (w && w._scratchDocsDir) return w._scratchDocsDir;
   const dir = path.join(scratch(w), 'Documents');
   fs.mkdirSync(dir, { recursive: true });
+  if (w) {
+    const dmg = path.join(scratch(w), 'documents.dmg');
+    try {
+      execFileSync('/usr/bin/hdiutil', ['create', '-size', '20m', '-fs', 'APFS', '-volname', 'NotchIslandScratchDocs', dmg, '-quiet']);
+      execFileSync('/usr/bin/hdiutil', ['attach', dmg, '-mountpoint', dir, '-nobrowse', '-quiet']);
+      w._scratchDocsMounted = true;
+      w._scratchDocsDir = dir;
+      const detach = () => {
+        if (!w._scratchDocsMounted) return;
+        w._scratchDocsMounted = false;
+        try {
+          execFileSync('/usr/bin/hdiutil', ['detach', dir, '-force', '-quiet']);
+        } catch {}
+      };
+      w.defer(detach);
+      onCleanup(detach);
+    } catch {}
+  }
   return dir;
+}
+
+function detachScratchDocuments(w) {
+  if (w && w._scratchDocsMounted && w._scratchDocsDir) {
+    w._scratchDocsMounted = false;
+    try {
+      execFileSync('/usr/bin/hdiutil', ['detach', w._scratchDocsDir, '-force', '-quiet']);
+    } catch {}
+  }
 }
 
 function scratchArchive(w) {
@@ -120,6 +149,7 @@ async function restartIsland(w, how) {
 module.exports = {
   scratchDesktop,
   scratchDocuments,
+  detachScratchDocuments,
   scratchArchive,
   scratchBackup,
   scratchScreenshots,

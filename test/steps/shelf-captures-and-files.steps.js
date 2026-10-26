@@ -10,6 +10,7 @@ const { helpers } = require('./music-panel.steps');
 const {
   scratchDesktop,
   scratchDocuments,
+  detachScratchDocuments,
   scratchArchive,
   scratchBackup,
   scratchScreenshots,
@@ -908,10 +909,7 @@ function countFinderTrashTaxReturn() {
     const pdf = path.join(docs, 'tax-return.pdf');
     execSync(`osascript -e 'tell application "Finder" to delete POSIX file "${pdf}"'`);
     w.defer(() => {
-      try {
-        const trashFile = path.join(os.homedir(), '.Trash', 'tax-return.pdf');
-        if (fs.existsSync(trashFile)) fs.rmSync(trashFile, { force: true });
-      } catch {}
+      detachScratchDocuments(w);
       const afterCount = countFinderTrashTaxReturn();
       assert.equal(
         afterCount,
