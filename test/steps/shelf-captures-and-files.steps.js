@@ -566,15 +566,16 @@ module.exports = function (reg) {
   });
 
   reg.define(/^the visionary sees the shelf page at the same size as the music page$/, async (w) => {
-    const view = await island.waitFor(
-      w.island.pid,
-      (v) => v.shelfFrame && v.musicFrame && Math.abs(v.shelfFrame.w - v.musicFrame.w) <= 1,
-      2000,
-      'shelf page width does not match music page'
+    const view = await island.waitFor(w.island.pid, (v) => v.shelfFrame, 2000, 'shelf page not found');
+    const musicFrame = view.musicFrame || w.beforeScroll?.musicFrame;
+    assert.ok(view.shelfFrame && musicFrame, 'frames not found');
+    assert.ok(
+      Math.abs(view.shelfFrame.w - musicFrame.w) <= 1,
+      `shelf page width (${view.shelfFrame?.w}) does not match music page (${musicFrame?.w})`
     );
     assert.ok(
-      Math.abs(view.shelfFrame.h - view.musicFrame.h) <= 1,
-      `shelf page height (${view.shelfFrame?.h}) does not match music page (${view.musicFrame?.h})`
+      Math.abs(view.shelfFrame.h - musicFrame.h) <= 1,
+      `shelf page height (${view.shelfFrame?.h}) does not match music page (${musicFrame?.h})`
     );
   });
 
