@@ -567,7 +567,7 @@ module.exports = function (reg) {
 
   reg.define(/^the visionary sees the shelf page at the same size as the music page$/, async (w) => {
     const view = await island.waitFor(w.island.pid, (v) => v.shelfFrame, 2000, 'shelf page not found');
-    const musicFrame = view.musicFrame || w.beforeScroll?.musicFrame;
+    const musicFrame = w.beforeScroll?.musicFrame || view.musicFrame;
     assert.ok(view.shelfFrame && musicFrame, 'frames not found');
     assert.ok(
       Math.abs(view.shelfFrame.w - musicFrame.w) <= 1,
