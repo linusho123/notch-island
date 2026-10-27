@@ -824,7 +824,7 @@ private struct ShelfPageView: View {
       PageGeometryAnchor()
 
       // Actual shelf UI
-      VStack(spacing: 6) {
+      VStack(spacing: 2) {
         // Shelf header with title and "+ note" button
         HStack {
           Text("Shelf")
@@ -918,7 +918,7 @@ private struct ShelfPageView: View {
               }
             }
             .padding(.horizontal, 4)
-            .padding(.vertical, 4)
+            .padding(.vertical, 1)
           }
 
           Spacer()
@@ -936,6 +936,7 @@ private struct ShelfPageView: View {
         height: OpenPanel.pageSize.height,
         alignment: .topLeading
       )
+      .clipped()
     }
     .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height)
     .accessibilityElement(children: .contain)
@@ -1090,10 +1091,10 @@ private struct ShelfItemView: View {
   }
 
   private var standardItemView: some View {
-    VStack(spacing: 4) {
+    VStack(spacing: 2) {
       ZStack(alignment: .topTrailing) {
         itemIcon
-          .frame(width: 44, height: 44)
+          .frame(width: 40, height: 40)
           .background(Color.white.opacity(0.1))
           .clipShape(RoundedRectangle(cornerRadius: 8))
 
@@ -1106,7 +1107,7 @@ private struct ShelfItemView: View {
         .buttonStyle(.plain)
         .frame(width: 20, height: 20)
         .contentShape(Rectangle())
-        .offset(x: 4, y: -4)
+        .offset(x: 2, y: -2)
         .accessibilityLabel("Remove \(item.title)")
         .accessibilityIdentifier("remove-\(item.title)")
       }
