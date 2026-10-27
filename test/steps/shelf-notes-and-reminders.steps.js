@@ -701,25 +701,52 @@ module.exports = function (reg) {
     const btn = view.buttons.find((b) => b.label === 'box');
     assert.ok(btn, 'reminder box not found');
     const c = center(btn.frame);
+
+    // Arm observation from the click per R2
+    w.boxClickStart = Date.now();
     await harness.click(c.x, c.y);
-    await sleep(250);
+    // Observe immediately from the click without sleep
+    w.boxClickObservation = await island.look(w.island.pid);
+    w.boxClickElapsedMs = Date.now() - w.boxClickStart;
   });
 
   reg.define(/^the visionary sees "([^"]+)" gone from the shelf at once, with no struck-through step$/, async (w, label) => {
-    await openOnShelfPage(w);
     const raw = label.startsWith('✎ ') ? label.slice(2) : label;
-    const view = await island.waitFor(
-      w.island.pid,
-      (v) => !v.texts.some((t) => t.includes(raw)),
-      2500,
-      `reminder "${raw}" still found on shelf`
+    const elapsed = w.boxClickElapsedMs ?? 0;
+    assert.ok(
+      elapsed <= 300,
+      `check-off observation took ${elapsed} ms, exceeding the 300 ms "at once" deadline (R2)`
     );
-    assert.ok(!view.texts.some((t) => t.includes(raw)), `reminder "${raw}" still on screen`);
 
+    const firstLook = w.boxClickObservation ?? (await island.look(w.island.pid));
+
+    // Must be gone at the first observation after the click (R2)
+    assert.ok(
+      !firstLook.texts.some((t) => t.includes(raw)),
+      `reminder "${raw}" was still present at the first observation (${elapsed} ms after click)`
+    );
+
+    // No intermediate checked or struck-through state seen in between
+    const allDesc = (firstLook.elements || [])
+      .map((e) => `${e.description ?? ''} ${e.value ?? ''} ${e.title ?? ''}`)
+      .join(' ')
+      .toLowerCase();
+    assert.ok(
+      !allDesc.includes('checked') &&
+      !allDesc.includes('strike') &&
+      !allDesc.includes('struck') &&
+      !allDesc.includes('✓'),
+      `intermediate checked or struck-through state observed in AX elements: ${allDesc}`
+    );
+
+    // Persisted removal verified on disk
     const shelfFile = path.join(scratch(w), 'island-data', 'shelf.json');
     if (fs.existsSync(shelfFile)) {
       const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
-      assert.ok(!diskItems.some((it) => it.kind && it.kind.note && it.kind.note.text.includes(raw)), `reminder "${raw}" still in shelf.json`);
+      assert.ok(
+        !diskItems.some((it) => it.kind && it.kind.note && it.kind.note.text.includes(raw)),
+        `reminder "${raw}" still in shelf.json`
+      );
     }
   });
 
