@@ -253,11 +253,12 @@ private struct MusicPageView: View {
       }
       Controls(model: model)
     }
+    .frame(width: 394.5, height: 116)
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Music page")
     .padding(.horizontal, 22)
     .padding(.vertical, 10)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .accessibilityElement(children: .contain)
-    .accessibilityLabel("Music page")
   }
 }
 
@@ -915,11 +916,11 @@ private struct ShelfPageView: View {
       .frame(width: 394.5, height: 116, alignment: .topLeading)
     }
     .frame(width: 394.5, height: 116)
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Shelf page")
     .padding(.horizontal, 22)
     .padding(.vertical, 10)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .accessibilityElement(children: .contain)
-    .accessibilityLabel("Shelf page")
   }
 }
 
