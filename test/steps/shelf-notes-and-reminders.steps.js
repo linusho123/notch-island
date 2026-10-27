@@ -843,29 +843,41 @@ module.exports = function (reg) {
     w.weekBaseTime = baseTime;
     w.weekStartTime = tMinus7Days;
 
+    // Baseline MUST be taken BEFORE the notes exist (M5)
     island.feed(w, {
       clearShelf: true,
+      clockDate: tMinus7Days,
+      seedShelf: [],
+    });
+    await ensureIsland(w);
+    await sleep(100);
+
+    const cleanView = await island.look(w.island.pid);
+    assert.ok(!cleanView.open, 'clean island should be closed at baseline');
+    assert.ok(!cleanView.wing, 'clean island should have no wing at baseline');
+
+    // Sample island windows from window server via CGWindowList before notes exist (M5)
+    const allCg = await harness.cgwindows();
+    const baselineWindows = allCg.filter((win) => win.pid === w.island.pid);
+    assert.ok(baselineWindows.length > 0, 'no island windows found in CGWindowList at baseline');
+    w.cleanBaselineWindows = baselineWindows;
+    w.cleanBaselineWindowCount = baselineWindows.length;
+
+    // Now seed the note and reminder 7 days ago
+    island.feed(w, {
       clockDate: tMinus7Days,
       seedShelf: [
         { type: 'note', text: rawNote, isReminder: false, landedAt: tMinus7Days },
         { type: 'note', text: rawReminder, isReminder: true, landedAt: tMinus7Days },
       ],
     });
-    await ensureIsland(w);
+    await sleep(50);
   });
 
   reg.define(/^the island has stayed closed since$/, async (w) => {
-    const { notch } = await harness.builtIn();
     let initialView = await island.look(w.island.pid);
     assert.ok(!initialView.open, 'island is open initially');
     assert.ok(!initialView.wing, 'wing is showing initially');
-
-    const baselineRegion = await harness.regionStats(
-      Math.max(0, Math.floor(notch.x - 120)),
-      0,
-      Math.floor(notch.w + 140),
-      Math.floor(notch.h + 40)
-    );
 
     w.weekSamples = [];
 
@@ -874,21 +886,37 @@ module.exports = function (reg) {
       island.feed(w, { clockDate: stepDate });
       await sleep(60);
 
+      // AX observation
       const view = await island.look(w.island.pid);
-      const region = await harness.regionStats(
-        Math.max(0, Math.floor(notch.x - 120)),
-        0,
-        Math.floor(notch.w + 140),
-        Math.floor(notch.h + 40)
-      );
-
-      w.weekSamples.push({ day, view, region });
       assert.ok(!view.open, `island opened on day ${day}`);
       assert.ok(!view.wing, `wing popped out on day ${day}`);
-      assert.ok(
-        Math.abs(region.mean - baselineRegion.mean) < 0.05,
-        `pixel stats shifted significantly on day ${day}: was ${baselineRegion.mean}, now ${region.mean}`
+
+      // Window server observation via CGWindowList (count, bounds, layer) (M5)
+      const allCg = await harness.cgwindows();
+      const currentWindows = allCg.filter((win) => win.pid === w.island.pid);
+      assert.equal(
+        currentWindows.length,
+        w.cleanBaselineWindowCount,
+        `island window count changed on day ${day}: expected ${w.cleanBaselineWindowCount}, found ${currentWindows.length}`
       );
+
+      // Verify no island window was resized or changed layer compared to clean baseline
+      for (const cur of currentWindows) {
+        const match = w.cleanBaselineWindows.find(
+          (base) =>
+            Math.abs(base.frame.x - cur.frame.x) <= 2 &&
+            Math.abs(base.frame.y - cur.frame.y) <= 2 &&
+            Math.abs(base.frame.w - cur.frame.w) <= 2 &&
+            Math.abs(base.frame.h - cur.frame.h) <= 2 &&
+            base.layer === cur.layer
+        );
+        assert.ok(
+          match,
+          `island window on day ${day} has new/resized bounds or layer: ${JSON.stringify(cur)} vs baseline ${JSON.stringify(w.cleanBaselineWindows)}`
+        );
+      }
+
+      w.weekSamples.push({ day, view, windows: currentWindows });
     }
   });
 
@@ -923,10 +951,15 @@ module.exports = function (reg) {
   });
 
   reg.define(/^the visionary saw no wings and no pop-out for the reminder in those 7 days$/, async (w) => {
-    assert.ok(w.weekSamples && w.weekSamples.length > 0, 'no week samples recorded');
+    assert.ok(w.weekSamples && w.weekSamples.length === 7, 'expected 7 daily samples recorded during the week');
     for (const sample of w.weekSamples) {
       assert.ok(!sample.view.open, `island opened on day ${sample.day}`);
       assert.ok(!sample.view.wing, `wing popped out on day ${sample.day}`);
+      assert.equal(
+        sample.windows.length,
+        w.cleanBaselineWindowCount,
+        `unexpected window count on day ${sample.day}`
+      );
     }
   });
 };
