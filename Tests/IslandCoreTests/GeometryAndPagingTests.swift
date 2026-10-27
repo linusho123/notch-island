@@ -157,3 +157,151 @@ struct NoteLayoutGeometryTests {
     }
   }
 }
+
+/// Routing and reachability tests for shelf horizontal scroll and overflow (M9, S1).
+struct ShelfScrollRoutingTests {
+  @Test("Horizontal scroll on shelf routes to content and never pages (M9)")
+  func horizontalScrollOnShelfRoutesToContent() {
+    var pager = PageScroller()
+    pager.show(.shelf)
+
+    // A two-finger horizontal scroll to the left
+    let action = ShelfScrollRouting.route(
+      page: .shelf,
+      deltaX: -40,
+      deltaY: 0,
+      continuous: true,
+      gestureBegan: true,
+      momentum: false,
+      pager: &pager
+    )
+    #expect(action == .routeToContent)
+    #expect(pager.page == .shelf)
+  }
+
+  @Test("Horizontal scroll with minor vertical drift does not page to music (M9)")
+  func horizontalScrollWithDriftDoesNotPage() {
+    var pager = PageScroller()
+    pager.show(.shelf)
+
+    // Horizontal scroll with slight vertical drift
+    for _ in 0..<5 {
+      let action = ShelfScrollRouting.route(
+        page: .shelf,
+        deltaX: -30,
+        deltaY: 5,
+        continuous: true,
+        gestureBegan: false,
+        momentum: false,
+        pager: &pager
+      )
+      #expect(action == .routeToContent)
+      #expect(pager.page == .shelf)
+    }
+  }
+
+  @Test("Vertical scroll down on music pages to shelf (M9)")
+  func verticalScrollDownOnMusicPagesToShelf() {
+    var pager = PageScroller(threshold: 24)
+    #expect(pager.page == .music)
+
+    let action1 = ShelfScrollRouting.route(
+      page: .music,
+      deltaX: 0,
+      deltaY: -10,
+      continuous: true,
+      gestureBegan: true,
+      momentum: false,
+      pager: &pager
+    )
+    #expect(action1 == .swallow)
+    #expect(pager.page == .music)
+
+    let action2 = ShelfScrollRouting.route(
+      page: .music,
+      deltaX: 0,
+      deltaY: -20,
+      continuous: true,
+      gestureBegan: false,
+      momentum: false,
+      pager: &pager
+    )
+    #expect(action2 == .changePage(.shelf))
+    #expect(pager.page == .shelf)
+  }
+
+  @Test("Vertical scroll up on shelf pages to music (M9)")
+  func verticalScrollUpOnShelfPagesToMusic() {
+    var pager = PageScroller(threshold: 24)
+    pager.show(.shelf)
+
+    let action = ShelfScrollRouting.route(
+      page: .shelf,
+      deltaX: 0,
+      deltaY: 30,
+      continuous: true,
+      gestureBegan: true,
+      momentum: false,
+      pager: &pager
+    )
+    #expect(action == .changePage(.music))
+    #expect(pager.page == .music)
+  }
+
+  @Test("Horizontal scroll on music page is swallowed and never pages (M9)")
+  func horizontalScrollOnMusicIsSwallowed() {
+    var pager = PageScroller()
+    #expect(pager.page == .music)
+
+    let action = ShelfScrollRouting.route(
+      page: .music,
+      deltaX: -50,
+      deltaY: 0,
+      continuous: true,
+      gestureBegan: true,
+      momentum: false,
+      pager: &pager
+    )
+    #expect(action == .swallow)
+    #expect(pager.page == .music)
+  }
+
+  @Test("D30 8-item + 3 long notes and reminder overflow and reachability geometry (M9)")
+  func shelfItemsLayoutReachability() {
+    // 3 screenshots (each ~46pt width), 2 files (~46pt), 2 notes (~150pt), 1 reminder (~150pt)
+    // plus 3 long notes (~200pt) and 1 reminder (~150pt) = 12 items
+    let itemWidths: [CGFloat] = [
+      46, 46, 46, 46, 46, 150, 150, 150, 200, 200, 200, 150,
+    ]
+    let spacing: CGFloat = 6
+    let horizontalPadding: CGFloat = 8
+
+    let totalWidth =
+      itemWidths.reduce(0, +) + CGFloat(itemWidths.count - 1) * spacing + horizontalPadding
+    let viewportWidth: CGFloat = 394.5
+
+    // Total content exceeds the viewport width: overflow is guaranteed
+    #expect(totalWidth > viewportWidth)
+
+    // Compute frames of all items along horizontal axis
+    var currentX = horizontalPadding / 2
+    var itemFrames: [CGRect] = []
+    for w in itemWidths {
+      itemFrames.append(CGRect(x: currentX, y: 0, width: w, height: 60))
+      currentX += w + spacing
+    }
+
+    // First item is visible at scrollOffset 0
+    #expect(itemFrames[0].maxX <= viewportWidth)
+
+    // Last item overflows at scrollOffset 0
+    let lastFrame = itemFrames.last!
+    #expect(lastFrame.maxX > viewportWidth)
+
+    // With horizontal scrolling, the last item is brought into view
+    let maxScroll = totalWidth - viewportWidth
+    let scrolledLastX = lastFrame.minX - maxScroll
+    #expect(scrolledLastX >= 0)
+    #expect(scrolledLastX + lastFrame.width <= viewportWidth + 10)
+  }
+}

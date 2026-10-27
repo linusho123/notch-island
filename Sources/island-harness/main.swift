@@ -316,10 +316,10 @@ func glide(to: CGPoint, steps: Int, stepMs: Double, dragging: Bool = false) {
   }
 }
 
-func scroll(dy: Int32, wheel: Bool) {
+func scroll(dy: Int32, dx: Int32 = 0, wheel: Bool) {
   if wheel {
     let e = CGEvent(
-      scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: dy, wheel2: 0, wheel3: 0)
+      scrollWheelEvent2Source: nil, units: .line, wheelCount: 2, wheel1: dy, wheel2: dx, wheel3: 0)
     guard let e else { return }
     e.setIntegerValueField(.scrollWheelEventIsContinuous, value: 0)
     postTagged(e)
@@ -328,15 +328,17 @@ func scroll(dy: Int32, wheel: Bool) {
   // A two-finger scroll: a gesture that begins, changes and ends.
   let steps = 8
   for i in 0...steps {
+    let stepY = i == steps ? 0 : dy / Int32(steps)
+    let stepX = i == steps ? 0 : dx / Int32(steps)
     let e = CGEvent(
-      scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1,
-      wheel1: i == steps ? 0 : dy / Int32(steps), wheel2: 0, wheel3: 0)
+      scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2,
+      wheel1: stepY, wheel2: stepX, wheel3: 0)
     guard let e else { continue }
     e.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
     let phase: Int64 = i == 0 ? 1 : (i == steps ? 4 : 2)  // began, changed, ended
     e.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
-    e.setIntegerValueField(
-      .scrollWheelEventPointDeltaAxis1, value: Int64(i == steps ? 0 : dy / Int32(steps)))
+    e.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: Int64(stepY))
+    e.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: Int64(stepX))
     postTagged(e)
     sleepMs(12)
   }
@@ -957,8 +959,9 @@ case "button":
   // button: whether the left button reads held, system-wide.
   emit(["left": leftButtonDown()])
 case "scroll":
-  // scroll dy wheel|trackpad (at the pointer; negative scrolls down)
-  scroll(dy: Int32(num(1)), wheel: arg(2) == "wheel")
+  // scroll dy wheel|trackpad [dx] (at the pointer; negative scrolls down)
+  let dx: Int32 = args.count > 3 ? Int32(num(3)) : 0
+  scroll(dy: Int32(num(1)), dx: dx, wheel: arg(2) == "wheel")
   emit(["ok": true, "t": now()])
 case "watch":
   // watch pid ms everyMs: samples of the island's windows over a while.

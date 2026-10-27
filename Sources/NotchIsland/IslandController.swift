@@ -438,13 +438,24 @@ final class IslandController: NSObject, NSMenuDelegate {
     case .scrollWheel:
       guard isIsland(event.window), machine.state == .open else { return event }
       let began = event.phase.contains(.began) || event.phase.isEmpty
-      if pager.scroll(
-        deltaY: Double(event.scrollingDeltaY), continuous: event.hasPreciseScrollingDeltas,
-        gestureBegan: began, momentum: !event.momentumPhase.isEmpty)
-      {
-        model.page = pager.page
+      let action = ShelfScrollRouting.route(
+        page: model.page,
+        deltaX: Double(event.scrollingDeltaX),
+        deltaY: Double(event.scrollingDeltaY),
+        continuous: event.hasPreciseScrollingDeltas,
+        gestureBegan: began,
+        momentum: !event.momentumPhase.isEmpty,
+        pager: &pager
+      )
+      switch action {
+      case .changePage(let newPage):
+        model.page = newPage
+        return nil
+      case .routeToContent:
+        return event
+      case .swallow:
+        return nil
       }
-      return nil
     default:
       return event
     }

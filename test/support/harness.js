@@ -251,7 +251,7 @@ module.exports = {
   releaseIfHeld,
   release: () => h('release'),
   leftHeld: async () => (await h('button')).left,
-  scroll: (dy, kind) => h('scroll', dy, kind),
+  scroll: (dy, kind, dx = 0) => (dx ? h('scroll', dy, kind, dx) : h('scroll', dy, kind)),
   watch: async (pid, ms, everyMs = 40) => (await h('watch', pid, ms, everyMs)).samples,
   sweep: async (pid, a, b, steps, stepMs, settleMs) =>
     (await h('sweep', pid, a.x, a.y, b.x, b.y, steps, stepMs, settleMs)).samples,
