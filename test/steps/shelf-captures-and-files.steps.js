@@ -572,7 +572,10 @@ module.exports = function (reg) {
       2000,
       'shelf page width does not match music page'
     );
-    assert.ok(Math.abs(view.shelfFrame.h - view.musicFrame.h) <= 1, 'shelf page height does not match music page');
+    assert.ok(
+      Math.abs(view.shelfFrame.h - view.musicFrame.h) <= 1,
+      `shelf page height (${view.shelfFrame?.h}) does not match music page (${view.musicFrame?.h})`
+    );
   });
 
   reg.define(/^the visionary sees the small bar at the side mark the shelf page as showing$/, async (w) => {
