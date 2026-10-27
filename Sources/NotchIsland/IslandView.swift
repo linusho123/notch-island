@@ -197,8 +197,8 @@ struct CardShape: Shape {
 private struct OpenPanel: View {
   @ObservedObject var model: IslandModel
 
-  /// The width of the shelf geometry anchor matching the available page width (D30).
-  static let anchorWidth: CGFloat = 394.5
+  /// The shared content size of the music and shelf pages inside the panel (D30).
+  static let pageSize = CGSize(width: 394.5, height: 116)
   /// The height of the music page's controls row, mirrored by the shelf geometry anchor.
   static let controlsHeight: CGFloat = 34
 
@@ -261,11 +261,12 @@ private struct MusicPageView: View {
       }
       Controls(model: model)
     }
+    .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height)
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Music page")
     .padding(.horizontal, 22)
     .padding(.vertical, 10)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .accessibilityElement(children: .contain)
-    .accessibilityLabel("Music page")
   }
 }
 
@@ -808,7 +809,7 @@ private struct ShelfPageView: View {
             .accessibilityIdentifier("shelf-anchor-bottom")
         }
       }
-      .frame(width: OpenPanel.anchorWidth)
+      .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height)
       .opacity(0.001)
       .allowsHitTesting(false)
 
@@ -920,13 +921,18 @@ private struct ShelfPageView: View {
           }
         }
       }
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .frame(
+        width: OpenPanel.pageSize.width,
+        height: OpenPanel.pageSize.height,
+        alignment: .topLeading
+      )
     }
+    .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height)
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Shelf page")
     .padding(.horizontal, 22)
     .padding(.vertical, 10)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .accessibilityElement(children: .contain)
-    .accessibilityLabel("Shelf page")
   }
 }
 
