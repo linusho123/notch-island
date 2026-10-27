@@ -17,7 +17,6 @@ runFeatures(path.join(__dirname, '..', 'features'), {
 }, {
   wip: [
     'around-the-clock',
-    'shelf-notes-and-reminders',
   ],
   manifest: path.join(__dirname, '..', 'features', 'run-manifest.ndjson'),
 });
