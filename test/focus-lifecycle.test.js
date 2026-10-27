@@ -82,7 +82,7 @@ test('M10 / R4: keyboard focus released when editing ends, page changes, or isla
   );
 
   // 3. Ending editing with Escape releases focus back to prior app
-  await harness.key('escape');
+  await harness.key(53); // Escape
   await island.waitFor(
     pid,
     (v) => !v.elements.some((e) => e.identifier === 'new-note-field'),
