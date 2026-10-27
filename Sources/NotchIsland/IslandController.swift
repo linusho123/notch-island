@@ -30,6 +30,7 @@ final class IslandPanel: NSPanel, NSWindowDelegate {
 
   override var canBecomeKey: Bool { allowsKeyWindow }
   override var canBecomeMain: Bool { false }
+  override var isKeyWindow: Bool { allowsKeyWindow && super.isKeyWindow }
 
   func windowWillReturnFieldEditor(_ sender: NSWindow, to client: Any?) -> Any? {
     if let field = client as? CustomNoteNSTextField {
@@ -201,8 +202,7 @@ final class IslandController: NSObject, NSMenuDelegate {
         self.cardPanel.makeKey()
       } else {
         self.focusLifecycle.endEditing()
-        self.cardPanel.resignKey()
-        self.cardPanel.allowsKeyWindow = false
+        self.releaseKeyboardFocus()
         if let prev = self.previousFrontApp {
           prev.activate()
           self.previousFrontApp = nil
@@ -359,8 +359,7 @@ final class IslandController: NSObject, NSMenuDelegate {
       if !isOpen {
         model.endAnyNoteEditing()
         focusLifecycle.onIslandClosed()
-        cardPanel.resignKey()
-        cardPanel.allowsKeyWindow = false
+        releaseKeyboardFocus()
         if let prev = previousFrontApp {
           prev.activate()
           previousFrontApp = nil
@@ -475,8 +474,7 @@ final class IslandController: NSObject, NSMenuDelegate {
         if newPage == .music {
           model.endAnyNoteEditing()
           focusLifecycle.onPageChanged(to: .music)
-          cardPanel.resignKey()
-          cardPanel.allowsKeyWindow = false
+          releaseKeyboardFocus()
           if let prev = previousFrontApp {
             prev.activate()
             previousFrontApp = nil
@@ -491,6 +489,21 @@ final class IslandController: NSObject, NSMenuDelegate {
       }
     default:
       return event
+    }
+  }
+
+  /// Gives keyboard focus back (R4): the card stops being key-capable, loses
+  /// first responder and key status, and the app steps back.
+  private func releaseKeyboardFocus() {
+    cardPanel.allowsKeyWindow = false
+    cardPanel.makeFirstResponder(nil)
+    cardPanel.resignKey()
+    NSApp.deactivate()
+    // The window server keeps reporting the card as the focused window until
+    // it is re-ordered; cycling it in place clears that without a visible change.
+    if cardPanel.isVisible {
+      cardPanel.orderOut(nil)
+      cardPanel.orderFrontRegardless()
     }
   }
 

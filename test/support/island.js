@@ -174,7 +174,7 @@ async function until(pred, ms, message) {
   for (;;) {
     const v = await pred();
     if (v) return v;
-    if (Date.now() > end) throw new Error(message);
+    if (Date.now() > end) throw new Error(typeof message === 'function' ? message() : message);
     await sleep(40);
   }
 }
