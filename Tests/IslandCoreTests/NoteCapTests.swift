@@ -171,4 +171,38 @@ struct NoteCapTests {
     #expect(allowedEmoji.count == 120)
     #expect(allowedEmoji.hasPrefix("🎉🎊🎈"))
   }
+
+  @Test("A paste replaces only the selection, in the editor's UTF-16 range (P12)")
+  func pasteReplacesOnlySelection() throws {
+    let current = "abcdef"
+    // Caret in the middle: nothing is replaced, the paste is inserted there.
+    let caret = try #require(
+      NoteCap.pasteEdit(current: current, pasting: "XY", selection: NSRange(location: 3, length: 0))
+    )
+    #expect(caret.range == NSRange(location: 3, length: 0))
+    #expect(
+      (current as NSString).replacingCharacters(in: caret.range, with: caret.text) == "abcXYdef")
+    // A selection in the middle: only the selection is replaced; the tail stays.
+    let sel = try #require(
+      NoteCap.pasteEdit(current: current, pasting: "XY", selection: NSRange(location: 2, length: 2))
+    )
+    #expect(sel.range == NSRange(location: 2, length: 2))
+    #expect((current as NSString).replacingCharacters(in: sel.range, with: sel.text) == "abXYef")
+    // The cap counts the kept tail: 130 kept + 10 room.
+    let long = String(repeating: "k", count: 130)
+    let capped = try #require(
+      NoteCap.pasteEdit(
+        current: long, pasting: String(repeating: "p", count: 50),
+        selection: NSRange(location: 60, length: 0)))
+    #expect(capped.text == String(repeating: "p", count: 10))
+    // An emoji before the caret shifts UTF-16 offsets: the range stays the selection.
+    let emoji = "😀ab"
+    let e = try #require(
+      NoteCap.pasteEdit(current: emoji, pasting: "Z", selection: NSRange(location: 2, length: 1)))
+    #expect((emoji as NSString).replacingCharacters(in: e.range, with: e.text) == "😀Zb")
+    // Invalid selection: no edit.
+    #expect(
+      NoteCap.pasteEdit(current: "ab", pasting: "Z", selection: NSRange(location: 9, length: 1))
+        == nil)
+  }
 }

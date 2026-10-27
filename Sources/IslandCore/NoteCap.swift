@@ -44,6 +44,22 @@ public enum NoteCap {
     return String(inserted.prefix(room))
   }
 
+  /// The edit a paste performs in an editor whose selection is `selection`
+  /// (an NSRange in `current`'s UTF-16 units). The replacement range is the
+  /// selection only, never the selection through the end of the text; the
+  /// text is the part of `pasted` that fits under the cap. Nil when the
+  /// selection is not a valid range of `current` or nothing fits.
+  public static func pasteEdit(
+    current: String,
+    pasting pasted: String,
+    selection: NSRange
+  ) -> (range: NSRange, text: String)? {
+    guard let r = Range(selection, in: current) else { return nil }
+    let allowed = allowedInsertion(current: current, inserting: pasted, replacing: r)
+    if allowed.isEmpty { return nil }
+    return (selection, allowed)
+  }
+
   /// Applies the 140-character cap when typing or appending at the end of `current`.
   public static func apply(current: String, appending appended: String) -> String {
     apply(current: current, inserting: appended, replacing: current.endIndex..<current.endIndex)

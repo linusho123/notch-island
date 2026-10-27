@@ -595,13 +595,11 @@ final class CustomNoteTextView: NSTextView {
 
   override func paste(_ sender: Any?) {
     guard let pasteString = NSPasteboard.general.string(forType: .string) else { return }
-    let sel = selectedRange()
-    guard let r = Range(sel, in: self.string) else { return }
-    let allowed = NoteCap.allowedInsertion(
-      current: self.string, inserting: pasteString, replacing: r)
-    if !allowed.isEmpty {
-      self.insertText(allowed, replacementRange: sel)
-    }
+    guard
+      let edit = NoteCap.pasteEdit(
+        current: self.string, pasting: pasteString, selection: selectedRange())
+    else { return }
+    self.insertText(edit.text, replacementRange: edit.range)
   }
 
   override func shouldChangeText(
