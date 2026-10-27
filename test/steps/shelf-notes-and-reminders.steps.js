@@ -100,6 +100,7 @@ module.exports = function (reg) {
       2000,
       'new-note-field did not appear'
     );
+    await sleep(100);
   });
 
   reg.define(/^the note "([^"]+)" is on the shelf$/, async (w, label) => {
@@ -201,7 +202,7 @@ module.exports = function (reg) {
     } else {
       throw new Error(`unknown enters mode: ${enters}`);
     }
-    await sleep(100);
+    await sleep(200);
     await harness.key(36); // Return
     await sleep(250);
   });
@@ -247,7 +248,7 @@ module.exports = function (reg) {
     );
     // Cursor is placed at the end by becomeFirstResponder in CustomNoteNSTextField
     await harness.type('b'.repeat(added));
-    await sleep(100);
+    await sleep(200);
     await harness.key(36); // Return
     await sleep(250);
   });
