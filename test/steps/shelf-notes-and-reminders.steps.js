@@ -689,7 +689,6 @@ module.exports = function (reg) {
         { type: 'note', text: rawReminder, isReminder: true, landedAt: tMinus7Days },
       ],
     });
-    await playing(w, 'Wonderwall', 0);
     await ensureIsland(w);
   });
 
