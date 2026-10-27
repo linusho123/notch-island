@@ -732,7 +732,7 @@ module.exports = function (reg) {
   reg.define(/^the visionary sees the 3 notes, the reminder and both files on the shelf page$/, async (w) => {
     await openOnShelfPage(w);
     const view = await island.look(w.island.pid);
-    assert.ok(view.texts.some((t) => t.includes('Note 1')) && view.texts.some((t) => t.includes('Note 2')) && view.texts.some((t) => t.includes('Note 3')), 'notes missing from shelf');
+    assert.ok(view.texts.includes('✎ Note 1') && view.texts.includes('✎ Note 2') && view.texts.includes('✎ Note 3'), 'notes missing from shelf');
     assert.ok(view.texts.includes('Reminder 1'), 'reminder missing from shelf');
     assert.ok(view.texts.includes('tax-return.pdf') && view.texts.includes('notes.txt'), 'files missing from shelf');
   });
