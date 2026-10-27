@@ -71,6 +71,12 @@ test('M9 / S1: every shelf item is reachable via horizontal scroll on overflow',
   assert.ok(view1.texts.includes('tax-return.pdf'), 'initial files should be visible');
   assert.ok(view1.texts.includes('✎ First note'), 'first note should be visible');
 
+  // The shelf overflows: the tail must not be in view until the scroll.
+  assert.ok(
+    !view1.texts.includes('Tail reminder'),
+    `the tail reminder is already in view, so nothing needs scrolling: ${view1.texts.join(', ')}`
+  );
+
   // Scroll horizontally to the end with two fingers
   const c = center(view1.panel);
   await harness.glide(c.x, c.y, 4, 8);
