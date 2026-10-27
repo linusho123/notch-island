@@ -305,3 +305,55 @@ struct ShelfScrollRoutingTests {
     #expect(scrolledLastX + lastFrame.width <= viewportWidth + 10)
   }
 }
+
+/// Tests for keyboard focus release and non-activating lifecycle (M10, R4).
+struct FocusLifecycleTests {
+  @Test("Editing note requests focus; ending editing releases key eligibility (M10, R4)")
+  func editingNoteRequestsAndReleasesFocus() {
+    var lifecycle = FocusLifecycle()
+    #expect(!lifecycle.isEditingNote)
+    #expect(!lifecycle.keyEligible)
+
+    lifecycle.startEditing()
+    #expect(lifecycle.isEditingNote)
+    #expect(lifecycle.keyEligible)
+    #expect(!lifecycle.shouldRestoreFocus)
+
+    lifecycle.endEditing()
+    #expect(!lifecycle.isEditingNote)
+    #expect(!lifecycle.keyEligible)
+    #expect(lifecycle.shouldRestoreFocus)
+  }
+
+  @Test("Switching to music page automatically ends editing and releases focus (M10, R4)")
+  func switchingToMusicEndsEditingAndReleasesFocus() {
+    var lifecycle = FocusLifecycle()
+    lifecycle.startEditing()
+    #expect(lifecycle.keyEligible)
+
+    // Page changed to music
+    lifecycle.onPageChanged(to: .music)
+    #expect(!lifecycle.isEditingNote)
+    #expect(!lifecycle.keyEligible)
+    #expect(lifecycle.shouldRestoreFocus)
+  }
+
+  @Test("Island closing automatically ends editing and releases focus (M10, R4)")
+  func islandClosingEndsEditingAndReleasesFocus() {
+    var lifecycle = FocusLifecycle()
+    lifecycle.startEditing()
+    #expect(lifecycle.keyEligible)
+
+    lifecycle.onIslandClosed()
+    #expect(!lifecycle.isEditingNote)
+    #expect(!lifecycle.keyEligible)
+    #expect(lifecycle.shouldRestoreFocus)
+  }
+
+  @Test("Ordinary music opening remains non-activating (M10, R4)")
+  func ordinaryMusicOpeningRemainsNonActivating() {
+    let lifecycle = FocusLifecycle()
+    #expect(!lifecycle.keyEligible)
+    #expect(!lifecycle.isEditingNote)
+  }
+}

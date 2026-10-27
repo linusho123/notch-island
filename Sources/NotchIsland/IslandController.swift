@@ -121,6 +121,8 @@ final class IslandController: NSObject, NSMenuDelegate {
   let model = IslandModel()
   private var machine: HoverMachine
   private var pager = PageScroller()
+  private var focusLifecycle = FocusLifecycle()
+  private var previousFrontApp: NSRunningApplication?
   private var deadlineTimer: Timer?
   private var monitor: Any?
   /// While the island is open, pointer moves anywhere are watched, so leaving
@@ -184,14 +186,27 @@ final class IslandController: NSObject, NSMenuDelegate {
     model.onShelfDragEnded = { [weak self] item, op, pt in
       self?.shelfItemDragEnded(item: item, operation: op, screenPoint: pt)
     }
+    cardPanel.allowsKeyWindow = false
     model.onEditingNoteChanged = { [weak self] editing in
       guard let self else { return }
-      self.cardPanel.allowsKeyWindow = editing
       if editing {
+        self.focusLifecycle.startEditing()
+        if let front = NSWorkspace.shared.frontmostApplication,
+          front.processIdentifier != ProcessInfo.processInfo.processIdentifier
+        {
+          self.previousFrontApp = front
+        }
+        self.cardPanel.allowsKeyWindow = true
         NSApp.activate(ignoringOtherApps: true)
         self.cardPanel.makeKey()
       } else {
+        self.focusLifecycle.endEditing()
         self.cardPanel.resignKey()
+        self.cardPanel.allowsKeyWindow = false
+        if let prev = self.previousFrontApp {
+          prev.activate()
+          self.previousFrontApp = nil
+        }
       }
     }
     monitor = NSEvent.addLocalMonitorForEvents(
@@ -342,6 +357,14 @@ final class IslandController: NSObject, NSMenuDelegate {
           "notch-island: %@ (pointer %@)", isOpen ? "open" : "closed", "\(Self.pointerLocation())")
       #endif
       if !isOpen {
+        model.endAnyNoteEditing()
+        focusLifecycle.onIslandClosed()
+        cardPanel.resignKey()
+        cardPanel.allowsKeyWindow = false
+        if let prev = previousFrontApp {
+          prev.activate()
+          previousFrontApp = nil
+        }
         pager.reset()
         model.page = .music
       }
@@ -449,6 +472,16 @@ final class IslandController: NSObject, NSMenuDelegate {
       )
       switch action {
       case .changePage(let newPage):
+        if newPage == .music {
+          model.endAnyNoteEditing()
+          focusLifecycle.onPageChanged(to: .music)
+          cardPanel.resignKey()
+          cardPanel.allowsKeyWindow = false
+          if let prev = previousFrontApp {
+            prev.activate()
+            previousFrontApp = nil
+          }
+        }
         model.page = newPage
         return nil
       case .routeToContent:

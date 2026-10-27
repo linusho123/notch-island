@@ -71,6 +71,15 @@ final class IslandModel: ObservableObject {
     onEditingNoteChanged?(false)
   }
 
+  func endAnyNoteEditing() {
+    if isEnteringNewNote {
+      cancelNewNote()
+    }
+    if editingNoteID != nil {
+      cancelEditingNote()
+    }
+  }
+
   func commitEditingNote(id: UUID, newText: String) {
     let clean = newText.trimmingCharacters(in: .whitespacesAndNewlines)
     if clean.isEmpty {
