@@ -202,16 +202,13 @@ private struct OpenPanel: View {
       let height = proxy.size.height
       let width = proxy.size.width
       ZStack(alignment: .trailing) {
-        ZStack {
+        VStack(spacing: 0) {
           MusicPageView(model: model)
             .frame(width: width, height: height)
-            .offset(y: model.page == .music ? 0 : -height)
-            .allowsHitTesting(model.page == .music)
           ShelfPageView(model: model)
             .frame(width: width, height: height)
-            .offset(y: model.page == .shelf ? 0 : height)
-            .allowsHitTesting(model.page == .shelf)
         }
+        .offset(y: model.page == .music ? 0 : -height)
         .animation(.easeOut(duration: 0.3), value: model.page)
         PageBar(page: model.page)
           .padding(.trailing, 8)
@@ -872,7 +869,7 @@ private struct ShelfPageView: View {
           Spacer()
         } else if !model.shelfItems.isEmpty {
           ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
               ForEach(model.shelfItems) { item in
                 if model.editingNoteID == item.id {
                   ShelfItemView(
@@ -1028,7 +1025,7 @@ private struct ShelfItemView: View {
               .foregroundColor(.white)
               .multilineTextAlignment(.leading)
               .lineLimit(3)
-              .frame(minWidth: 60, maxWidth: 220, alignment: .topLeading)
+              .frame(maxWidth: 220, alignment: .topLeading)
               .contentShape(Rectangle())
               .onTapGesture {
                 model.startEditingNote(id: item.id, currentText: item.noteText ?? item.title)
@@ -1037,7 +1034,7 @@ private struct ShelfItemView: View {
           }
         }
       }
-      .padding(8)
+      .padding(6)
       .background(
         RoundedRectangle(cornerRadius: 8)
           .fill(Color.white.opacity(0.12))
