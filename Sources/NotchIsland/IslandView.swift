@@ -800,7 +800,7 @@ private struct ShelfPageView: View {
             .accessibilityIdentifier("shelf-anchor-bottom")
         }
       }
-      .frame(width: 394.5)
+      .frame(maxWidth: .infinity)
       .opacity(0.001)
       .allowsHitTesting(false)
 
