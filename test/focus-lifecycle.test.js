@@ -56,30 +56,49 @@ test('M10 / R4: keyboard focus released when editing ends, page changes, or isla
   const view1 = await island.waitFor(pid, (v) => v.open && v.page === 'music', 2500, 'island did not open on music');
   await assertFocusRestored();
 
+  async function clickAddNote() {
+    await sleep(250);
+    const view = await island.waitFor(
+      pid,
+      (v) => v.buttons.some((b) => b.label === '+ note'),
+      2000,
+      '+ note button not found'
+    );
+    const btn = view.buttons.find((b) => b.label === '+ note');
+    assert.ok(btn, '+ note button missing');
+    const c = center(btn.frame);
+    await harness.click(c.x, c.y);
+    try {
+      await island.waitFor(
+        pid,
+        (v) => v.elements.some((e) => e.identifier === 'new-note-field'),
+        1500
+      );
+    } catch {
+      // Settle and retry click once if spring transition shifted frame
+      await sleep(150);
+      const v2 = await island.look(pid);
+      const b2 = v2.buttons.find((b) => b.label === '+ note');
+      if (b2) {
+        const c2 = center(b2.frame);
+        await harness.click(c2.x, c2.y);
+      }
+      await island.waitFor(
+        pid,
+        (v) => v.elements.some((e) => e.identifier === 'new-note-field'),
+        2000,
+        'new note field did not appear'
+      );
+    }
+  }
+
   // 2. Open shelf page and click "+ note" to start editing
   const c1 = center(view1.panel);
   await harness.glide(c1.x, c1.y, 4, 8);
   await sleep(60);
   await harness.scroll(-80, 'trackpad');
   await island.waitFor(pid, (v) => v.open && v.page === 'shelf', 2500, 'shelf page did not show');
-
-  const addNoteBtn = await island.waitFor(
-    pid,
-    (v) => v.buttons.find((b) => b.label === '+ note'),
-    2000,
-    '+ note button not found'
-  );
-  const btn = addNoteBtn.buttons.find((b) => b.label === '+ note');
-  assert.ok(btn, '+ note button missing');
-  await harness.click(btn.frame.x + btn.frame.w / 2, btn.frame.y + btn.frame.h / 2);
-
-  // Field editor opens: island takes focus
-  await island.waitFor(
-    pid,
-    (v) => v.elements.some((e) => e.identifier === 'new-note-field'),
-    2000,
-    'new note field did not appear'
-  );
+  await clickAddNote();
 
   // 3. Ending editing with Escape releases focus back to prior app
   await harness.key(53); // Escape
@@ -92,20 +111,7 @@ test('M10 / R4: keyboard focus released when editing ends, page changes, or isla
   await assertFocusRestored();
 
   // 4. Start editing again, then switch to music page: focus must be released
-  const addNoteBtn2 = await island.waitFor(
-    pid,
-    (v) => v.buttons.find((b) => b.label === '+ note'),
-    2000,
-    '+ note button not found'
-  );
-  const btn2 = addNoteBtn2.buttons.find((b) => b.label === '+ note');
-  await harness.click(btn2.frame.x + btn2.frame.w / 2, btn2.frame.y + btn2.frame.h / 2);
-  await island.waitFor(
-    pid,
-    (v) => v.elements.some((e) => e.identifier === 'new-note-field'),
-    2000,
-    'new note field did not appear'
-  );
+  await clickAddNote();
 
   // Switch to music page via vertical scroll
   await harness.scroll(80, 'trackpad');
@@ -118,20 +124,7 @@ test('M10 / R4: keyboard focus released when editing ends, page changes, or isla
   await sleep(60);
   await harness.scroll(-80, 'trackpad');
   await island.waitFor(pid, (v) => v.open && v.page === 'shelf', 2500, 'shelf page did not show');
-  const addNoteBtn3 = await island.waitFor(
-    pid,
-    (v) => v.buttons.find((b) => b.label === '+ note'),
-    2000,
-    '+ note button not found'
-  );
-  const btn3 = addNoteBtn3.buttons.find((b) => b.label === '+ note');
-  await harness.click(btn3.frame.x + btn3.frame.w / 2, btn3.frame.y + btn3.frame.h / 2);
-  await island.waitFor(
-    pid,
-    (v) => v.elements.some((e) => e.identifier === 'new-note-field'),
-    2000,
-    'new note field did not appear'
-  );
+  await clickAddNote();
 
   // Move far away to close the island
   await harness.move(notch.x + notch.w / 2, notch.y + 400);
