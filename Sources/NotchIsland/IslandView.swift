@@ -588,11 +588,10 @@ final class CustomNoteTextView: NSTextView {
     guard let pasteString = NSPasteboard.general.string(forType: .string) else { return }
     let sel = selectedRange()
     guard let r = Range(sel, in: self.string) else { return }
-    let keptCount = self.string[..<r.lowerBound].count + self.string[r.upperBound...].count
-    let room = max(0, NoteCap.maximumLength - keptCount)
-    if room > 0 {
-      let taken = String(pasteString.prefix(room))
-      self.insertText(taken, replacementRange: sel)
+    let allowed = NoteCap.allowedInsertion(
+      current: self.string, inserting: pasteString, replacing: r)
+    if !allowed.isEmpty {
+      self.insertText(allowed, replacementRange: sel)
     }
   }
 
@@ -601,11 +600,9 @@ final class CustomNoteTextView: NSTextView {
   ) -> Bool {
     guard let replacement = replacementString else { return true }
     guard let range = Range(affectedCharRange, in: self.string) else { return true }
-    let prefix = self.string[..<range.lowerBound]
-    let suffix = self.string[range.upperBound...]
-    let keptCount = prefix.count + suffix.count
-    let room = max(0, NoteCap.maximumLength - keptCount)
-    if replacement.count > room {
+    let allowed = NoteCap.allowedInsertion(
+      current: self.string, inserting: replacement, replacing: range)
+    if replacement.count > allowed.count {
       return false
     }
     return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
@@ -798,16 +795,9 @@ struct NoteTextFieldRepresentable: NSViewRepresentable {
       guard let replacement = replacementString else { return true }
       let current = textView.string
       guard let range = Range(affectedCharRange, in: current) else { return true }
-
-      let prefix = current[..<range.lowerBound]
-      let suffix = current[range.upperBound...]
-      let keptCount = prefix.count + suffix.count
-      let room = max(0, NoteCap.maximumLength - keptCount)
-
-      if replacement.count <= room {
-        return true
-      }
-      return false
+      let allowed = NoteCap.allowedInsertion(
+        current: current, inserting: replacement, replacing: range)
+      return replacement.count <= allowed.count
     }
   }
 }

@@ -204,6 +204,7 @@ module.exports = function (reg) {
     assert.ok(match, `could not parse character length from ${lengthStr}`);
     const count = parseInt(match[1], 10);
     const textToEnter = 'a'.repeat(count);
+    w.textToEnter = textToEnter;
 
     if (enters === 'types') {
       await harness.type(textToEnter);
@@ -213,6 +214,26 @@ module.exports = function (reg) {
       throw new Error(`unknown enters mode: ${enters}`);
     }
     await sleep(200);
+
+    // M4: Check the field's live AX value BEFORE Return (exact string, grapheme count)
+    const liveView = await island.look(w.island.pid);
+    const fieldEl = liveView.elements.find((e) => e.identifier === 'new-note-field');
+    assert.ok(fieldEl, 'new-note-field not found before pressing Return');
+    const liveVal = String(fieldEl.value ?? '');
+    const expectedCappedCount = Math.min(count, 140);
+    const expectedCappedString = textToEnter.slice(0, 140);
+    const graphemeCount = [...new Intl.Segmenter().segment(liveVal)].length;
+    assert.equal(
+      graphemeCount,
+      expectedCappedCount,
+      `live new-note-field before Return has ${graphemeCount} graphemes, expected ${expectedCappedCount} (D62, D104, M4)`
+    );
+    assert.equal(
+      liveVal,
+      expectedCappedString,
+      `live new-note-field before Return value mismatch (D62, D104, M4)`
+    );
+
     await harness.key(36); // Return
     await sleep(250);
   });
@@ -273,8 +294,29 @@ module.exports = function (reg) {
       );
     }
     // Cursor is placed at the end by becomeFirstResponder in CustomNoteNSTextField
-    await harness.type('b'.repeat(added));
+    const addedText = 'b'.repeat(added);
+    await harness.type(addedText);
     await sleep(200);
+
+    // M4: Live cap honesty - check field's live AX value BEFORE Return
+    const liveView = await island.look(w.island.pid);
+    const fieldEl = liveView.elements.find((e) => e.identifier === 'edit-note-field');
+    assert.ok(fieldEl, 'edit-note-field not found before pressing Return');
+    const liveVal = String(fieldEl.value ?? '');
+    const expectedTotal = Math.min(130 + added, 140);
+    const graphemeCount = [...new Intl.Segmenter().segment(liveVal)].length;
+    assert.equal(
+      graphemeCount,
+      expectedTotal,
+      `live edit field before Return has ${graphemeCount} graphemes, expected ${expectedTotal} (D123, M4)`
+    );
+    const expectedAddedKept = Math.min(added, 140 - 130);
+    assert.ok(
+      liveVal.endsWith('b'.repeat(expectedAddedKept)),
+      `live edit field expected to end with ${expectedAddedKept} 'b's`
+    );
+    w.expectedEditedNoteText = liveVal;
+
     await harness.key(36); // Return
     await sleep(250);
   });
@@ -392,16 +434,18 @@ module.exports = function (reg) {
     else if (keptDesc === 'only the first 140 characters') expectedCount = 140;
     else throw new Error(`unrecognized kept description: ${keptDesc}`);
 
+    const expectedString = (w.textToEnter || 'a'.repeat(expectedCount)).slice(0, expectedCount);
+
     const view = await island.waitFor(
       w.island.pid,
-      (v) => v.page === 'shelf' && v.texts.some((t) => t.startsWith('✎ ') && (t.length - 2) === expectedCount),
+      (v) => v.page === 'shelf' && v.texts.includes(`✎ ${expectedString}`),
       3000,
-      `no note on shelf holding ${expectedCount} characters`
+      `no note on shelf holding exact text of ${expectedCount} characters`
     );
 
-    const noteText = view.texts.find((t) => t.startsWith('✎ '));
-    assert.ok(noteText, 'note text starting with ✎ not found');
-    const actualCharCount = noteText.length - 2;
+    const noteText = view.texts.find((t) => t === `✎ ${expectedString}`);
+    assert.ok(noteText, `note text starting with ✎ not found`);
+    const actualCharCount = [...new Intl.Segmenter().segment(noteText.slice(2))].length;
     assert.equal(actualCharCount, expectedCount, `expected ${expectedCount} characters, got ${actualCharCount}`);
 
     // Far-side check on disk (shelf.json)
@@ -411,7 +455,8 @@ module.exports = function (reg) {
     assert.ok(diskItems.length >= 1, 'no items in shelf.json on disk');
     const diskNote = diskItems[diskItems.length - 1];
     assert.ok(diskNote.kind && diskNote.kind.note, 'last disk item is not a note');
-    assert.equal(diskNote.kind.note.text.length, expectedCount);
+    assert.equal(diskNote.kind.note.text, expectedString);
+    assert.equal([...new Intl.Segmenter().segment(diskNote.kind.note.text)].length, expectedCount);
   });
 
   reg.define(/^the visionary sees "([^"]+)" in the same place on the shelf$/, async (w, label) => {
@@ -449,16 +494,23 @@ module.exports = function (reg) {
     else if (keptDesc.includes('140 characters')) expectedCount = 140;
     else throw new Error(`unrecognized kept description: ${keptDesc}`);
 
+    const expectedString = w.expectedEditedNoteText;
+
     const view = await island.waitFor(
       w.island.pid,
-      (v) => v.page === 'shelf' && v.texts.some((t) => t.startsWith('✎ ') && (t.length - 2) === expectedCount),
+      (v) => v.page === 'shelf' && (expectedString ? v.texts.includes(`✎ ${expectedString}`) : v.texts.some((t) => t.startsWith('✎ ') && (t.length - 2) === expectedCount)),
       3000,
       `note holding ${expectedCount} characters not found`
     );
-    const noteText = view.texts.find((t) => t.startsWith('✎ '));
+    const noteText = expectedString
+      ? view.texts.find((t) => t === `✎ ${expectedString}`)
+      : view.texts.find((t) => t.startsWith('✎ '));
     assert.ok(noteText);
-    const actualCharCount = noteText.length - 2;
+    const actualCharCount = [...new Intl.Segmenter().segment(noteText.slice(2))].length;
     assert.equal(actualCharCount, expectedCount, `expected ${expectedCount} characters, got ${actualCharCount}`);
+    if (expectedString) {
+      assert.equal(noteText, `✎ ${expectedString}`);
+    }
 
     // Far-side check on disk (shelf.json)
     const shelfFile = path.join(scratch(w), 'island-data', 'shelf.json');
@@ -466,7 +518,10 @@ module.exports = function (reg) {
     const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
     const diskNote = diskItems.find((it) => it.kind && it.kind.note);
     assert.ok(diskNote);
-    assert.equal(diskNote.kind.note.text.length, expectedCount);
+    assert.equal([...new Intl.Segmenter().segment(diskNote.kind.note.text)].length, expectedCount);
+    if (expectedString) {
+      assert.equal(diskNote.kind.note.text, expectedString);
+    }
   });
 
   reg.define(/^the visionary sees the note gone from the shelf$/, async (w) => {

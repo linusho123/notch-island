@@ -25,10 +25,23 @@ public enum NoteCap {
     let targetRange = range ?? (current.startIndex..<current.endIndex)
     let prefix = current[..<targetRange.lowerBound]
     let suffix = current[targetRange.upperBound...]
+    let taken = allowedInsertion(current: current, inserting: inserted, replacing: targetRange)
+    return String(prefix) + taken + String(suffix)
+  }
+
+  /// Returns only the portion of `inserted` that can be inserted into `current`
+  /// replacing `range` without exceeding `maximumLength`.
+  public static func allowedInsertion(
+    current: String,
+    inserting inserted: String,
+    replacing range: Range<String.Index>? = nil
+  ) -> String {
+    let targetRange = range ?? (current.startIndex..<current.endIndex)
+    let prefix = current[..<targetRange.lowerBound]
+    let suffix = current[targetRange.upperBound...]
     let keptCount = prefix.count + suffix.count
     let room = max(0, maximumLength - keptCount)
-    let taken = inserted.prefix(room)
-    return String(prefix) + String(taken) + String(suffix)
+    return String(inserted.prefix(room))
   }
 
   /// Applies the 140-character cap when typing or appending at the end of `current`.

@@ -1007,4 +1007,22 @@ struct ShelfStoreTests {
     let reloaded1 = store.items().first { $0.id == n1.id }
     #expect(reloaded1?.noteText == "✎ sketch")
   }
+
+  @Test("ShelfStore addNote and updateNoteText cap text at 140 characters (D62, D104, D123, M4)")
+  func storeCapsOverlongNoteTextAtBoundaryD123() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let store = ShelfStore(file: storeFile)
+
+    let overlong = String(repeating: "x", count: 200)
+    let n = store.addNote(text: overlong)
+    #expect(n.noteText?.count == 140)
+    #expect(n.noteText == String(repeating: "x", count: 140))
+
+    let updated = store.updateNoteText(id: n.id, text: String(repeating: "y", count: 180))
+    #expect(updated == true)
+    let item = store.items().first { $0.id == n.id }
+    #expect(item?.noteText?.count == 140)
+    #expect(item?.noteText == String(repeating: "y", count: 140))
+  }
 }

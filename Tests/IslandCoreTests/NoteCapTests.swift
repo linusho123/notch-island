@@ -142,4 +142,33 @@ struct NoteCapTests {
     #expect(mixed.count == 140)
     #expect(mixed == text138 + thumbSkin + flag)
   }
+
+  @Test("NoteCap.allowedInsertion computes exact insertable text preserving prefix and suffix (M4)")
+  func allowedInsertionPreservesPrefixAndSuffix() {
+    let current = "START_TEXT:[MIDDLE]:END_TEXT"
+    guard let startRange = current.range(of: "[MIDDLE]") else {
+      #expect(Bool(false), "failed to find middle range")
+      return
+    }
+    // Kept characters: "START_TEXT:" (11) + ":END_TEXT" (9) = 20 characters
+    // Room = 140 - 20 = 120 characters
+    let longInsert = String(repeating: "Z", count: 200)
+    let allowed = NoteCap.allowedInsertion(
+      current: current, inserting: longInsert, replacing: startRange)
+    #expect(allowed.count == 120)
+    #expect(allowed == String(repeating: "Z", count: 120))
+
+    let fullResult = NoteCap.apply(current: current, inserting: longInsert, replacing: startRange)
+    #expect(fullResult.count == 140)
+    #expect(fullResult.hasPrefix("START_TEXT:"))
+    #expect(fullResult.hasSuffix(":END_TEXT"))
+    #expect(fullResult == "START_TEXT:" + String(repeating: "Z", count: 120) + ":END_TEXT")
+
+    // Multi-codepoint emoji in middle replacement
+    let emojiInsert = "🎉🎊🎈" + String(repeating: "Q", count: 200)
+    let allowedEmoji = NoteCap.allowedInsertion(
+      current: current, inserting: emojiInsert, replacing: startRange)
+    #expect(allowedEmoji.count == 120)
+    #expect(allowedEmoji.hasPrefix("🎉🎊🎈"))
+  }
 }
