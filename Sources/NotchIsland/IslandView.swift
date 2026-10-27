@@ -918,7 +918,9 @@ private struct ShelfPageView: View {
           }
         }
       }
-      .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height, alignment: .topLeading)
+      .frame(
+        width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height,
+        alignment: .topLeading)
     }
     .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height)
     .accessibilityElement(children: .contain)
