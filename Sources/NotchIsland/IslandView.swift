@@ -800,7 +800,7 @@ private struct ShelfPageView: View {
             .accessibilityIdentifier("shelf-anchor-bottom")
         }
       }
-      .frame(width: 394.5)
+      .frame(width: 394.5, height: 116)
       .opacity(0.001)
       .allowsHitTesting(false)
 
@@ -912,7 +912,7 @@ private struct ShelfPageView: View {
           }
         }
       }
-      .frame(width: 394.5, alignment: .topLeading)
+      .frame(width: 394.5, height: 116, alignment: .topLeading)
     }
     .padding(.horizontal, 22)
     .padding(.vertical, 10)
