@@ -869,7 +869,7 @@ private struct ShelfPageView: View {
           Spacer()
         } else if !model.shelfItems.isEmpty {
           ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
               ForEach(model.shelfItems) { item in
                 if model.editingNoteID == item.id {
                   ShelfItemView(
@@ -898,7 +898,7 @@ private struct ShelfPageView: View {
                 }
               }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 4)
             .padding(.vertical, 4)
           }
 
