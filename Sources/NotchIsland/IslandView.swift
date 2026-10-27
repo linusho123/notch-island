@@ -61,8 +61,7 @@ final class IslandModel: ObservableObject {
     isEnteringNewNote = false
     newNoteText = ""
     editingNoteID = id
-    let raw = currentText.hasPrefix("✎ ") ? String(currentText.dropFirst(2)) : currentText
-    editingNoteText = raw
+    editingNoteText = currentText
     onEditingNoteChanged?(true)
   }
 
@@ -73,12 +72,11 @@ final class IslandModel: ObservableObject {
   }
 
   func commitEditingNote(id: UUID, newText: String) {
-    let raw = newText.hasPrefix("✎ ") ? String(newText.dropFirst(2)) : newText
-    let clean = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    let clean = newText.trimmingCharacters(in: .whitespacesAndNewlines)
     if clean.isEmpty {
       shelfStore?.remove(id: id)
     } else {
-      let capped = NoteCap.capped(raw)
+      let capped = NoteCap.capped(newText)
       shelfStore?.updateNoteText(id: id, text: capped)
     }
     refreshShelf()

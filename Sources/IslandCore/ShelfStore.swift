@@ -188,8 +188,7 @@ public final class ShelfStore: @unchecked Sendable {
     lock.lock()
     defer { lock.unlock() }
 
-    let raw = text.hasPrefix("✎ ") ? String(text.dropFirst(2)) : text
-    let cappedText = NoteCap.capped(raw)
+    let cappedText = NoteCap.capped(text)
     let now = landedAt ?? clock()
     let item = ShelfItem(landedAt: now, kind: .note(text: cappedText, isReminder: isReminder))
     storedItems.append(item)
@@ -205,8 +204,7 @@ public final class ShelfStore: @unchecked Sendable {
     defer { lock.unlock() }
 
     guard let index = storedItems.firstIndex(where: { $0.id == id }) else { return false }
-    let raw = text.hasPrefix("✎ ") ? String(text.dropFirst(2)) : text
-    let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
     if trimmed.isEmpty {
       storedItems.remove(at: index)
       try? saveLocked()
@@ -215,7 +213,7 @@ public final class ShelfStore: @unchecked Sendable {
 
     let old = storedItems[index]
     guard case .note(_, let isReminder) = old.kind else { return false }
-    let cappedText = NoteCap.capped(raw)
+    let cappedText = NoteCap.capped(text)
     storedItems[index] = ShelfItem(
       id: old.id, landedAt: old.landedAt, kind: .note(text: cappedText, isReminder: isReminder))
     try? saveLocked()

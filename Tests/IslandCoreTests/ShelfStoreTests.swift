@@ -975,4 +975,36 @@ struct ShelfStoreTests {
     #expect(fileDropResult == true)
     #expect(store.count == 2)
   }
+
+  @Test("Notes preserve exact literal prefixes through create, reload, edit, and toggle (M2)")
+  func literalPrefixesPreservedThroughLifecycleM2() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let store = ShelfStore(file: storeFile)
+
+    // Note typed with literal "✎ sketch"
+    let n1 = store.addNote(text: "✎ sketch")
+    #expect(n1.noteText == "✎ sketch")
+    #expect(n1.title == "✎ ✎ sketch")
+
+    // Edit a note to nonempty "✎ "
+    let n2 = store.addNote(text: "some note")
+    let edited = store.updateNoteText(id: n2.id, text: "✎ ")
+    #expect(edited == true)
+    #expect(store.count == 2)
+    let item2 = store.items().first { $0.id == n2.id }
+    #expect(item2?.noteText == "✎ ")
+
+    // Toggle note with literal prefix keeps raw text
+    let toggled = store.toggleNoteKind(id: n1.id)
+    #expect(toggled == true)
+    let item1 = store.items().first { $0.id == n1.id }
+    #expect(item1?.noteText == "✎ sketch")
+    #expect(item1?.title == "✎ sketch")
+
+    // Reload preserves raw text
+    store.reload()
+    let reloaded1 = store.items().first { $0.id == n1.id }
+    #expect(reloaded1?.noteText == "✎ sketch")
+  }
 }
