@@ -164,7 +164,7 @@ function signalGroup(pid, signal) {
  * visionary's input stopped it, { guardError } when the guard was not up to
  * guarding it (the command then never runs, or is stopped), or { code }.
  */
-async function runGuarded({ command, guardCommand, harness, restore, log = console.error, readyMs = 5000, stopGraceMs = 10000, settleMs = 400, onSpawn = () => {}, outputPollMs = 250 }) {
+async function runGuarded({ command, guardCommand, harness, restore, log = console.error, readyMs = 5000, stopGraceMs = 10000, settleMs = 400, onSpawn = () => {}, outputPollMs = 250, snapshotPath }) {
   const left = await harness.pointer(); // where the visionary left it
   const guard = startGuard(guardCommand);
   try {
@@ -230,6 +230,8 @@ async function runGuarded({ command, guardCommand, harness, restore, log = conso
     if (!exit) { signalGroup(child.pid, 'SIGKILL'); await exited; }
     // A grandchild may outlive its leader: the rest of the group goes too.
     signalGroup(child.pid, 'SIGKILL');
+    const targetSnapshot = snapshotPath || process.env.NOTCH_ISLAND_CLIPBOARD_SNAPSHOT;
+    try { await recoverClipboardSnapshot({ snapshotPath: targetSnapshot, harness, log }); } catch (e) { log(`when-idle: clipboard recovery after the stop failed: ${e.message}`); }
     try { await restore(); } catch (e) { log(`when-idle: restore after the stop failed: ${e.message}`); }
     if (outcome === 'real') {
       const reason = describe(guard.state.real);
@@ -243,6 +245,55 @@ async function runGuarded({ command, guardCommand, harness, restore, log = conso
     return { guardError: `the input guard ended mid-run (${JSON.stringify(guard.state.exited)}); the run was stopped` };
   } finally {
     guard.stop();
+  }
+}
+
+function isHarnessText(current, targetText) {
+  if (!current || targetText == null) return false;
+  if (typeof current.rawText === 'string') return current.rawText === targetText;
+  if (Array.isArray(current.items)) {
+    for (const it of current.items) {
+      const b64 = it['public.utf8-plain-text'];
+      if (b64) {
+        try {
+          if (Buffer.from(b64, 'base64').toString('utf8') === targetText) return true;
+        } catch {}
+      }
+    }
+  }
+  return false;
+}
+
+async function recoverClipboardSnapshot({ snapshotPath, harness, log = console.error }) {
+  if (!snapshotPath || !fs.existsSync(snapshotPath)) return;
+  try {
+    const record = JSON.parse(fs.readFileSync(snapshotPath, 'utf8'));
+    let shouldRestore = false;
+    let current = null;
+    if (harness.pasteboardSave) {
+      try { current = await harness.pasteboardSave(); } catch {}
+    }
+    if (record.expectedChangeCount != null) {
+      if (current && typeof current.changeCount === 'number') {
+        shouldRestore = (current.changeCount === record.expectedChangeCount);
+      } else {
+        shouldRestore = true;
+      }
+    } else if (record.state === 'set' || isHarnessText(current, record.text)) {
+      shouldRestore = true;
+    }
+
+    if (shouldRestore) {
+      if (harness.pasteboardRestore) {
+        await harness.pasteboardRestore(record.saved);
+        log('when-idle: restored clipboard from snapshot after stopped run');
+      }
+    } else {
+      log('when-idle: clipboard changed since harness set it; preserving user content');
+    }
+    fs.rmSync(snapshotPath, { force: true });
+  } catch (e) {
+    log(`when-idle: clipboard recovery failed: ${e.message}`);
   }
 }
 
@@ -320,4 +371,5 @@ module.exports = {
   exitCodeOf,
   runWhenIdle,
   runGuarded,
+  recoverClipboardSnapshot,
 };

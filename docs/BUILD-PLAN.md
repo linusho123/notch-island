@@ -50,6 +50,13 @@ the phase that binds its last one; each phase lists both.
      and `Tests/` (the toolchain's own swift-format 6.3) plus `npm run scope`
      (strict feature and docket lints, the SKILL.md validation script).
    Exit codes of each leg reported.
+   *Ruled by the visionary 2026-10-26, from P5 on:* build and fix units test
+   only what they changed (lint, scope, `swift test`, and the UI features or
+   rows their code touches, shared code included), in **one batched UI run at
+   the unit's end**; never the full `npm test`, which runs once, as this gate,
+   after the fix round, scheduled for when the visionary is away. A unit is
+   done only when its touched rows ran green through the waiter; a row bound
+   but not run is reported as `BLOCKED`, never as done.
 6. **Integrate:** merge to `main`, commit the run manifest, store a
    treecontext resume pointer that supersedes the last one, report, and
    **stop for the visionary's go-ahead** before the next phase.
@@ -456,6 +463,35 @@ note, a check-off on a misclick that cannot be told from a plain note's x.
 **Register:** `shelf-notes-and-reminders` leaves `wip`.
 **Expected probes:** 141 characters kept, an empty note created, a reminder
 that pops, a checked reminder kept, a dragged note removed, no cap on edit.
+
+*Closed 2026-10-27:* gate at c3a0b34: swift test 253, lint 0, scope 0; UI
+(through when-idle, 0 void) 368 tests, 345 pass, 5 fail, 18 todo. Every
+shelf-notes-and-reminders row and every shelf-captures-and-files row passed.
+The fails, each carried under the visionary's overnight authority: the seek row
+"clicking the bar's start to 0:00:00" (the harness saw "another island already
+running" with no pid) and the IINA "2 of 3" flip row both passed when re-run
+alone; "the open island is a card below the menu bar" fails on main too (the
+test Chrome sits at the status item's hit point); the external-monitor row with
+no external screen attached; D110's capture check "cannot tell" because a Dock
+window sits over the notch area, the same on main (the visionary's screen
+state, not P5). The P1 no-art opening row flakes on main too (4/5 there, 2/3 on
+this branch, opening 5–25 ms past its rest deadline); P6's cost unit should
+look at opening latency. `shelf-notes-and-reminders` left wip; only
+`around-the-clock` remains. Units: U1 notes (writing, cap, edit, x), U2 toggle,
+check-off, quiet week, text drag-out, on agy Gemini 3.8 Flash. Blind reviews
+Codex gpt-6.1-sol; head review Codex gpt-6-astra (screen-free, sandboxed clone;
+8 must, 3 should, re-ranked by the orchestrator, rulings R1–R4: no capturable
+diagnostic build, "at once" = gone within 300 ms of the click with no checked
+state, the matching square glyph stays, keyboard focus only while a note is
+being edited). Fix units F1 clipboard safety and F2 raw note text, the x's own
+gutter, live-cap checks on agy Flash; agy's quota then ran out (~5 days), so F3
+(shelf reachability, focus release, check-off and quiet-week observation) and
+the post-verify FU (production paste through `NoteCap.pasteEdit`, a scroll
+check that needs real movement) ran on Claude Sonnet. Verifier Opus 5.5: not
+ready on the first pass (P12 paste mutant, M9 check blind to scrolling, the
+no-art row), all three closed by FU. Known gaps: whether the hover x and a
+reminder badge are actually drawn needs the island's pixels, excluded by D110
+(R1); the visionary's live look.
 
 ## P6 — Around the clock
 

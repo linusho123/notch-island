@@ -194,6 +194,21 @@ async function launchDropStandIn(world, options = {}) {
         `expected drop-stand-in to receive ${filename}, but received: ${JSON.stringify(data)}`
       );
     },
+    assertReceivedText: async (expectedText) => {
+      const data = await island.until(() => {
+        try {
+          const content = fs.readFileSync(log, 'utf8').trim();
+          const parsed = content ? JSON.parse(content) : null;
+          return (parsed && (parsed.text !== undefined || parsed.messageField !== undefined)) ? parsed : null;
+        } catch {
+          return null;
+        }
+      }, 3000, `drop-stand-in never logged receipt of text "${expectedText}"`);
+      assert.ok(
+        data && (data.text === expectedText || data.messageField === expectedText),
+        `expected drop-stand-in to receive text "${expectedText}", but received: ${JSON.stringify(data)}`
+      );
+    },
     assertEmpty: () => {
       try {
         const content = fs.readFileSync(log, 'utf8').trim();

@@ -30,10 +30,16 @@ function install() {
   }
 }
 
+function removeCleanup(fn) {
+  const i = cleanups.indexOf(fn);
+  if (i >= 0) cleanups.splice(i, 1);
+}
+
 /** Register a synchronous clean-up for normal exit and for SIGINT/SIGTERM/SIGHUP. */
 function onCleanup(fn) {
   install();
   cleanups.push(fn);
+  return () => removeCleanup(fn);
 }
 
-module.exports = { onCleanup };
+module.exports = { onCleanup, removeCleanup, runAll };

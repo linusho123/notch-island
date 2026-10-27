@@ -42,6 +42,11 @@ const postStamp = path.join(os.tmpdir(), `notch-island-posted-${process.pid}`);
 process.env.NOTCH_ISLAND_POST_STAMP = postStamp;
 process.on('exit', () => { try { fs.rmSync(postStamp, { force: true }); } catch { /* gone */ } });
 
+const clipboardSnapshot = process.env.NOTCH_ISLAND_CLIPBOARD_SNAPSHOT
+  || path.join(os.tmpdir(), `notch-island-clipboard-${process.pid}.json`);
+process.env.NOTCH_ISLAND_CLIPBOARD_SNAPSHOT = clipboardSnapshot;
+process.on('exit', () => { try { fs.rmSync(clipboardSnapshot, { force: true }); } catch { /* gone */ } });
+
 function log(message) {
   console.error(message);
   try { fs.appendFileSync(logFile, `${new Date().toISOString()} ${message}\n`); } catch { /* no log */ }
@@ -78,6 +83,23 @@ const harness = {
   release: () => h('release'),
   move: (x, y) => h('move', x, y),
   outputDevice: () => h('output-device'),
+  pasteboardSave: (name) => h('pasteboard-save', ...(name ? [name] : [])),
+  pasteboardRestore: async (saved, name) => {
+    let payload = saved;
+    let tmpFile = null;
+    if (typeof saved === 'object') {
+      tmpFile = path.join(os.tmpdir(), `pb-when-idle-${process.pid}-${Date.now()}.json`);
+      fs.writeFileSync(tmpFile, JSON.stringify(saved));
+      payload = tmpFile;
+    }
+    try {
+      return await h('pasteboard-restore', payload, ...(name ? [name] : []));
+    } finally {
+      if (tmpFile) {
+        try { fs.rmSync(tmpFile, { force: true }); } catch {}
+      }
+    }
+  },
 };
 
 const text = async (file, args) => {
@@ -107,7 +129,8 @@ async function read() {
 }
 
 /** After a stopped run: the installed island back as it was (its sweep). */
-function restore() {
+async function restore() {
+  await w.recoverClipboardSnapshot({ snapshotPath: clipboardSnapshot, harness, log });
   const keeper = path.join(root, 'test', 'support', 'installed-island.js');
   execFileSync(process.execPath, ['-e', `require(${JSON.stringify(keeper)})`], { stdio: 'inherit', timeout: 60000 });
 }
@@ -121,7 +144,10 @@ for (const [signal, n] of [['SIGINT', 2], ['SIGTERM', 15], ['SIGHUP', 1]]) {
   process.on(signal, () => {
     if (current) { try { process.kill(-current, 'SIGTERM'); } catch { /* gone */ } }
     log(`when-idle: ${signal}: stopped`);
-    setTimeout(() => process.exit(128 + n), current ? 3000 : 0);
+    setTimeout(async () => {
+      try { await restore(); } catch {}
+      process.exit(128 + n);
+    }, current ? 3000 : 0);
   });
 }
 

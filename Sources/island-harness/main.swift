@@ -123,6 +123,7 @@ func describe(_ el: AXUIElement, depth: Int) -> [String: Any] {
     if let s = v as? String { d["value"] = s } else if let n = v as? NSNumber { d["value"] = n }
   }
   if let e = attr(el, kAXEnabledAttribute) as? Bool { d["enabled"] = e }
+  if let f = attr(el, kAXFocusedAttribute) as? Bool { d["focused"] = f }
   if let f = frameOf(el) { d["frame"] = rectJSON(f) }
   return d
 }
@@ -315,10 +316,10 @@ func glide(to: CGPoint, steps: Int, stepMs: Double, dragging: Bool = false) {
   }
 }
 
-func scroll(dy: Int32, wheel: Bool) {
+func scroll(dy: Int32, dx: Int32 = 0, wheel: Bool) {
   if wheel {
     let e = CGEvent(
-      scrollWheelEvent2Source: nil, units: .line, wheelCount: 1, wheel1: dy, wheel2: 0, wheel3: 0)
+      scrollWheelEvent2Source: nil, units: .line, wheelCount: 2, wheel1: dy, wheel2: dx, wheel3: 0)
     guard let e else { return }
     e.setIntegerValueField(.scrollWheelEventIsContinuous, value: 0)
     postTagged(e)
@@ -327,15 +328,17 @@ func scroll(dy: Int32, wheel: Bool) {
   // A two-finger scroll: a gesture that begins, changes and ends.
   let steps = 8
   for i in 0...steps {
+    let stepY = i == steps ? 0 : dy / Int32(steps)
+    let stepX = i == steps ? 0 : dx / Int32(steps)
     let e = CGEvent(
-      scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1,
-      wheel1: i == steps ? 0 : dy / Int32(steps), wheel2: 0, wheel3: 0)
+      scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2,
+      wheel1: stepY, wheel2: stepX, wheel3: 0)
     guard let e else { continue }
     e.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
     let phase: Int64 = i == 0 ? 1 : (i == steps ? 4 : 2)  // began, changed, ended
     e.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
-    e.setIntegerValueField(
-      .scrollWheelEventPointDeltaAxis1, value: Int64(i == steps ? 0 : dy / Int32(steps)))
+    e.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: Int64(stepY))
+    e.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: Int64(stepX))
     postTagged(e)
     sleepMs(12)
   }
@@ -763,10 +766,41 @@ case "arrive-and-click":
   } while now() < until
   emit(["clickedAt": t, "samples": samples])
 case "key":
-  // key keycode: press and release one key (53 is Escape).
+  // key keycode [flags...]: press and release one key (53 is Escape, 36 is Return).
   let code = CGKeyCode(num(1))
+  var flags: CGEventFlags = []
+  if args.count > 2 {
+    for i in 2..<args.count {
+      let f = arg(i).lowercased()
+      if f.contains("cmd") || f.contains("command") { flags.insert(.maskCommand) }
+      if f.contains("shift") { flags.insert(.maskShift) }
+      if f.contains("alt") || f.contains("opt") { flags.insert(.maskAlternate) }
+      if f.contains("ctrl") || f.contains("control") { flags.insert(.maskControl) }
+    }
+  }
   for down in [true, false] {
-    if let e = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down) { postTagged(e) }
+    if let e = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: down) {
+      e.flags = flags
+      postTagged(e)
+    }
+  }
+  emit(["ok": true])
+case "type":
+  // type text: post keyboard events for each character
+  let text = arg(1)
+  for char in text {
+    let utf16 = Array(String(char).utf16)
+    if let down = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true) {
+      down.flags = []
+      down.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
+      postTagged(down)
+    }
+    if let up = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) {
+      up.flags = []
+      up.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
+      postTagged(up)
+    }
+    usleep(3000)
   }
   emit(["ok": true])
 case "tree":
@@ -925,8 +959,9 @@ case "button":
   // button: whether the left button reads held, system-wide.
   emit(["left": leftButtonDown()])
 case "scroll":
-  // scroll dy wheel|trackpad (at the pointer; negative scrolls down)
-  scroll(dy: Int32(num(1)), wheel: arg(2) == "wheel")
+  // scroll dy wheel|trackpad [dx] (at the pointer; negative scrolls down)
+  let dx: Int32 = args.count > 3 ? Int32(num(3)) : 0
+  scroll(dy: Int32(num(1)), dx: dx, wheel: arg(2) == "wheel")
   emit(["ok": true, "t": now()])
 case "watch":
   // watch pid ms everyMs: samples of the island's windows over a while.
@@ -1198,6 +1233,7 @@ case "drop-stand-in":
     var moveToDir: String?
     var copyToDir: String?
     var logPath: String = ""
+    weak var messageField: NSTextField?
 
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
       if refuse { return [] }
@@ -1256,11 +1292,29 @@ case "drop-stand-in":
         urlsList = allURLs.map { $0.absoluteString }
       }
 
-      let payload: [String: Any] = [
+      var droppedText: String? = nil
+      if let str = pb.string(forType: .string), !str.isEmpty {
+        droppedText = str
+      } else if let strings = pb.readObjects(
+        forClasses: [NSString.self], options: nil) as? [String],
+        let first = strings.first, !first.isEmpty
+      {
+        droppedText = first
+      }
+
+      var payload: [String: Any] = [
         "received": received,
         "urls": urlsList,
         "time": Date().timeIntervalSince1970,
       ]
+
+      if let text = droppedText {
+        payload["text"] = text
+        payload["messageField"] = text
+        DispatchQueue.main.async { [weak self] in
+          self?.messageField?.stringValue = text
+        }
+      }
 
       if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted])
       {
@@ -1289,6 +1343,17 @@ case "drop-stand-in":
   dropView.registerForDraggedTypes([.fileURL, .URL, .string])
   dropView.autoresizingMask = [.width, .height]
   window.contentView?.addSubview(dropView)
+
+  let msgField = NSTextField(frame: NSRect(x: 16, y: 16, width: winW - 32, height: 26))
+  msgField.isEditable = false
+  msgField.isSelectable = true
+  msgField.stringValue = ""
+  msgField.placeholderString = "Message"
+  msgField.setAccessibilityLabel("message field")
+  msgField.setAccessibilityIdentifier("message-field")
+  msgField.autoresizingMask = [.width, .maxYMargin]
+  dropView.messageField = msgField
+  window.contentView?.addSubview(msgField)
 
   window.makeKeyAndOrderFront(nil)
   app.activate(ignoringOtherApps: true)
@@ -1530,7 +1595,9 @@ case "pasteboard-set":
   let pbName = arg(1)
   let typeStr = arg(2)
   let val = arg(3)
-  let pb = NSPasteboard(name: .init(pbName))
+  let pb: NSPasteboard =
+    (pbName == "general" || pbName == NSPasteboard.general.name.rawValue)
+    ? .general : NSPasteboard(name: .init(pbName))
   pb.clearContents()
   let item = NSPasteboardItem()
   item.setString(val, forType: .init(typeStr))

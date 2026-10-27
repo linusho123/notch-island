@@ -70,3 +70,47 @@ public struct PageScroller: Sendable {
     return true
   }
 }
+
+/// Action determined by scroll routing (M9).
+public enum ScrollAction: Equatable, Sendable {
+  case changePage(IslandPage)
+  case routeToContent
+  case swallow
+}
+
+/// Routes scroll wheel events between vertical page changing and horizontal shelf scrolling (M9).
+public enum ShelfScrollRouting {
+  public static func route(
+    page: IslandPage,
+    deltaX: Double,
+    deltaY: Double,
+    continuous: Bool,
+    gestureBegan: Bool,
+    momentum: Bool,
+    pager: inout PageScroller
+  ) -> ScrollAction {
+    // On the shelf page, a dominant horizontal scroll is routed to the shelf's horizontal scroll view.
+    if page == .shelf && abs(deltaX) > abs(deltaY) {
+      return .routeToContent
+    }
+
+    // Vertical scroll attempts to turn the page between music and shelf.
+    let didTurn = pager.scroll(
+      deltaY: deltaY,
+      continuous: continuous,
+      gestureBegan: gestureBegan,
+      momentum: momentum
+    )
+    if didTurn {
+      return .changePage(pager.page)
+    }
+
+    // On the shelf page, any unconsumed scroll (e.g. downward vertical scroll or momentum)
+    // is passed to the view hierarchy so content scrolling remains responsive.
+    if page == .shelf {
+      return .routeToContent
+    }
+
+    return .swallow
+  }
+}

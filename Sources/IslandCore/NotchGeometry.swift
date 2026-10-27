@@ -72,3 +72,42 @@ public enum NotchGeometry {
     return dx * dx + dy * dy <= radius * radius
   }
 }
+
+/// Geometry for note items on the shelf (M3).
+/// The remove button (small x) sits in a separate gutter and never overlaps the
+/// note's text, controls, or the open editor.
+public enum NoteLayoutGeometry {
+  public static let maxContentWidth: CGFloat = 200
+  public static let cardPadding: CGFloat = 4
+  public static let gutterSpacing: CGFloat = 2
+  public static let removeButtonSize: CGFloat = 18
+
+  public static func cardRect(contentWidth: CGFloat, height: CGFloat = 32) -> CGRect {
+    let width = min(contentWidth, maxContentWidth) + cardPadding * 2
+    return CGRect(x: 0, y: 0, width: width, height: height)
+  }
+
+  public static func removeGutterRect(contentWidth: CGFloat, height: CGFloat = 32) -> CGRect {
+    let card = cardRect(contentWidth: contentWidth, height: height)
+    return CGRect(
+      x: card.maxX + gutterSpacing,
+      y: 0,
+      width: removeButtonSize,
+      height: removeButtonSize
+    )
+  }
+
+  public static func framesDoNotIntersect(contentWidth: CGFloat) -> Bool {
+    let card = cardRect(contentWidth: contentWidth)
+    let gutter = removeGutterRect(contentWidth: contentWidth)
+    return !card.intersects(gutter)
+  }
+
+  /// Evaluates an overlay layout (as previously used) where the remove button is placed
+  /// at the top-trailing corner inside the card frame, demonstrating intersection.
+  public static func overlayIntersectsCard(cardWidth: CGFloat, removeSize: CGFloat = 20) -> Bool {
+    let card = CGRect(x: 0, y: 0, width: cardWidth, height: 32)
+    let overlay = CGRect(x: cardWidth - removeSize, y: 0, width: removeSize, height: removeSize)
+    return card.intersects(overlay)
+  }
+}

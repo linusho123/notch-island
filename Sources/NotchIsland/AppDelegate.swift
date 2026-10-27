@@ -316,6 +316,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           let isReminder = seed["isReminder"] as? Bool ?? false
           shelfStore.addNote(text: text, isReminder: isReminder, landedAt: landedAt)
         }
+      case "reminder":
+        if let text = seed["text"] as? String {
+          shelfStore.addNote(text: text, isReminder: true, landedAt: landedAt)
+        }
       default:
         break
       }

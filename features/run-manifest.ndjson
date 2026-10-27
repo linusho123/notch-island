@@ -35,7 +35,7 @@
 {"file":"music-panel.feature","title":"Dragging the progress dot far from the island keeps it open until let go [1]","status":"passed"}
 {"file":"music-panel.feature","title":"In fullscreen, resting on the notch still opens the panel","status":"passed"}
 {"file":"music-panel.feature","title":"Moving the progress dot by clicking the bar to 1:45:00 jumps the concert file there [2]","status":"passed"}
-{"file":"music-panel.feature","title":"Moving the progress dot by clicking the bar's start to 0:00:00 jumps the concert file there [4]","status":"passed"}
+{"file":"music-panel.feature","title":"Moving the progress dot by clicking the bar's start to 0:00:00 jumps the concert file there [4]","status":"failed"}
 {"file":"music-panel.feature","title":"Moving the progress dot by dragging the dot back to 0:30:00 jumps the concert file there [3]","status":"passed"}
 {"file":"music-panel.feature","title":"Moving the progress dot by dragging the dot to 1:45:00 jumps the concert file there [1]","status":"passed"}
 {"file":"music-panel.feature","title":"Opening springs out of the notch and settles","status":"passed"}
@@ -55,7 +55,7 @@
 {"file":"music-panel.feature","title":"The island checked 0.1 seconds after it starts opening [1]","status":"passed"}
 {"file":"music-panel.feature","title":"The island checked 0.5 seconds after it starts closing [2]","status":"passed"}
 {"file":"music-panel.feature","title":"The island checked 0.6 seconds after it starts opening [2]","status":"passed"}
-{"file":"music-panel.feature","title":"The open island is a card below the menu bar, apart from the notch","status":"passed"}
+{"file":"music-panel.feature","title":"The open island is a card below the menu bar, apart from the notch","status":"failed"}
 {"file":"music-panel.feature","title":"The panel shows a downloaded file with no cover art and no artist","status":"passed"}
 {"file":"music-panel.feature","title":"The pointer leaving the open island for 0.2 seconds and back onto it [1]","status":"passed"}
 {"file":"music-panel.feature","title":"The pointer leaving the open island for 2 seconds [2]","status":"passed"}
@@ -76,7 +76,7 @@
 {"file":"music-sources.feature","title":"A song from a soundcloud.com tab in Chrome shows on the music page [3]","status":"passed"}
 {"file":"music-sources.feature","title":"A song from a youtube.com tab in Chrome shows on the music page [2]","status":"passed"}
 {"file":"music-sources.feature","title":"After the speaker drops, the source line names the app alone","status":"passed"}
-{"file":"music-sources.feature","title":"Flipping 1 times through three sources shows the IINA file as 2 of 3 [1]","status":"passed"}
+{"file":"music-sources.feature","title":"Flipping 1 times through three sources shows the IINA file as 2 of 3 [1]","status":"failed"}
 {"file":"music-sources.feature","title":"Flipping 1 times while IINA has no face shows the Apple Music song as 2 of 2 [1]","status":"passed"}
 {"file":"music-sources.feature","title":"Flipping 2 times through three sources shows the Apple Music song as 3 of 3 [2]","status":"passed"}
 {"file":"music-sources.feature","title":"Flipping 2 times while IINA has no face shows the YouTube video as 1 of 2 [2]","status":"passed"}
@@ -109,7 +109,7 @@
 {"file":"music-sources.feature","title":"When the visionary closes the YouTube tab, the newest remaining source shows [2]","status":"passed"}
 {"file":"music-sources.feature","title":"When the visionary quits Apple Music, the newest remaining source shows [1]","status":"passed"}
 {"file":"music-sources.feature","title":"When the visionary quits IINA, the newest remaining source shows [3]","status":"passed"}
-{"file":"music-sources.feature","title":"With Apple Music and a youtube.com tab in Chrome playing, the newest shows the count 1 of 2 [1]","status":"failed"}
+{"file":"music-sources.feature","title":"With Apple Music and a youtube.com tab in Chrome playing, the newest shows the count 1 of 2 [1]","status":"passed"}
 {"file":"music-sources.feature","title":"With Apple Music, QuickTime Player and a youtube.com tab in Chrome playing, the newest shows the count 1 of 3 [2]","status":"passed"}
 {"file":"music-sources.feature","title":"With nothing before it, back twice within the first 3 seconds on the island goes to Apple Music [2]","status":"passed"}
 {"file":"music-sources.feature","title":"With nothing next after it, skip on the island goes to QuickTime Player [1]","status":"passed"}
@@ -125,7 +125,7 @@
 {"file":"new-song-notice.feature","title":"A new song in a youtube.com playlist in Chrome brings the wing out within a second [3]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in fullscreen pops no wing","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song slides a small wing out left of the notch","status":"passed"}
-{"file":"new-song-notice.feature","title":"Moving onto the notch while the wing is out opens the full panel","status":"failed"}
+{"file":"new-song-notice.feature","title":"Moving onto the notch while the wing is out opens the full panel","status":"passed"}
 {"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, art too wide [4]","status":"passed"}
 {"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, menus reach it [5]","status":"passed"}
 {"file":"new-song-notice.feature","title":"The new-song notice finds room: the art alone [3]","status":"passed"}
@@ -188,23 +188,23 @@
 {"file":"shelf-captures-and-files.feature","title":"Scrolling up on the shelf page brings the music page back","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"The remove area shows only while a shelf item is being dragged","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"Thirty screenshots in a row while documenting a bug make one stack","status":"passed"}
-{"file":"shelf-notes-and-reminders.feature","title":"+ note puts a short note on the shelf","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"A new note of 1 character keeps that 1 character [1]","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"A new note of 139 characters keeps all 139 characters [2]","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"A new note of 140 characters keeps all 140 characters [3]","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"A new note of 141 characters keeps only the first 140 characters [4]","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"A new note of 2000 characters keeps only the first 140 characters [5]","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"A note and an open reminder stay on the shelf, quietly, for a week","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"Checking off a reminder removes it at once","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"Clicking the small x on a note removes it","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"Dragging the note \"idea: notch app shows lyrics\" into a Messages chat drops its text and keeps it [1]","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"Dragging the reminder \"renew passport\" into a Messages chat drops its text and keeps it [2]","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"Editing a note's text saves the correction in place","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"Emptying a note's text removes the note","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"Return on an empty note makes no note","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"The box beside a note makes it a reminder","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"The pencil beside a reminder turns it back into a plain note","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"Typing 1 more into a note of 130 characters leaves all 131 characters [1]","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"Typing 10 more into a note of 130 characters leaves all 140 characters [2]","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"Typing 11 more into a note of 130 characters leaves 140 characters, the typing stopped at the cap [3]","status":"unbound"}
-{"file":"shelf-notes-and-reminders.feature","title":"Typing 500 more into a note of 130 characters leaves 140 characters, the typing stopped at the cap [4]","status":"unbound"}
+{"file":"shelf-notes-and-reminders.feature","title":"+ note puts a short note on the shelf","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"A new note of 1 character keeps that 1 character [1]","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"A new note of 139 characters keeps all 139 characters [2]","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"A new note of 140 characters keeps all 140 characters [3]","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"A new note of 141 characters keeps only the first 140 characters [4]","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"A new note of 2000 characters keeps only the first 140 characters [5]","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"A note and an open reminder stay on the shelf, quietly, for a week","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"Checking off a reminder removes it at once","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"Clicking the small x on a note removes it","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"Dragging the note \"idea: notch app shows lyrics\" into a Messages chat drops its text and keeps it [1]","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"Dragging the reminder \"renew passport\" into a Messages chat drops its text and keeps it [2]","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"Editing a note's text saves the correction in place","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"Emptying a note's text removes the note","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"Return on an empty note makes no note","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"The box beside a note makes it a reminder","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"The pencil beside a reminder turns it back into a plain note","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"Typing 1 more into a note of 130 characters leaves all 131 characters [1]","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"Typing 10 more into a note of 130 characters leaves all 140 characters [2]","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"Typing 11 more into a note of 130 characters leaves 140 characters, the typing stopped at the cap [3]","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"Typing 500 more into a note of 130 characters leaves 140 characters, the typing stopped at the cap [4]","status":"passed"}

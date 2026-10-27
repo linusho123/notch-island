@@ -782,4 +782,247 @@ struct ShelfStoreTests {
     let itemsAfter24h = store.items()
     #expect(itemsAfter24h.count == 0)
   }
+
+  @Test("Updating a note's text saves correction in place (D63)")
+  func updateNoteTextInPlaceD63() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let store = ShelfStore(file: storeFile)
+
+    // Add three items: note 1, note 2, note 3
+    let n1 = store.addNote(text: "first note")
+    let n2 = store.addNote(text: "idea: notch app shwos lyrics")
+    let n3 = store.addNote(text: "third note")
+
+    #expect(store.count == 3)
+    #expect(store.items()[1].id == n2.id)
+
+    // Correct note 2 in place
+    let updated = store.updateNoteText(id: n2.id, text: "idea: notch app shows lyrics")
+    #expect(updated == true)
+
+    let items = store.items()
+    #expect(items.count == 3)
+    #expect(items[0].id == n1.id)
+    #expect(items[1].id == n2.id)
+    #expect(items[1].title == "✎ idea: notch app shows lyrics")
+    #expect(items[2].id == n3.id)
+
+    // Verify persistence across reload (D59)
+    store.reload()
+    let reloaded = store.items()
+    #expect(reloaded.count == 3)
+    #expect(reloaded[1].id == n2.id)
+    #expect(reloaded[1].title == "✎ idea: notch app shows lyrics")
+  }
+
+  @Test("Emptying a note's text removes the note (D63)")
+  func emptyingNoteRemovesItD63() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let store = ShelfStore(file: storeFile)
+
+    let n1 = store.addNote(text: "keep me")
+    let n2 = store.addNote(text: "idea: notch app shows lyrics")
+    #expect(store.count == 2)
+
+    // Empty note 2's text
+    let updated = store.updateNoteText(id: n2.id, text: "")
+    #expect(updated == true)
+
+    let items = store.items()
+    #expect(items.count == 1)
+    #expect(items[0].id == n1.id)
+
+    // Verify persistence across reload (D59)
+    store.reload()
+    #expect(store.count == 1)
+    #expect(store.items()[0].id == n1.id)
+  }
+
+  @Test("Toggling a note to a reminder and back keeps text and position (D39)")
+  func toggleNoteKindKeepsTextAndPositionD39() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let store = ShelfStore(file: storeFile)
+
+    let n1 = store.addNote(text: "first note")
+    let n2 = store.addNote(text: "idea: notch app shows lyrics")
+    let n3 = store.addNote(text: "third note")
+
+    #expect(store.count == 3)
+    #expect(store.items()[1].title == "✎ idea: notch app shows lyrics")
+
+    // Toggle note 2 to a reminder
+    let toggledToReminder = store.toggleNoteKind(id: n2.id)
+    #expect(toggledToReminder == true)
+
+    let items1 = store.items()
+    #expect(items1.count == 3)
+    #expect(items1[0].id == n1.id)
+    #expect(items1[1].id == n2.id)
+    // No ✎ prefix for reminders
+    #expect(items1[1].title == "idea: notch app shows lyrics")
+    #expect(items1[1].noteText == "idea: notch app shows lyrics")
+    if case .note(_, let isReminder) = items1[1].kind {
+      #expect(isReminder == true)
+    } else {
+      #expect(Bool(false), "item 1 is not a note")
+    }
+    #expect(items1[2].id == n3.id)
+
+    // Toggle back to plain note
+    let toggledBack = store.toggleNoteKind(id: n2.id)
+    #expect(toggledBack == true)
+
+    let items2 = store.items()
+    #expect(items2.count == 3)
+    #expect(items2[0].id == n1.id)
+    #expect(items2[1].id == n2.id)
+    #expect(items2[1].title == "✎ idea: notch app shows lyrics")
+    #expect(items2[1].noteText == "idea: notch app shows lyrics")
+    if case .note(_, let isReminder) = items2[1].kind {
+      #expect(isReminder == false)
+    } else {
+      #expect(Bool(false), "item 1 is not a note")
+    }
+    #expect(items2[2].id == n3.id)
+
+    // Verify survival across disk reload (D59)
+    store.reload()
+    let reloaded = store.items()
+    #expect(reloaded.count == 3)
+    #expect(reloaded[1].id == n2.id)
+    #expect(reloaded[1].title == "✎ idea: notch app shows lyrics")
+  }
+
+  @Test("Check-off removes only reminders at once (D40)")
+  func checkOffRemovesOnlyRemindersD40() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let store = ShelfStore(file: storeFile)
+
+    let plain = store.addNote(text: "plain note", isReminder: false)
+    let reminder = store.addNote(text: "renew passport", isReminder: true)
+
+    #expect(store.count == 2)
+
+    // Checking off a plain note is refused and removes nothing (D40)
+    let checkOffPlain = store.checkOffReminder(id: plain.id)
+    #expect(checkOffPlain == false)
+    #expect(store.count == 2)
+
+    // Checking off a reminder removes it at once
+    let checkOffReminder = store.checkOffReminder(id: reminder.id)
+    #expect(checkOffReminder == true)
+    #expect(store.count == 1)
+    #expect(store.items()[0].id == plain.id)
+
+    // Survives reload
+    store.reload()
+    #expect(store.count == 1)
+    #expect(store.items()[0].id == plain.id)
+  }
+
+  @Test("Notes and reminders never age off even after 7 days (D2, D57)")
+  func notesAndRemindersNeverAgeOffD57() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let t0 = Date(timeIntervalSince1970: 1_700_000_000)
+    let clock = TestClock(t0)
+
+    let store = ShelfStore(file: storeFile, clock: { clock.now })
+    _ = store.addNote(text: "idea: notch app shows lyrics", isReminder: false)
+    _ = store.addNote(text: "renew passport", isReminder: true)
+
+    #expect(store.count == 2)
+
+    // Advance clock 7 days into future
+    clock.advance(by: 7 * 24 * 3600)
+
+    let items = store.items()
+    #expect(items.count == 2)
+    #expect(items[0].title == "✎ idea: notch app shows lyrics")
+    #expect(items[1].title == "renew passport")
+  }
+
+  @Test("Dragging a note or reminder out keeps it on the shelf on accepted drop (D93)")
+  func itemAcceptedKeepsNotesAndRemindersD93() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let store = ShelfStore(file: storeFile)
+
+    let dummyFile = try createTempFile(in: dir, named: "doc.pdf")
+    try store.parkFile(at: dummyFile)
+    let note = store.addNote(text: "idea: notch app shows lyrics", isReminder: false)
+    let reminder = store.addNote(text: "renew passport", isReminder: true)
+
+    #expect(store.count == 3)
+
+    // Accepted drop for note does not remove it
+    let noteDropResult = store.itemAccepted(id: note.id)
+    #expect(noteDropResult == false)
+    #expect(store.count == 3)
+
+    // Accepted drop for reminder does not remove it
+    let reminderDropResult = store.itemAccepted(id: reminder.id)
+    #expect(reminderDropResult == false)
+    #expect(store.count == 3)
+
+    // Accepted drop for file removes it
+    let fileItem = store.items().first { $0.title == "doc.pdf" }!
+    let fileDropResult = store.itemAccepted(id: fileItem.id)
+    #expect(fileDropResult == true)
+    #expect(store.count == 2)
+  }
+
+  @Test("Notes preserve exact literal prefixes through create, reload, edit, and toggle (M2)")
+  func literalPrefixesPreservedThroughLifecycleM2() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let store = ShelfStore(file: storeFile)
+
+    // Note typed with literal "✎ sketch"
+    let n1 = store.addNote(text: "✎ sketch")
+    #expect(n1.noteText == "✎ sketch")
+    #expect(n1.title == "✎ ✎ sketch")
+
+    // Edit a note to nonempty "✎ "
+    let n2 = store.addNote(text: "some note")
+    let edited = store.updateNoteText(id: n2.id, text: "✎ ")
+    #expect(edited == true)
+    #expect(store.count == 2)
+    let item2 = store.items().first { $0.id == n2.id }
+    #expect(item2?.noteText == "✎ ")
+
+    // Toggle note with literal prefix keeps raw text
+    let toggled = store.toggleNoteKind(id: n1.id)
+    #expect(toggled == true)
+    let item1 = store.items().first { $0.id == n1.id }
+    #expect(item1?.noteText == "✎ sketch")
+    #expect(item1?.title == "✎ sketch")
+
+    // Reload preserves raw text
+    store.reload()
+    let reloaded1 = store.items().first { $0.id == n1.id }
+    #expect(reloaded1?.noteText == "✎ sketch")
+  }
+
+  @Test("ShelfStore addNote and updateNoteText cap text at 140 characters (D62, D104, D123, M4)")
+  func storeCapsOverlongNoteTextAtBoundaryD123() throws {
+    let dir = try makeScratchDirectory()
+    let storeFile = dir.appendingPathComponent("shelf.json")
+    let store = ShelfStore(file: storeFile)
+
+    let overlong = String(repeating: "x", count: 200)
+    let n = store.addNote(text: overlong)
+    #expect(n.noteText?.count == 140)
+    #expect(n.noteText == String(repeating: "x", count: 140))
+
+    let updated = store.updateNoteText(id: n.id, text: String(repeating: "y", count: 180))
+    #expect(updated == true)
+    let item = store.items().first { $0.id == n.id }
+    #expect(item?.noteText?.count == 140)
+    #expect(item?.noteText == String(repeating: "y", count: 140))
+  }
 }

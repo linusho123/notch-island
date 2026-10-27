@@ -6,7 +6,10 @@ import SwiftUI
 /// and never becomes key, so the frontmost app keeps its focus. It sits above
 /// the menu bar on every space, fullscreen ones included, and is kept out of
 /// every screen capture (D108, D110).
-final class IslandPanel: NSPanel {
+final class IslandPanel: NSPanel, NSWindowDelegate {
+  var allowsKeyWindow: Bool = false
+  let customEditor = CustomNoteTextView()
+
   init() {
     super.init(
       contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered,
@@ -22,10 +25,23 @@ final class IslandPanel: NSPanel {
     isMovable = false
     acceptsMouseMovedEvents = true
     becomesKeyOnlyIfNeeded = true
+    self.delegate = self
   }
 
-  override var canBecomeKey: Bool { false }
+  override var canBecomeKey: Bool { allowsKeyWindow }
   override var canBecomeMain: Bool { false }
+  override var isKeyWindow: Bool { allowsKeyWindow && super.isKeyWindow }
+
+  func windowWillReturnFieldEditor(_ sender: NSWindow, to client: Any?) -> Any? {
+    if let field = client as? CustomNoteNSTextField {
+      customEditor.isFieldEditor = true
+      customEditor.activeField = field
+      customEditor.onCommit = field.onCommit
+      customEditor.onCancel = field.onCancel
+      return customEditor
+    }
+    return nil
+  }
 }
 
 /// The root view: it reports where the pointer is over the island's window.
@@ -106,6 +122,8 @@ final class IslandController: NSObject, NSMenuDelegate {
   let model = IslandModel()
   private var machine: HoverMachine
   private var pager = PageScroller()
+  private var focusLifecycle = FocusLifecycle()
+  private var previousFrontApp: NSRunningApplication?
   private var deadlineTimer: Timer?
   private var monitor: Any?
   /// While the island is open, pointer moves anywhere are watched, so leaving
@@ -138,6 +156,19 @@ final class IslandController: NSObject, NSMenuDelegate {
     machine = HoverMachine(timing: timing)
     self.contextGuard = contextGuard
     super.init()
+    if NSApp.mainMenu == nil {
+      let mainMenu = NSMenu()
+      let editMenuItem = NSMenuItem()
+      let editMenu = NSMenu(title: "Edit")
+      editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+      editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+      editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+      editMenu.addItem(
+        withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+      mainMenu.addItem(editMenuItem)
+      mainMenu.setSubmenu(editMenu, for: editMenuItem)
+      NSApp.mainMenu = mainMenu
+    }
     Self.host(FirstClickHostingView(rootView: NotchView()), in: rootView)
     Self.host(FirstClickHostingView(rootView: CardView(model: model)), in: cardRoot)
     notchPanel.contentView = rootView
@@ -155,6 +186,28 @@ final class IslandController: NSObject, NSMenuDelegate {
     }
     model.onShelfDragEnded = { [weak self] item, op, pt in
       self?.shelfItemDragEnded(item: item, operation: op, screenPoint: pt)
+    }
+    cardPanel.allowsKeyWindow = false
+    model.onEditingNoteChanged = { [weak self] editing in
+      guard let self else { return }
+      if editing {
+        self.focusLifecycle.startEditing()
+        if let front = NSWorkspace.shared.frontmostApplication,
+          front.processIdentifier != ProcessInfo.processInfo.processIdentifier
+        {
+          self.previousFrontApp = front
+        }
+        self.cardPanel.allowsKeyWindow = true
+        NSApp.activate(ignoringOtherApps: true)
+        self.cardPanel.makeKey()
+      } else {
+        self.focusLifecycle.endEditing()
+        self.releaseKeyboardFocus()
+        if let prev = self.previousFrontApp {
+          prev.activate()
+          self.previousFrontApp = nil
+        }
+      }
     }
     monitor = NSEvent.addLocalMonitorForEvents(
       matching: [.leftMouseDown, .leftMouseUp, .rightMouseDown, .scrollWheel]
@@ -304,6 +357,13 @@ final class IslandController: NSObject, NSMenuDelegate {
           "notch-island: %@ (pointer %@)", isOpen ? "open" : "closed", "\(Self.pointerLocation())")
       #endif
       if !isOpen {
+        model.endAnyNoteEditing()
+        focusLifecycle.onIslandClosed()
+        releaseKeyboardFocus()
+        if let prev = previousFrontApp {
+          prev.activate()
+          previousFrontApp = nil
+        }
         pager.reset()
         model.page = .music
       }
@@ -400,15 +460,50 @@ final class IslandController: NSObject, NSMenuDelegate {
     case .scrollWheel:
       guard isIsland(event.window), machine.state == .open else { return event }
       let began = event.phase.contains(.began) || event.phase.isEmpty
-      if pager.scroll(
-        deltaY: Double(event.scrollingDeltaY), continuous: event.hasPreciseScrollingDeltas,
-        gestureBegan: began, momentum: !event.momentumPhase.isEmpty)
-      {
-        model.page = pager.page
+      let action = ShelfScrollRouting.route(
+        page: model.page,
+        deltaX: Double(event.scrollingDeltaX),
+        deltaY: Double(event.scrollingDeltaY),
+        continuous: event.hasPreciseScrollingDeltas,
+        gestureBegan: began,
+        momentum: !event.momentumPhase.isEmpty,
+        pager: &pager
+      )
+      switch action {
+      case .changePage(let newPage):
+        if newPage == .music {
+          model.endAnyNoteEditing()
+          focusLifecycle.onPageChanged(to: .music)
+          releaseKeyboardFocus()
+          if let prev = previousFrontApp {
+            prev.activate()
+            previousFrontApp = nil
+          }
+        }
+        model.page = newPage
+        return nil
+      case .routeToContent:
+        return event
+      case .swallow:
+        return nil
       }
-      return nil
     default:
       return event
+    }
+  }
+
+  /// Gives keyboard focus back (R4): the card stops being key-capable, loses
+  /// first responder and key status, and the app steps back.
+  private func releaseKeyboardFocus() {
+    cardPanel.allowsKeyWindow = false
+    cardPanel.makeFirstResponder(nil)
+    cardPanel.resignKey()
+    NSApp.deactivate()
+    // The window server keeps reporting the card as the focused window until
+    // it is re-ordered; cycling it in place clears that without a visible change.
+    if cardPanel.isVisible {
+      cardPanel.orderOut(nil)
+      cardPanel.orderFrontRegardless()
     }
   }
 

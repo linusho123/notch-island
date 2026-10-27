@@ -566,10 +566,28 @@ module.exports = function (reg) {
   });
 
   reg.define(/^the visionary sees the shelf page at the same size as the music page$/, async (w) => {
-    const view = await island.look(w.island.pid);
-    assert.ok(view.shelfFrame && view.musicFrame, 'frames not found');
-    assert.ok(Math.abs(view.shelfFrame.w - view.musicFrame.w) <= 1, 'shelf page width does not match music page');
-    assert.ok(Math.abs(view.shelfFrame.h - view.musicFrame.h) <= 1, 'shelf page height does not match music page');
+    const musicFrame = w.beforeScroll?.musicFrame;
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => {
+        const mf = musicFrame || v.musicFrame;
+        return v.shelfFrame && mf &&
+          Math.abs(v.shelfFrame.w - mf.w) <= 1 &&
+          Math.abs(v.shelfFrame.h - mf.h) <= 1;
+      },
+      2500,
+      'shelf page not matching music page size'
+    );
+    const mf = musicFrame || view.musicFrame;
+    assert.ok(view.shelfFrame && mf, 'frames not found');
+    assert.ok(
+      Math.abs(view.shelfFrame.w - mf.w) <= 1,
+      `shelf page width (${view.shelfFrame?.w}) does not match music page (${mf?.w})`
+    );
+    assert.ok(
+      Math.abs(view.shelfFrame.h - mf.h) <= 1,
+      `shelf page height (${view.shelfFrame?.h}) does not match music page (${mf?.h})`
+    );
   });
 
   reg.define(/^the visionary sees the small bar at the side mark the shelf page as showing$/, async (w) => {
@@ -713,10 +731,34 @@ module.exports = function (reg) {
 
   reg.define(/^the visionary sees the 3 notes, the reminder and both files on the shelf page$/, async (w) => {
     await openOnShelfPage(w);
-    const view = await island.look(w.island.pid);
-    assert.ok(view.texts.includes('Note 1') && view.texts.includes('Note 2') && view.texts.includes('Note 3'), 'notes missing from shelf');
-    assert.ok(view.texts.includes('Reminder 1'), 'reminder missing from shelf');
-    assert.ok(view.texts.includes('tax-return.pdf') && view.texts.includes('notes.txt'), 'files missing from shelf');
+    let view = await island.look(w.island.pid);
+    const seenTexts = new Set(view.texts);
+
+    const hasAll = () =>
+      seenTexts.has('✎ Note 1') &&
+      seenTexts.has('✎ Note 2') &&
+      seenTexts.has('✎ Note 3') &&
+      seenTexts.has('Reminder 1') &&
+      seenTexts.has('tax-return.pdf') &&
+      seenTexts.has('notes.txt');
+
+    if (!hasAll()) {
+      // Bring overflowing items into view with horizontal scroll (M9)
+      await harness.scroll(0, 'trackpad', -250);
+      await sleep(150);
+      view = await island.look(w.island.pid);
+      view.texts.forEach((t) => seenTexts.add(t));
+    }
+
+    assert.ok(
+      seenTexts.has('✎ Note 1') && seenTexts.has('✎ Note 2') && seenTexts.has('✎ Note 3'),
+      `notes missing from shelf: ${[...seenTexts].join(', ')}`
+    );
+    assert.ok(seenTexts.has('Reminder 1'), `reminder missing from shelf: ${[...seenTexts].join(', ')}`);
+    assert.ok(
+      seenTexts.has('tax-return.pdf') && seenTexts.has('notes.txt'),
+      `files missing from shelf: ${[...seenTexts].join(', ')}`
+    );
   });
 
   reg.define(/^the visionary sees "tax-return\.pdf" leave the shelf at 9:00 am the next day, 24 hours after it was parked$/, async (w) => {

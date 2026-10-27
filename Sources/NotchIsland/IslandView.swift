@@ -24,6 +24,76 @@ final class IslandModel: ObservableObject {
   var currentDraggedItem: ShelfItem?
   var shelfStore: ShelfStore?
 
+  // P5 Notes writing and editing state (D37, D61, D62, D63)
+  @Published var isEnteringNewNote: Bool = false
+  @Published var newNoteText: String = ""
+  @Published var editingNoteID: UUID? = nil
+  @Published var editingNoteText: String = ""
+  var onEditingNoteChanged: ((Bool) -> Void)?
+
+  func startEnteringNewNote() {
+    isEnteringNewNote = true
+    newNoteText = ""
+    editingNoteID = nil
+    editingNoteText = ""
+    onEditingNoteChanged?(true)
+  }
+
+  func cancelNewNote() {
+    isEnteringNewNote = false
+    newNoteText = ""
+    onEditingNoteChanged?(false)
+  }
+
+  func commitNewNote(_ text: String) {
+    let clean = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !clean.isEmpty {
+      let capped = NoteCap.capped(text)
+      shelfStore?.addNote(text: capped)
+      refreshShelf()
+    }
+    isEnteringNewNote = false
+    newNoteText = ""
+    onEditingNoteChanged?(false)
+  }
+
+  func startEditingNote(id: UUID, currentText: String) {
+    isEnteringNewNote = false
+    newNoteText = ""
+    editingNoteID = id
+    editingNoteText = currentText
+    onEditingNoteChanged?(true)
+  }
+
+  func cancelEditingNote() {
+    editingNoteID = nil
+    editingNoteText = ""
+    onEditingNoteChanged?(false)
+  }
+
+  func endAnyNoteEditing() {
+    if isEnteringNewNote {
+      cancelNewNote()
+    }
+    if editingNoteID != nil {
+      cancelEditingNote()
+    }
+  }
+
+  func commitEditingNote(id: UUID, newText: String) {
+    let clean = newText.trimmingCharacters(in: .whitespacesAndNewlines)
+    if clean.isEmpty {
+      shelfStore?.remove(id: id)
+    } else {
+      let capped = NoteCap.capped(newText)
+      shelfStore?.updateNoteText(id: id, text: capped)
+    }
+    refreshShelf()
+    editingNoteID = nil
+    editingNoteText = ""
+    onEditingNoteChanged?(false)
+  }
+
   var onBack: () -> Void = {}
   var onPlayPause: () -> Void = {}
   var onSkip: () -> Void = {}
@@ -38,6 +108,16 @@ final class IslandModel: ObservableObject {
   /// Refreshes shelf items from the store, pruning aged-out or trashed items (D57, D58).
   func refreshShelf() {
     shelfItems = shelfStore?.items() ?? []
+  }
+
+  func toggleNoteKind(id: UUID) {
+    shelfStore?.toggleNoteKind(id: id)
+    refreshShelf()
+  }
+
+  func checkOffReminder(id: UUID) {
+    shelfStore?.checkOffReminder(id: id)
+    refreshShelf()
   }
 
   /// The clicked position of a seek, held until Music confirms it.
@@ -124,6 +204,11 @@ struct CardShape: Shape {
 private struct OpenPanel: View {
   @ObservedObject var model: IslandModel
 
+  /// The shared content size of the music and shelf pages inside the panel (D30).
+  static let pageSize = CGSize(width: 394.5, height: 116)
+  /// The height of the music page's controls row, mirrored by the shelf geometry anchor.
+  static let controlsHeight: CGFloat = 34
+
   var body: some View {
     GeometryReader { proxy in
       let height = proxy.size.height
@@ -163,31 +248,78 @@ private struct PageBar: View {
   }
 }
 
+/// An invisible anchor defining the shared accessible boundary of panel pages (D30).
+private struct PageGeometryAnchor: View {
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(alignment: .top, spacing: 8) {
+        Rectangle()
+          .fill(Color.white.opacity(0.001))
+          .frame(width: 48, height: 48)
+          .accessibilityElement()
+          .accessibilityLabel("Page anchor top")
+      }
+      HStack(spacing: 8) {
+        Rectangle()
+          .fill(Color.white.opacity(0.001))
+          .frame(width: 44, height: 14)
+          .accessibilityElement()
+          .accessibilityLabel("Page anchor mid-left")
+        Spacer()
+        Rectangle()
+          .fill(Color.white.opacity(0.001))
+          .frame(width: 44, height: 14)
+          .accessibilityElement()
+          .accessibilityLabel("Page anchor mid-right")
+      }
+      HStack(spacing: 36) {
+        Rectangle()
+          .fill(Color.white.opacity(0.001))
+          .frame(width: 32, height: OpenPanel.controlsHeight)
+          .accessibilityElement()
+          .accessibilityLabel("Page anchor bottom")
+      }
+    }
+    .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height)
+    .opacity(0.001)
+    .allowsHitTesting(false)
+  }
+}
+
 private struct MusicPageView: View {
   @ObservedObject var model: IslandModel
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 10) {
-      HStack(alignment: .top, spacing: 8) {
-        FlipCard(faceID: model.faceID) {
-          SongCard(model: model)
+    ZStack(alignment: .topLeading) {
+      PageGeometryAnchor()
+      VStack(alignment: .leading, spacing: 10) {
+        HStack(alignment: .top, spacing: 8) {
+          FlipCard(faceID: model.faceID) {
+            SongCard(model: model)
+          }
+          if let flip = model.music.flip {
+            FlipControl(count: flip.label, action: model.onFlip)
+          }
         }
-        if let flip = model.music.flip {
-          FlipControl(count: flip.label, action: model.onFlip)
+        if model.music.song != nil {
+          ProgressBar(model: model)
+        } else {
+          Spacer().frame(height: 14)
         }
+        Controls(model: model)
       }
-      if model.music.song != nil {
-        ProgressBar(model: model)
-      } else {
-        Spacer().frame(height: 14)
-      }
-      Controls(model: model)
+      .frame(
+        width: OpenPanel.pageSize.width,
+        height: OpenPanel.pageSize.height,
+        alignment: .topLeading
+      )
     }
+    .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height)
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Music page")
     .padding(.horizontal, 22)
     .padding(.vertical, 10)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .accessibilityElement(children: .contain)
-    .accessibilityLabel("Music page")
   }
 }
 
@@ -404,6 +536,279 @@ private struct Controls: View {
   }
 }
 
+/// The custom field editor used for note entry and editing on the island panel.
+/// Supports standard key equivalents (Cmd+A, Cmd+C, Cmd+V, Cmd+X, Cmd+Z) in an LSUIElement app,
+/// enforces the 140-character cap on pasting and typing (D62, D104, D123),
+/// and routes Return to commit and Escape to cancel.
+final class CustomNoteTextView: NSTextView {
+  weak var activeField: CustomNoteNSTextField?
+  var onCommit: ((String) -> Void)?
+  var onCancel: (() -> Void)?
+
+  override func keyDown(with event: NSEvent) {
+    let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+    if flags.contains(.command) {
+      if performKeyEquivalent(with: event) {
+        return
+      }
+    }
+    if event.keyCode == 36 {
+      insertNewline(nil)
+      return
+    }
+    if event.keyCode == 53 {
+      cancelOperation(nil)
+      return
+    }
+    super.keyDown(with: event)
+  }
+
+  override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+    if flags.contains(.command) {
+      switch event.keyCode {
+      case 0:
+        self.selectAll(nil)
+        return true
+      case 9:
+        self.paste(nil)
+        return true
+      case 8:
+        self.copy(nil)
+        return true
+      case 7:
+        self.cut(nil)
+        return true
+      case 6:
+        if flags.contains(.shift) {
+          self.undoManager?.redo()
+        } else {
+          self.undoManager?.undo()
+        }
+        return true
+      default:
+        break
+      }
+    }
+    return super.performKeyEquivalent(with: event)
+  }
+
+  override func paste(_ sender: Any?) {
+    guard let pasteString = NSPasteboard.general.string(forType: .string) else { return }
+    guard
+      let edit = NoteCap.pasteEdit(
+        current: self.string, pasting: pasteString, selection: selectedRange())
+    else { return }
+    self.insertText(edit.text, replacementRange: edit.range)
+  }
+
+  override func shouldChangeText(
+    in affectedCharRange: NSRange, replacementString: String?
+  ) -> Bool {
+    guard let replacement = replacementString else { return true }
+    guard let range = Range(affectedCharRange, in: self.string) else { return true }
+    let allowed = NoteCap.allowedInsertion(
+      current: self.string, inserting: replacement, replacing: range)
+    if replacement.count > allowed.count {
+      return false
+    }
+    return super.shouldChangeText(in: affectedCharRange, replacementString: replacementString)
+  }
+
+  override func insertNewline(_ sender: Any?) {
+    let text = self.string
+    if let commit = activeField?.onCommit ?? onCommit {
+      commit(text)
+    } else if let coord = self.delegate as? NoteTextFieldRepresentable.Coordinator {
+      coord.parent.onCommit(text)
+    }
+  }
+
+  override func cancelOperation(_ sender: Any?) {
+    if let cancel = activeField?.onCancel ?? onCancel {
+      cancel()
+    } else if let coord = self.delegate as? NoteTextFieldRepresentable.Coordinator {
+      coord.parent.onCancel()
+    }
+  }
+
+  override func doCommand(by selector: Selector) {
+    if selector == #selector(NSResponder.insertNewline(_:)) {
+      insertNewline(nil)
+      return
+    } else if selector == #selector(NSResponder.cancelOperation(_:)) {
+      cancelOperation(nil)
+      return
+    }
+    super.doCommand(by: selector)
+  }
+}
+
+final class CustomNoteNSTextField: NSTextField {
+  var onCommit: ((String) -> Void)?
+  var onCancel: (() -> Void)?
+
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    guard let window = self.window else { return }
+    DispatchQueue.main.async { [weak self, weak window] in
+      guard let self = self, let window = window else { return }
+      window.makeFirstResponder(self)
+      self.selectText(nil)
+      if let editor = self.currentEditor() as? CustomNoteTextView {
+        editor.activeField = self
+        editor.onCommit = self.onCommit
+        editor.onCancel = self.onCancel
+        let len = (self.stringValue as NSString).length
+        editor.setSelectedRange(NSRange(location: len, length: 0))
+      }
+    }
+  }
+
+  override func becomeFirstResponder() -> Bool {
+    let ok = super.becomeFirstResponder()
+    if ok {
+      self.selectText(nil)
+      if let editor = currentEditor() as? CustomNoteTextView {
+        editor.activeField = self
+        editor.onCommit = self.onCommit
+        editor.onCancel = self.onCancel
+        let len = (stringValue as NSString).length
+        editor.setSelectedRange(NSRange(location: len, length: 0))
+      }
+    }
+    return ok
+  }
+}
+
+/// An AppKit NSTextField representable that enforces the 140-character cap (D62, D104, D123)
+/// on typing and pasting, never truncates text that was already kept, and handles Return/Escape.
+struct NoteTextFieldRepresentable: NSViewRepresentable {
+  @Binding var text: String
+  var accessibilityIdentifier: String
+  var accessibilityLabel: String
+  var onCommit: (String) -> Void
+  var onCancel: () -> Void
+
+  func makeCoordinator() -> Coordinator {
+    Coordinator(self)
+  }
+
+  func makeNSView(context: Context) -> NSTextField {
+    let field = CustomNoteNSTextField()
+    field.isBordered = false
+    field.drawsBackground = false
+    field.textColor = .white
+    field.font = .systemFont(ofSize: 11)
+    field.focusRingType = .none
+    field.delegate = context.coordinator
+    field.stringValue = text
+    field.onCommit = onCommit
+    field.onCancel = onCancel
+    field.setAccessibilityElement(true)
+    field.setAccessibilityRole(.textField)
+    field.setAccessibilityIdentifier(accessibilityIdentifier)
+    field.setAccessibilityLabel(accessibilityLabel)
+    context.coordinator.textField = field
+
+    DispatchQueue.main.async {
+      if let window = field.window {
+        window.makeFirstResponder(field)
+        field.selectText(nil)
+        if let editor = field.currentEditor() as? CustomNoteTextView {
+          editor.onCommit = onCommit
+          editor.onCancel = onCancel
+          let len = (field.stringValue as NSString).length
+          editor.setSelectedRange(NSRange(location: len, length: 0))
+        }
+      }
+    }
+    return field
+  }
+
+  func updateNSView(_ nsView: NSTextField, context: Context) {
+    if let custom = nsView as? CustomNoteNSTextField {
+      custom.onCommit = onCommit
+      custom.onCancel = onCancel
+    }
+    if nsView.stringValue != text && !context.coordinator.isEditing {
+      nsView.stringValue = text
+    }
+    nsView.setAccessibilityIdentifier(accessibilityIdentifier)
+    nsView.setAccessibilityLabel(accessibilityLabel)
+  }
+
+  final class Coordinator: NSObject, NSTextFieldDelegate, NSTextViewDelegate {
+    var parent: NoteTextFieldRepresentable
+    weak var textField: NSTextField?
+    var isEditing = false
+
+    init(_ parent: NoteTextFieldRepresentable) {
+      self.parent = parent
+    }
+
+    func controlTextDidBeginEditing(_ obj: Notification) {
+      isEditing = true
+      if let field = obj.object as? NSTextField, let editor = field.currentEditor() as? NSTextView {
+        editor.delegate = self
+      }
+    }
+
+    func controlTextDidChange(_ obj: Notification) {
+      guard let field = obj.object as? NSTextField else { return }
+      parent.text = field.stringValue
+    }
+
+    func controlTextDidEndEditing(_ obj: Notification) {
+      isEditing = false
+    }
+
+    func control(
+      _ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector
+    ) -> Bool {
+      if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+        parent.onCommit(textView.string)
+        return true
+      } else if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+        parent.onCancel()
+        return true
+      }
+      return false
+    }
+
+    func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+      if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+        parent.onCommit(textView.string)
+        return true
+      } else if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+        parent.onCancel()
+        return true
+      }
+      return false
+    }
+
+    func textDidChange(_ notification: Notification) {
+      if let textView = notification.object as? NSTextView {
+        parent.text = textView.string
+        textField?.stringValue = textView.string
+      }
+    }
+
+    func textView(
+      _ textView: NSTextView,
+      shouldChangeTextIn affectedCharRange: NSRange,
+      replacementString: String?
+    ) -> Bool {
+      guard let replacement = replacementString else { return true }
+      let current = textView.string
+      guard let range = Range(affectedCharRange, in: current) else { return true }
+      let allowed = NoteCap.allowedInsertion(
+        current: current, inserting: replacement, replacing: range)
+      return replacement.count <= allowed.count
+    }
+  }
+}
+
 /// The shelf page (D30, D64, D65). Displays parked captures, stacks, files,
 /// links and notes.
 private struct ShelfPageView: View {
@@ -411,59 +816,79 @@ private struct ShelfPageView: View {
 
   var body: some View {
     ZStack(alignment: .topLeading) {
-      // Invisible geometry anchor matching MusicPageView's accessible bounds (D30)
-      VStack(alignment: .leading, spacing: 10) {
-        HStack(alignment: .top, spacing: 8) {
-          Rectangle()
-            .fill(Color.white.opacity(0.001))
-            .frame(width: 48, height: 48)
-            .accessibilityElement()
-            .accessibilityLabel("Shelf anchor top")
-            .accessibilityIdentifier("shelf-anchor-top")
-        }
-        HStack(spacing: 8) {
-          Rectangle()
-            .fill(Color.white.opacity(0.001))
-            .frame(width: 44, height: 14)
-            .accessibilityElement()
-            .accessibilityLabel("Shelf anchor mid-left")
-            .accessibilityIdentifier("shelf-anchor-mid-left")
-          Spacer()
-          Rectangle()
-            .fill(Color.white.opacity(0.001))
-            .frame(width: 44, height: 14)
-            .accessibilityElement()
-            .accessibilityLabel("Shelf anchor mid-right")
-            .accessibilityIdentifier("shelf-anchor-mid-right")
-        }
-        HStack(spacing: 36) {
-          Rectangle()
-            .fill(Color.white.opacity(0.001))
-            .frame(width: 32, height: 34)
-            .accessibilityElement()
-            .accessibilityLabel("Shelf anchor bottom")
-            .accessibilityIdentifier("shelf-anchor-bottom")
-        }
-      }
-      .frame(width: 394.5)
-      .opacity(0.001)
-      .allowsHitTesting(false)
+      PageGeometryAnchor()
 
       // Actual shelf UI
-      VStack(spacing: 6) {
-        if model.shelfItems.isEmpty {
+      VStack(spacing: 2) {
+        // Shelf header with title and "+ note" button
+        HStack {
+          Text("Shelf")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundColor(.white.opacity(0.4))
+            .accessibilityIdentifier("shelf-header-title")
+
+          Spacer()
+
+          if !model.isEnteringNewNote {
+            Button(action: {
+              model.startEnteringNewNote()
+            }) {
+              HStack(spacing: 3) {
+                Text("+ note")
+                  .font(.system(size: 11, weight: .medium))
+              }
+              .foregroundColor(.white.opacity(0.85))
+              .padding(.horizontal, 8)
+              .padding(.vertical, 2)
+              .background(Capsule().fill(Color.white.opacity(0.15)))
+              .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("+ note")
+            .accessibilityIdentifier("add-note")
+          }
+        }
+        .padding(.horizontal, 16)
+
+        // When entering a new note, show the one-line entry
+        if model.isEnteringNewNote {
+          HStack(spacing: 6) {
+            Text("✎")
+              .font(.system(size: 12))
+              .foregroundColor(.white.opacity(0.7))
+            NoteTextFieldRepresentable(
+              text: $model.newNoteText,
+              accessibilityIdentifier: "new-note-field",
+              accessibilityLabel: "New note text",
+              onCommit: { text in
+                model.commitNewNote(text)
+              },
+              onCancel: {
+                model.cancelNewNote()
+              }
+            )
+            .frame(height: 20)
+          }
+          .padding(.horizontal, 8)
+          .padding(.vertical, 3)
+          .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.12)))
+          .padding(.horizontal, 16)
+        }
+
+        if model.shelfItems.isEmpty && !model.isEnteringNewNote {
           Spacer()
           Text("Shelf")
             .font(.system(size: 12, weight: .semibold))
             .foregroundColor(.white.opacity(0.3))
           Spacer()
-        } else {
+        } else if !model.shelfItems.isEmpty {
           ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
+            HStack(spacing: 6) {
               ForEach(model.shelfItems) { item in
-                DraggableItemContainer(item: item, model: model) {
+                if model.editingNoteID == item.id {
                   ShelfItemView(
                     item: item,
+                    model: model,
                     onRemove: {
                       model.onRemoveShelfItem(item.id)
                     },
@@ -471,11 +896,24 @@ private struct ShelfPageView: View {
                       model.onExpandShelfStack(item.id)
                     }
                   )
+                } else {
+                  DraggableItemContainer(item: item, model: model) {
+                    ShelfItemView(
+                      item: item,
+                      model: model,
+                      onRemove: {
+                        model.onRemoveShelfItem(item.id)
+                      },
+                      onExpand: {
+                        model.onExpandShelfStack(item.id)
+                      }
+                    )
+                  }
                 }
               }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 1)
           }
 
           Spacer()
@@ -488,28 +926,170 @@ private struct ShelfPageView: View {
           }
         }
       }
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .frame(
+        width: OpenPanel.pageSize.width,
+        height: OpenPanel.pageSize.height,
+        alignment: .topLeading
+      )
+      .clipped()
     }
+    .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height)
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Shelf page")
     .padding(.horizontal, 22)
     .padding(.vertical, 10)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .accessibilityElement(children: .contain)
-    .accessibilityLabel("Shelf page")
   }
 }
 
 private struct ShelfItemView: View {
   let item: ShelfItem
+  @ObservedObject var model: IslandModel
   let onRemove: () -> Void
   let onExpand: () -> Void
 
   @State private var isHovered = false
 
   var body: some View {
-    VStack(spacing: 4) {
+    switch item.kind {
+    case .note:
+      noteView
+    default:
+      standardItemView
+    }
+  }
+
+  private var isEditingThisNote: Bool {
+    model.editingNoteID == item.id
+  }
+
+  @ViewBuilder
+  private var noteView: some View {
+    let isReminder: Bool = {
+      if case .note(_, let r) = item.kind { return r }
+      return false
+    }()
+
+    HStack(alignment: .top, spacing: 2) {
+      VStack(alignment: .leading, spacing: 4) {
+        if isEditingThisNote {
+          HStack(spacing: 4) {
+            if isReminder {
+              Image(systemName: "square")
+                .font(.system(size: 11))
+                .foregroundColor(.white.opacity(0.8))
+            } else {
+              Text("✎")
+                .font(.system(size: 11))
+                .foregroundColor(.white.opacity(0.7))
+            }
+            NoteTextFieldRepresentable(
+              text: $model.editingNoteText,
+              accessibilityIdentifier: "edit-note-field",
+              accessibilityLabel: "Edit note text",
+              onCommit: { newText in
+                model.commitEditingNote(id: item.id, newText: newText)
+              },
+              onCancel: {
+                model.cancelEditingNote()
+              }
+            )
+            .frame(height: 20)
+          }
+          .frame(minWidth: 90, maxWidth: 200)
+        } else {
+          HStack(alignment: .top, spacing: 4) {
+            if isReminder {
+              // Reminder box (check-off, D40)
+              Button(action: {
+                model.checkOffReminder(id: item.id)
+              }) {
+                Image(systemName: "square")
+                  .font(.system(size: 10))
+                  .foregroundColor(.white.opacity(0.85))
+                  .frame(width: 12, height: 12)
+              }
+              .buttonStyle(.plain)
+              .accessibilityIdentifier("reminder-box")
+              .accessibilityLabel("box")
+
+              // Pencil beside reminder (toggle back to plain note, D39)
+              Button(action: {
+                model.toggleNoteKind(id: item.id)
+              }) {
+                Text("✎")
+                  .font(.system(size: 10))
+                  .foregroundColor(.white.opacity(0.7))
+                  .frame(width: 12, height: 12)
+              }
+              .buttonStyle(.plain)
+              .accessibilityIdentifier("reminder-pencil")
+              .accessibilityLabel("pencil")
+            } else {
+              // Small box beside plain note (toggle to reminder, D39)
+              Button(action: {
+                model.toggleNoteKind(id: item.id)
+              }) {
+                Image(systemName: "square")
+                  .font(.system(size: 10))
+                  .foregroundColor(.white.opacity(0.6))
+                  .frame(width: 12, height: 12)
+              }
+              .buttonStyle(.plain)
+              .accessibilityIdentifier("note-toggle-box")
+              .accessibilityLabel("small box")
+            }
+
+            Text(item.title)
+              .font(.system(size: 10, weight: .regular))
+              .foregroundColor(.white)
+              .multilineTextAlignment(.leading)
+              .lineLimit(2)
+              .frame(maxWidth: 200, alignment: .topLeading)
+              .contentShape(Rectangle())
+              .onTapGesture {
+                model.startEditingNote(id: item.id, currentText: item.noteText ?? item.title)
+              }
+              .accessibilityIdentifier("shelf-item-title")
+          }
+        }
+      }
+      .padding(4)
+      .background(
+        RoundedRectangle(cornerRadius: 8)
+          .fill(Color.white.opacity(0.12))
+      )
+      .contentShape(Rectangle())
+      .onTapGesture {
+        if !isEditingThisNote {
+          model.startEditingNote(id: item.id, currentText: item.noteText ?? item.title)
+        }
+      }
+
+      // Dedicated remove gutter: separate from the note card (M3)
+      Button(action: onRemove) {
+        Image(systemName: "xmark.circle.fill")
+          .font(.system(size: 14))
+          .foregroundColor(.white.opacity(isHovered ? 0.9 : 0.01))
+          .background(Circle().fill(Color.black.opacity(isHovered ? 0.6 : 0.01)))
+      }
+      .buttonStyle(.plain)
+      .frame(width: 18, height: 18)
+      .contentShape(Rectangle())
+      .accessibilityLabel("Remove \(item.title)")
+      .accessibilityIdentifier("remove-\(item.title)")
+    }
+    .onHover { isHovered = $0 }
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel(item.title)
+    .accessibilityIdentifier("shelf-item")
+  }
+
+  private var standardItemView: some View {
+    VStack(spacing: 2) {
       ZStack(alignment: .topTrailing) {
         itemIcon
-          .frame(width: 44, height: 44)
+          .frame(width: 40, height: 40)
           .background(Color.white.opacity(0.1))
           .clipShape(RoundedRectangle(cornerRadius: 8))
 
@@ -522,7 +1102,6 @@ private struct ShelfItemView: View {
         .buttonStyle(.plain)
         .frame(width: 20, height: 20)
         .contentShape(Rectangle())
-        .offset(x: 4, y: -4)
         .accessibilityLabel("Remove \(item.title)")
         .accessibilityIdentifier("remove-\(item.title)")
       }
@@ -718,11 +1297,19 @@ private final class DraggableContainerView<Content: View>: NSView, NSDraggingSou
 
   override func hitTest(_ point: NSPoint) -> NSView? {
     guard let view = super.hitTest(point) else { return nil }
-    if point.x >= bounds.width - 32 && point.y >= bounds.height - 30 {
+    if model?.editingNoteID == item.id {
+      return view
+    }
+    if point.x >= bounds.width - 22 {
       return view
     }
     if item.isStack && point.y <= 26 {
       return view
+    }
+    if case .note = item.kind {
+      if point.x <= 40 {
+        return view
+      }
     }
     return self
   }
@@ -734,8 +1321,13 @@ private final class DraggableContainerView<Content: View>: NSView, NSDraggingSou
   override func mouseUp(with event: NSEvent) {
     if dragStartLocation != nil {
       dragStartLocation = nil
-      if item.isStack {
+      switch item.kind {
+      case .note:
+        model?.startEditingNote(id: item.id, currentText: item.noteText ?? item.title)
+      case _ where item.isStack:
         model?.onExpandShelfStack(item.id)
+      default:
+        break
       }
     }
   }
@@ -768,7 +1360,8 @@ private final class DraggableContainerView<Content: View>: NSView, NSDraggingSou
       dragItem.setDraggingFrame(self.bounds, contents: img)
       draggingItems.append(dragItem)
     case .note(let text, _):
-      let dragItem = NSDraggingItem(pasteboardWriter: text as NSString)
+      let dragText = (item.noteText ?? text) as NSString
+      let dragItem = NSDraggingItem(pasteboardWriter: dragText)
       let img = snapshot()
       dragItem.setDraggingFrame(self.bounds, contents: img)
       draggingItems.append(dragItem)

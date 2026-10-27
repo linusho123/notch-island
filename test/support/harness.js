@@ -9,6 +9,7 @@ const path = require('node:path');
 const { promisify } = require('node:util');
 const { harness } = require('./paths');
 const { assertInIdleRun } = require('./require-idle');
+const cleanup = require('./cleanup');
 
 assertInIdleRun();
 
@@ -83,7 +84,134 @@ module.exports = {
   click: (x, y, button = 'left') => h('click', x, y, button),
   arriveAndClick: (pid, x, y, sampleMs, steps = 10, stepMs = 10) =>
     h('arrive-and-click', pid, x, y, steps, stepMs, sampleMs),
-  key: (code) => h('key', code),
+  key: (code, ...flags) => h('key', code, ...flags),
+  type: (text) => h('type', text),
+  pasteboardSet: (pbName, type, val) => h('pasteboard-set', pbName, type, val),
+  paste: async (text) => {
+    const snapshotPath = process.env.NOTCH_ISLAND_CLIPBOARD_SNAPSHOT
+      || path.join(os.tmpdir(), `notch-island-clipboard-${process.pid}.json`);
+    const saved = await module.exports.pasteboardSave();
+    const journal = {
+      version: 1,
+      pid: process.pid,
+      createdAt: Date.now(),
+      saved,
+      text,
+      expectedChangeCount: null,
+      state: 'saved',
+    };
+    fs.writeFileSync(snapshotPath, JSON.stringify(journal));
+
+    function isHarnessText(current, targetText) {
+      if (!current || targetText == null) return false;
+      if (typeof current.rawText === 'string') return current.rawText === targetText;
+      if (Array.isArray(current.items)) {
+        for (const it of current.items) {
+          const b64 = it['public.utf8-plain-text'];
+          if (b64) {
+            try {
+              if (Buffer.from(b64, 'base64').toString('utf8') === targetText) return true;
+            } catch {}
+          }
+        }
+      }
+      return false;
+    }
+
+    let restored = false;
+    const performRestoreSync = () => {
+      if (restored) return;
+      restored = true;
+      try {
+        if (!fs.existsSync(snapshotPath)) return;
+        const record = JSON.parse(fs.readFileSync(snapshotPath, 'utf8'));
+        let shouldRestore = false;
+        let current = null;
+        if (typeof module.exports.pasteboardSaveSync === 'function') {
+          try { current = module.exports.pasteboardSaveSync(); } catch {}
+        }
+        if (record.expectedChangeCount != null) {
+          if (current && typeof current.changeCount === 'number') {
+            shouldRestore = (current.changeCount === record.expectedChangeCount);
+          } else {
+            shouldRestore = true;
+          }
+        } else if (record.state === 'set' || isHarnessText(current, record.text)) {
+          shouldRestore = true;
+        }
+
+        if (shouldRestore) {
+          if (typeof module.exports.pasteboardRestoreSync === 'function') {
+            module.exports.pasteboardRestoreSync(record.saved);
+          } else if (typeof module.exports.pasteboardRestore === 'function') {
+            module.exports.pasteboardRestore(record.saved);
+          }
+        }
+        fs.rmSync(snapshotPath, { force: true });
+      } catch (err) {
+        try {
+          fs.writeFileSync(`${snapshotPath}.recovery`, JSON.stringify({
+            error: err.message,
+            time: Date.now(),
+            journal,
+          }));
+        } catch {}
+      }
+    };
+
+    const unregister = cleanup.onCleanup(performRestoreSync);
+
+    try {
+      const setRes = await module.exports.pasteboardSet('general', 'public.utf8-plain-text', text);
+      journal.state = 'set';
+      if (setRes && typeof setRes.changeCount === 'number') {
+        journal.expectedChangeCount = setRes.changeCount;
+      }
+      fs.writeFileSync(snapshotPath, JSON.stringify(journal));
+
+      await module.exports.key(9, 'cmd');
+      await new Promise((r) => setTimeout(r, 200));
+    } finally {
+      if (!restored) {
+        restored = true;
+        try {
+          if (fs.existsSync(snapshotPath)) {
+            const record = JSON.parse(fs.readFileSync(snapshotPath, 'utf8'));
+            let shouldRestore = false;
+            let current = null;
+            if (typeof module.exports.pasteboardSave === 'function') {
+              try { current = await module.exports.pasteboardSave(); } catch {}
+            }
+            if (record.expectedChangeCount != null) {
+              if (current && typeof current.changeCount === 'number') {
+                shouldRestore = (current.changeCount === record.expectedChangeCount);
+              } else {
+                shouldRestore = true;
+              }
+            } else if (record.state === 'set' || isHarnessText(current, record.text)) {
+              shouldRestore = true;
+            }
+
+            if (shouldRestore) {
+              await module.exports.pasteboardRestore(record.saved);
+            }
+            fs.rmSync(snapshotPath, { force: true });
+          }
+        } catch (err) {
+          try {
+            fs.writeFileSync(`${snapshotPath}.recovery`, JSON.stringify({
+              error: err.message,
+              time: Date.now(),
+              journal,
+            }));
+          } catch {}
+          throw err;
+        } finally {
+          if (typeof unregister === 'function') unregister();
+        }
+      }
+    }
+  },
   cgwindows: async () => (await h('cgwindows')).windows,
   regionStats: (x, y, w, hh) => h('region-stats', x, y, w, hh),
   drag: (x1, y1, x2, y2, steps = 20, stepMs = 15, hold = false) =>
@@ -123,12 +251,16 @@ module.exports = {
   releaseIfHeld,
   release: () => h('release'),
   leftHeld: async () => (await h('button')).left,
-  scroll: (dy, kind) => h('scroll', dy, kind),
+  scroll: (dy, kind, dx = 0) => (dx ? h('scroll', dy, kind, dx) : h('scroll', dy, kind)),
   watch: async (pid, ms, everyMs = 40) => (await h('watch', pid, ms, everyMs)).samples,
   sweep: async (pid, a, b, steps, stepMs, settleMs) =>
     (await h('sweep', pid, a.x, a.y, b.x, b.y, steps, stepMs, settleMs)).samples,
   makeMovie: (file, seconds) => h('make-movie', file, seconds),
   pasteboardSave: (name) => h('pasteboard-save', ...(name ? [name] : [])),
+  pasteboardSaveSync: (name) => {
+    const args = ['pasteboard-save', ...(name ? [name] : [])];
+    return JSON.parse(execFileSync(harness, args, { encoding: 'utf8', timeout: 5000 }));
+  },
   pasteboardRestore: async (saved, name) => {
     let payload = saved;
     let tmpFile = null;
