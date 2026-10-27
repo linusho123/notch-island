@@ -800,7 +800,7 @@ private struct ShelfPageView: View {
             .accessibilityIdentifier("shelf-anchor-bottom")
         }
       }
-      .frame(maxWidth: .infinity)
+      .frame(width: 394.5)
       .opacity(0.001)
       .allowsHitTesting(false)
 
@@ -912,7 +912,7 @@ private struct ShelfPageView: View {
           }
         }
       }
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .frame(width: 394.5, alignment: .topLeading)
     }
     .padding(.horizontal, 22)
     .padding(.vertical, 10)
@@ -978,16 +978,16 @@ private struct ShelfItemView: View {
           }
           .frame(minWidth: 100, maxWidth: 220)
         } else {
-          HStack(alignment: .top, spacing: 6) {
+          HStack(alignment: .top, spacing: 4) {
             if isReminder {
               // Reminder box (check-off, D40)
               Button(action: {
                 model.checkOffReminder(id: item.id)
               }) {
                 Image(systemName: "square")
-                  .font(.system(size: 11))
+                  .font(.system(size: 10))
                   .foregroundColor(.white.opacity(0.85))
-                  .frame(width: 14, height: 14)
+                  .frame(width: 12, height: 12)
               }
               .buttonStyle(.plain)
               .accessibilityIdentifier("reminder-box")
@@ -998,9 +998,9 @@ private struct ShelfItemView: View {
                 model.toggleNoteKind(id: item.id)
               }) {
                 Text("✎")
-                  .font(.system(size: 11))
+                  .font(.system(size: 10))
                   .foregroundColor(.white.opacity(0.7))
-                  .frame(width: 14, height: 14)
+                  .frame(width: 12, height: 12)
               }
               .buttonStyle(.plain)
               .accessibilityIdentifier("reminder-pencil")
@@ -1011,9 +1011,9 @@ private struct ShelfItemView: View {
                 model.toggleNoteKind(id: item.id)
               }) {
                 Image(systemName: "square")
-                  .font(.system(size: 11))
+                  .font(.system(size: 10))
                   .foregroundColor(.white.opacity(0.6))
-                  .frame(width: 14, height: 14)
+                  .frame(width: 12, height: 12)
               }
               .buttonStyle(.plain)
               .accessibilityIdentifier("note-toggle-box")
@@ -1021,10 +1021,10 @@ private struct ShelfItemView: View {
             }
 
             Text(item.title)
-              .font(.system(size: 11, weight: .regular))
+              .font(.system(size: 10, weight: .regular))
               .foregroundColor(.white)
               .multilineTextAlignment(.leading)
-              .lineLimit(3)
+              .lineLimit(2)
               .frame(maxWidth: 220, alignment: .topLeading)
               .contentShape(Rectangle())
               .onTapGesture {
@@ -1034,7 +1034,7 @@ private struct ShelfItemView: View {
           }
         }
       }
-      .padding(6)
+      .padding(4)
       .background(
         RoundedRectangle(cornerRadius: 8)
           .fill(Color.white.opacity(0.12))
@@ -1288,7 +1288,7 @@ private final class DraggableContainerView<Content: View>: NSView, NSDraggingSou
       return view
     }
     if case .note = item.kind {
-      if point.x <= 56 {
+      if point.x <= 40 {
         return view
       }
     }
