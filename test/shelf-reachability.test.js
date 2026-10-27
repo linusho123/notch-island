@@ -77,6 +77,15 @@ test('M9 / S1: every shelf item is reachable via horizontal scroll on overflow',
     `the tail reminder is already in view, so nothing needs scrolling: ${view1.texts.join(', ')}`
   );
 
+  // Only a real scroll moves the items: record where the first one sits now.
+  const itemXs = (v) =>
+    v.elements
+      .filter((e) => e.identifier === 'shelf-item' && e.frame)
+      .map((e) => e.frame.x)
+      .sort((a, b) => a - b);
+  const xsBefore = itemXs(view1);
+  assert.ok(xsBefore.length > 0, 'no shelf items with a frame before the scroll');
+
   // Scroll horizontally to the end with two fingers
   const c = center(view1.panel);
   await harness.glide(c.x, c.y, 4, 8);
@@ -86,6 +95,14 @@ test('M9 / S1: every shelf item is reachable via horizontal scroll on overflow',
 
   const view2 = await island.look(pid);
   assert.equal(view2.page, 'shelf', 'horizontal scroll must not change the page');
+
+  // The shelf really scrolled: the items moved left by a real distance.
+  const xsAfter = itemXs(view2);
+  assert.ok(xsAfter.length > 0, 'no shelf items with a frame after the scroll');
+  assert.ok(
+    xsBefore[0] - xsAfter[0] >= 100 || xsAfter[0] < xsBefore[0] - 100,
+    `the shelf did not scroll: first item x ${xsBefore[0]} -> ${xsAfter[0]} (all ${xsBefore} -> ${xsAfter})`
+  );
 
   // After horizontal scroll, the tail items at the end must be reachable/visible
   assert.ok(
