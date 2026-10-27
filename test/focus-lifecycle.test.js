@@ -7,8 +7,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const harness = require('./support/harness');
 const island = require('./support/island');
+const { launchDropStandIn } = require('./support/shelf');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function center(rect) {
+  return { x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 };
+}
 
 test('M10 / R4: keyboard focus released when editing ends, page changes, or island closes', async (t) => {
   const defers = [];
@@ -24,10 +29,7 @@ test('M10 / R4: keyboard focus released when editing ends, page changes, or isla
   const { notch } = await harness.builtIn();
 
   // Ensure a known stand-in app is frontmost before testing
-  const standIn = await harness.startDropStandIn();
-  world.defer(async () => {
-    try { await harness.stopDropStandIn(standIn.pid); } catch {}
-  });
+  const standIn = await launchDropStandIn(world, { title: 'Messages' });
   await harness.activate(standIn.pid);
   await sleep(100);
 
@@ -41,6 +43,9 @@ test('M10 / R4: keyboard focus released when editing ends, page changes, or isla
     const keys = await harness.keyboardFocus();
     assert.notEqual(keys.element, pid, 'the island panel holds keyboard focus');
     assert.notEqual(keys.app, pid, 'the island app holds keyboard focus');
+    if (keys.app) {
+      assert.equal(keys.app, frontBefore.pid, `the keyboard focus is with process ${keys.app}, not with ${frontBefore.name}`);
+    }
     const panels = await harness.windows(pid);
     const keyed = panels.filter((p) => p.focused || p.main);
     assert.equal(keyed.length, 0, 'an island window is still focused or main');
@@ -48,10 +53,13 @@ test('M10 / R4: keyboard focus released when editing ends, page changes, or isla
 
   // 1. Ordinary music opening stays non-activating (P1 rule)
   await harness.click(notch.x + notch.w / 2, notch.y + 10);
-  await island.waitFor(pid, (v) => v.open && v.page === 'music', 2500, 'island did not open on music');
+  const view1 = await island.waitFor(pid, (v) => v.open && v.page === 'music', 2500, 'island did not open on music');
   await assertFocusRestored();
 
   // 2. Open shelf page and click "+ note" to start editing
+  const c1 = center(view1.panel);
+  await harness.glide(c1.x, c1.y, 4, 8);
+  await sleep(60);
   await harness.scroll(-80, 'trackpad');
   await island.waitFor(pid, (v) => v.open && v.page === 'shelf', 2500, 'shelf page did not show');
 
@@ -101,10 +109,13 @@ test('M10 / R4: keyboard focus released when editing ends, page changes, or isla
 
   // Switch to music page via vertical scroll
   await harness.scroll(80, 'trackpad');
-  await island.waitFor(pid, (v) => v.open && v.page === 'music', 2500, 'did not return to music page');
+  const viewMusic2 = await island.waitFor(pid, (v) => v.open && v.page === 'music', 2500, 'did not return to music page');
   await assertFocusRestored();
 
   // 5. Switch to shelf, start editing, then close island: focus must be released
+  const c2 = center(viewMusic2.panel);
+  await harness.glide(c2.x, c2.y, 4, 8);
+  await sleep(60);
   await harness.scroll(-80, 'trackpad');
   await island.waitFor(pid, (v) => v.open && v.page === 'shelf', 2500, 'shelf page did not show');
   const addNoteBtn3 = await island.waitFor(

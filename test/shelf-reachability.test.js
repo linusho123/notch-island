@@ -13,6 +13,10 @@ const { scratchDocuments } = require('./support/shelf');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+function center(rect) {
+  return { x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 };
+}
+
 test('M9 / S1: every shelf item is reachable via horizontal scroll on overflow', async (t) => {
   const defers = [];
   const world = { defer: (fn) => defers.push(fn) };
@@ -68,6 +72,9 @@ test('M9 / S1: every shelf item is reachable via horizontal scroll on overflow',
   assert.ok(view1.texts.includes('✎ First note'), 'first note should be visible');
 
   // Scroll horizontally to the end with two fingers
+  const c = center(view1.panel);
+  await harness.glide(c.x, c.y, 4, 8);
+  await sleep(60);
   await harness.scroll(0, 'trackpad', -500);
   await sleep(150);
 

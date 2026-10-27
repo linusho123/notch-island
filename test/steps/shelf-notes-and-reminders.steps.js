@@ -847,7 +847,7 @@ module.exports = function (reg) {
     island.feed(w, {
       clearShelf: true,
       clockDate: tMinus7Days,
-      seedShelf: [],
+      seedShelf: null,
     });
     await ensureIsland(w);
     await sleep(100);
