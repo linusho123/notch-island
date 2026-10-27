@@ -241,25 +241,71 @@ private struct PageBar: View {
   }
 }
 
+/// An invisible anchor defining the shared accessible boundary of panel pages (D30).
+private struct PageGeometryAnchor: View {
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(alignment: .top, spacing: 8) {
+        Rectangle()
+          .fill(Color.white.opacity(0.001))
+          .frame(width: 48, height: 48)
+          .accessibilityElement()
+          .accessibilityLabel("Page anchor top")
+      }
+      HStack(spacing: 8) {
+        Rectangle()
+          .fill(Color.white.opacity(0.001))
+          .frame(width: 44, height: 14)
+          .accessibilityElement()
+          .accessibilityLabel("Page anchor mid-left")
+        Spacer()
+        Rectangle()
+          .fill(Color.white.opacity(0.001))
+          .frame(width: 44, height: 14)
+          .accessibilityElement()
+          .accessibilityLabel("Page anchor mid-right")
+      }
+      HStack(spacing: 36) {
+        Rectangle()
+          .fill(Color.white.opacity(0.001))
+          .frame(width: 32, height: OpenPanel.controlsHeight)
+          .accessibilityElement()
+          .accessibilityLabel("Page anchor bottom")
+      }
+    }
+    .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height)
+    .opacity(0.001)
+    .allowsHitTesting(false)
+  }
+}
+
 private struct MusicPageView: View {
   @ObservedObject var model: IslandModel
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 10) {
-      HStack(alignment: .top, spacing: 8) {
-        FlipCard(faceID: model.faceID) {
-          SongCard(model: model)
+    ZStack(alignment: .topLeading) {
+      PageGeometryAnchor()
+      VStack(alignment: .leading, spacing: 10) {
+        HStack(alignment: .top, spacing: 8) {
+          FlipCard(faceID: model.faceID) {
+            SongCard(model: model)
+          }
+          if let flip = model.music.flip {
+            FlipControl(count: flip.label, action: model.onFlip)
+          }
         }
-        if let flip = model.music.flip {
-          FlipControl(count: flip.label, action: model.onFlip)
+        if model.music.song != nil {
+          ProgressBar(model: model)
+        } else {
+          Spacer().frame(height: 14)
         }
+        Controls(model: model)
       }
-      if model.music.song != nil {
-        ProgressBar(model: model)
-      } else {
-        Spacer().frame(height: 14)
-      }
-      Controls(model: model)
+      .frame(
+        width: OpenPanel.pageSize.width,
+        height: OpenPanel.pageSize.height,
+        alignment: .topLeading
+      )
     }
     .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height)
     .accessibilityElement(children: .contain)
@@ -775,43 +821,7 @@ private struct ShelfPageView: View {
 
   var body: some View {
     ZStack(alignment: .topLeading) {
-      // Invisible geometry anchor matching MusicPageView's accessible bounds (D30)
-      VStack(alignment: .leading, spacing: 10) {
-        HStack(alignment: .top, spacing: 8) {
-          Rectangle()
-            .fill(Color.white.opacity(0.001))
-            .frame(width: 48, height: 48)
-            .accessibilityElement()
-            .accessibilityLabel("Shelf anchor top")
-            .accessibilityIdentifier("shelf-anchor-top")
-        }
-        HStack(spacing: 8) {
-          Rectangle()
-            .fill(Color.white.opacity(0.001))
-            .frame(width: 44, height: 14)
-            .accessibilityElement()
-            .accessibilityLabel("Shelf anchor mid-left")
-            .accessibilityIdentifier("shelf-anchor-mid-left")
-          Spacer()
-          Rectangle()
-            .fill(Color.white.opacity(0.001))
-            .frame(width: 44, height: 14)
-            .accessibilityElement()
-            .accessibilityLabel("Shelf anchor mid-right")
-            .accessibilityIdentifier("shelf-anchor-mid-right")
-        }
-        HStack(spacing: 36) {
-          Rectangle()
-            .fill(Color.white.opacity(0.001))
-            .frame(width: 32, height: OpenPanel.controlsHeight)
-            .accessibilityElement()
-            .accessibilityLabel("Shelf anchor bottom")
-            .accessibilityIdentifier("shelf-anchor-bottom")
-        }
-      }
-      .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height)
-      .opacity(0.001)
-      .allowsHitTesting(false)
+      PageGeometryAnchor()
 
       // Actual shelf UI
       VStack(spacing: 6) {
