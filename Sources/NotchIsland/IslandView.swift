@@ -914,9 +914,10 @@ private struct ShelfPageView: View {
       }
       .frame(width: 394.5, height: 116, alignment: .topLeading)
     }
+    .frame(width: 394.5, height: 116)
     .padding(.horizontal, 22)
     .padding(.vertical, 10)
-    .frame(width: 394.5, height: 116)
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Shelf page")
   }
