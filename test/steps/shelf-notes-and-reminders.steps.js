@@ -18,6 +18,16 @@ const {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const center = (f) => ({ x: f.x + f.w / 2, y: f.y + f.h / 2 });
 
+function framesIntersect(f1, f2) {
+  if (!f1 || !f2) return false;
+  return (
+    f1.x < f2.x + f2.w &&
+    f1.x + f1.w > f2.x &&
+    f1.y < f2.y + f2.h &&
+    f1.y + f1.h > f2.y
+  );
+}
+
 async function scrollToShelf(w) {
   const view = await island.look(w.island.pid);
   assert.ok(view.panel, 'the island is not open');
@@ -216,12 +226,20 @@ module.exports = function (reg) {
     const c = center(titleEl.frame);
     await harness.click(c.x, c.y);
     await sleep(150);
-    await island.waitFor(
+    const editView = await island.waitFor(
       w.island.pid,
       (v) => v.elements.some((e) => e.identifier === 'edit-note-field'),
       2000,
       'edit-note-field did not appear'
     );
+    const editField = editView.elements.find((e) => e.identifier === 'edit-note-field' && e.frame);
+    const removeBtn = editView.buttons.find((b) => b.label && b.label.startsWith('Remove'));
+    if (editField && editField.frame && removeBtn && removeBtn.frame) {
+      assert.ok(
+        !framesIntersect(removeBtn.frame, editField.frame),
+        `Remove button frame ${JSON.stringify(removeBtn.frame)} must not intersect edit field frame ${JSON.stringify(editField.frame)} (M3)`
+      );
+    }
     // Select all (Cmd+A) and type replacement
     await harness.key(0, 'cmd');
     await sleep(50);
@@ -240,12 +258,20 @@ module.exports = function (reg) {
     const c = center(titleEl.frame);
     await harness.click(c.x, c.y);
     await sleep(150);
-    await island.waitFor(
+    const editView = await island.waitFor(
       w.island.pid,
       (v) => v.elements.some((e) => e.identifier === 'edit-note-field'),
       2000,
       'edit-note-field did not appear'
     );
+    const editField = editView.elements.find((e) => e.identifier === 'edit-note-field' && e.frame);
+    const removeBtn = editView.buttons.find((b) => b.label && b.label.startsWith('Remove'));
+    if (editField && editField.frame && removeBtn && removeBtn.frame) {
+      assert.ok(
+        !framesIntersect(removeBtn.frame, editField.frame),
+        `Remove button frame ${JSON.stringify(removeBtn.frame)} must not intersect edit field frame ${JSON.stringify(editField.frame)} (M3)`
+      );
+    }
     // Cursor is placed at the end by becomeFirstResponder in CustomNoteNSTextField
     await harness.type('b'.repeat(added));
     await sleep(200);
@@ -261,12 +287,20 @@ module.exports = function (reg) {
     const c = center(titleEl.frame);
     await harness.click(c.x, c.y);
     await sleep(150);
-    await island.waitFor(
+    const editView = await island.waitFor(
       w.island.pid,
       (v) => v.elements.some((e) => e.identifier === 'edit-note-field'),
       2000,
       'edit-note-field did not appear'
     );
+    const editField = editView.elements.find((e) => e.identifier === 'edit-note-field' && e.frame);
+    const removeBtn = editView.buttons.find((b) => b.label && b.label.startsWith('Remove'));
+    if (editField && editField.frame && removeBtn && removeBtn.frame) {
+      assert.ok(
+        !framesIntersect(removeBtn.frame, editField.frame),
+        `Remove button frame ${JSON.stringify(removeBtn.frame)} must not intersect edit field frame ${JSON.stringify(editField.frame)} (M3)`
+      );
+    }
     // Cmd+A then Delete
     await harness.key(0, 'cmd');
     await sleep(50);
@@ -292,6 +326,16 @@ module.exports = function (reg) {
     );
     const removeBtn = updatedView.buttons.find((b) => b.label && b.label.startsWith('Remove'));
     assert.ok(removeBtn, 'could not find Remove button');
+
+    // M3: The x never overlaps the note's text or editor: separate gutter, non-intersecting frames
+    const textEl = updatedView.elements.find((e) => e.identifier === 'shelf-item-title' && e.frame);
+    if (textEl && textEl.frame && removeBtn.frame) {
+      assert.ok(
+        !framesIntersect(removeBtn.frame, textEl.frame),
+        `Remove button frame ${JSON.stringify(removeBtn.frame)} must not intersect text frame ${JSON.stringify(textEl.frame)} (M3)`
+      );
+    }
+
     const btnC = center(removeBtn.frame);
     await harness.click(btnC.x, btnC.y);
     await sleep(250);

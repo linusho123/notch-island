@@ -134,3 +134,26 @@ struct ShapeHitTests {
     #expect(!NotchGeometry.shapeContains(CGPoint(x: 855, y: 900), in: open, bottomRadius: 22))
   }
 }
+
+/// Geometry tests ensuring remove x never overlaps note text or editor (M3).
+struct NoteLayoutGeometryTests {
+  @Test("Note remove gutter does not intersect card text or editor frame across lengths (M3)")
+  func noteRemoveGutterDoesNotIntersectTextOrEditor() {
+    let lengths: [CGFloat] = [0, 10, 50, 100, 150, 200, 250, 500]
+    for w in lengths {
+      #expect(NoteLayoutGeometry.framesDoNotIntersect(contentWidth: w))
+      let card = NoteLayoutGeometry.cardRect(contentWidth: w)
+      let gutter = NoteLayoutGeometry.removeGutterRect(contentWidth: w)
+      #expect(gutter.minX >= card.maxX + NoteLayoutGeometry.gutterSpacing)
+      #expect(!card.intersects(gutter))
+    }
+  }
+
+  @Test("Legacy overlay geometry demonstrably intersected the card frame (M3 mutant proof)")
+  func legacyOverlayGeometryIntersectedCard() {
+    let lengths: [CGFloat] = [50, 100, 150, 200]
+    for w in lengths {
+      #expect(NoteLayoutGeometry.overlayIntersectsCard(cardWidth: w, removeSize: 20))
+    }
+  }
+}

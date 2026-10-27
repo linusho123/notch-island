@@ -973,7 +973,7 @@ private struct ShelfItemView: View {
       return false
     }()
 
-    ZStack(alignment: .topTrailing) {
+    HStack(alignment: .top, spacing: 2) {
       VStack(alignment: .leading, spacing: 4) {
         if isEditingThisNote {
           HStack(spacing: 4) {
@@ -999,7 +999,7 @@ private struct ShelfItemView: View {
             )
             .frame(height: 20)
           }
-          .frame(minWidth: 100, maxWidth: 220)
+          .frame(minWidth: 90, maxWidth: 200)
         } else {
           HStack(alignment: .top, spacing: 4) {
             if isReminder {
@@ -1048,7 +1048,7 @@ private struct ShelfItemView: View {
               .foregroundColor(.white)
               .multilineTextAlignment(.leading)
               .lineLimit(2)
-              .frame(maxWidth: 220, alignment: .topLeading)
+              .frame(maxWidth: 200, alignment: .topLeading)
               .contentShape(Rectangle())
               .onTapGesture {
                 model.startEditingNote(id: item.id, currentText: item.noteText ?? item.title)
@@ -1069,6 +1069,7 @@ private struct ShelfItemView: View {
         }
       }
 
+      // Dedicated remove gutter: separate from the note card (M3)
       Button(action: onRemove) {
         Image(systemName: "xmark.circle.fill")
           .font(.system(size: 14))
@@ -1076,7 +1077,7 @@ private struct ShelfItemView: View {
           .background(Circle().fill(Color.black.opacity(isHovered ? 0.6 : 0.01)))
       }
       .buttonStyle(.plain)
-      .frame(width: 20, height: 20)
+      .frame(width: 18, height: 18)
       .contentShape(Rectangle())
       .accessibilityLabel("Remove \(item.title)")
       .accessibilityIdentifier("remove-\(item.title)")
@@ -1302,7 +1303,7 @@ private final class DraggableContainerView<Content: View>: NSView, NSDraggingSou
     if model?.editingNoteID == item.id {
       return view
     }
-    if point.x >= bounds.width - 32 && point.y >= bounds.height - 30 {
+    if point.x >= bounds.width - 22 {
       return view
     }
     if item.isStack && point.y <= 26 {
