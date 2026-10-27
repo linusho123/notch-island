@@ -794,7 +794,7 @@ private struct ShelfPageView: View {
         HStack(spacing: 36) {
           Rectangle()
             .fill(Color.white.opacity(0.001))
-            .frame(width: 32, height: 34)
+            .frame(width: 32, height: 32.7)
             .accessibilityElement()
             .accessibilityLabel("Shelf anchor bottom")
             .accessibilityIdentifier("shelf-anchor-bottom")
