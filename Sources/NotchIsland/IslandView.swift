@@ -197,23 +197,26 @@ struct CardShape: Shape {
 private struct OpenPanel: View {
   @ObservedObject var model: IslandModel
 
-  /// The shared content size of the music and shelf pages inside the panel (D30).
-  static let pageSize = CGSize(width: 394.5, height: 116)
+  /// The width of the shelf geometry anchor matching the available page width (D30).
+  static let anchorWidth: CGFloat = 394.5
   /// The height of the music page's controls row, mirrored by the shelf geometry anchor.
-  static let controlsHeight: CGFloat = 32.7
+  static let controlsHeight: CGFloat = 34
 
   var body: some View {
     GeometryReader { proxy in
       let height = proxy.size.height
       let width = proxy.size.width
       ZStack(alignment: .trailing) {
-        VStack(spacing: 0) {
+        ZStack {
           MusicPageView(model: model)
             .frame(width: width, height: height)
+            .offset(y: model.page == .music ? 0 : -height)
+            .allowsHitTesting(model.page == .music)
           ShelfPageView(model: model)
             .frame(width: width, height: height)
+            .offset(y: model.page == .shelf ? 0 : height)
+            .allowsHitTesting(model.page == .shelf)
         }
-        .offset(y: model.page == .music ? 0 : -height)
         .animation(.easeOut(duration: 0.3), value: model.page)
         PageBar(page: model.page)
           .padding(.trailing, 8)
@@ -258,12 +261,11 @@ private struct MusicPageView: View {
       }
       Controls(model: model)
     }
-    .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height)
-    .accessibilityElement(children: .contain)
-    .accessibilityLabel("Music page")
     .padding(.horizontal, 22)
     .padding(.vertical, 10)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Music page")
   }
 }
 
@@ -806,7 +808,7 @@ private struct ShelfPageView: View {
             .accessibilityIdentifier("shelf-anchor-bottom")
         }
       }
-      .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height)
+      .frame(width: OpenPanel.anchorWidth)
       .opacity(0.001)
       .allowsHitTesting(false)
 
@@ -918,16 +920,13 @@ private struct ShelfPageView: View {
           }
         }
       }
-      .frame(
-        width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height,
-        alignment: .topLeading)
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height)
-    .accessibilityElement(children: .contain)
-    .accessibilityLabel("Shelf page")
     .padding(.horizontal, 22)
     .padding(.vertical, 10)
     .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Shelf page")
   }
 }
 
