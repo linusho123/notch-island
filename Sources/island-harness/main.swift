@@ -123,6 +123,7 @@ func describe(_ el: AXUIElement, depth: Int) -> [String: Any] {
     if let s = v as? String { d["value"] = s } else if let n = v as? NSNumber { d["value"] = n }
   }
   if let e = attr(el, kAXEnabledAttribute) as? Bool { d["enabled"] = e }
+  if let f = attr(el, kAXFocusedAttribute) as? Bool { d["focused"] = f }
   if let f = frameOf(el) { d["frame"] = rectJSON(f) }
   return d
 }

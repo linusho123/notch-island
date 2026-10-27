@@ -28,6 +28,26 @@ function framesIntersect(f1, f2) {
   );
 }
 
+async function waitForFieldReady(w, identifier, timeoutMs = 2500) {
+  const view = await island.waitFor(
+    w.island.pid,
+    (v) => {
+      const el = v.elements.find((e) => e.identifier === identifier);
+      if (!el || !el.frame || el.value === undefined) return false;
+      return (
+        el.focused === true ||
+        v.elements.some((other) => other.focused && (other.role === 'AXTextArea' || other.identifier === identifier))
+      );
+    },
+    timeoutMs,
+    `field "${identifier}" did not become ready (focused, AX value readable)`
+  );
+  const el = view.elements.find((e) => e.identifier === identifier);
+  assert.ok(el, `field "${identifier}" not found in ready view`);
+  assert.ok(el.value !== undefined, `field "${identifier}" AX value is not readable`);
+  return { view, element: el };
+}
+
 async function scrollToShelf(w) {
   const view = await island.look(w.island.pid);
   assert.ok(view.panel, 'the island is not open');
@@ -103,14 +123,7 @@ module.exports = function (reg) {
     const btn = view.buttons.find((b) => b.label === '+ note');
     const c = center(btn.frame);
     await harness.click(c.x, c.y);
-    await sleep(150);
-    await island.waitFor(
-      w.island.pid,
-      (v) => v.elements.some((e) => e.identifier === 'new-note-field'),
-      2000,
-      'new-note-field did not appear'
-    );
-    await sleep(100);
+    await waitForFieldReady(w, 'new-note-field');
   });
 
   reg.define(/^the note "([^"]+)" is on the shelf$/, async (w, label) => {
@@ -173,13 +186,7 @@ module.exports = function (reg) {
     assert.ok(btn, '"+ note" button not found');
     const c = center(btn.frame);
     await harness.click(c.x, c.y);
-    await sleep(150);
-    await island.waitFor(
-      w.island.pid,
-      (v) => v.elements.some((e) => e.identifier === 'new-note-field'),
-      2000,
-      'new-note-field did not appear'
-    );
+    await waitForFieldReady(w, 'new-note-field');
     await harness.type(text);
     await sleep(200);
     await harness.key(36); // Return
@@ -197,13 +204,7 @@ module.exports = function (reg) {
     const btn = view.buttons.find((b) => b.label === '+ note');
     const c = center(btn.frame);
     await harness.click(c.x, c.y);
-    await sleep(150);
-    await island.waitFor(
-      w.island.pid,
-      (v) => v.elements.some((e) => e.identifier === 'new-note-field'),
-      2000,
-      'new-note-field did not appear'
-    );
+    await waitForFieldReady(w, 'new-note-field');
     await harness.key(36); // Return
     await sleep(250);
   });
@@ -269,14 +270,7 @@ module.exports = function (reg) {
 
     const c = center(titleEl.frame);
     await harness.click(c.x, c.y);
-    await sleep(150);
-    const editView = await island.waitFor(
-      w.island.pid,
-      (v) => v.elements.some((e) => e.identifier === 'edit-note-field'),
-      2000,
-      'edit-note-field did not appear'
-    );
-    const editField = editView.elements.find((e) => e.identifier === 'edit-note-field' && e.frame);
+    const { view: editView, element: editField } = await waitForFieldReady(w, 'edit-note-field');
     const removeBtn = editView.buttons.find((b) => b.label && b.label.startsWith('Remove'));
     if (editField && editField.frame && removeBtn && removeBtn.frame) {
       assert.ok(
@@ -301,14 +295,7 @@ module.exports = function (reg) {
     assert.ok(titleEl, 'could not find shelf-item-title');
     const c = center(titleEl.frame);
     await harness.click(c.x, c.y);
-    await sleep(150);
-    const editView = await island.waitFor(
-      w.island.pid,
-      (v) => v.elements.some((e) => e.identifier === 'edit-note-field'),
-      2000,
-      'edit-note-field did not appear'
-    );
-    const editField = editView.elements.find((e) => e.identifier === 'edit-note-field' && e.frame);
+    const { view: editView, element: editField } = await waitForFieldReady(w, 'edit-note-field');
     const removeBtn = editView.buttons.find((b) => b.label && b.label.startsWith('Remove'));
     if (editField && editField.frame && removeBtn && removeBtn.frame) {
       assert.ok(
@@ -351,14 +338,7 @@ module.exports = function (reg) {
     assert.ok(titleEl, 'could not find shelf-item-title');
     const c = center(titleEl.frame);
     await harness.click(c.x, c.y);
-    await sleep(150);
-    const editView = await island.waitFor(
-      w.island.pid,
-      (v) => v.elements.some((e) => e.identifier === 'edit-note-field'),
-      2000,
-      'edit-note-field did not appear'
-    );
-    const editField = editView.elements.find((e) => e.identifier === 'edit-note-field' && e.frame);
+    const { view: editView, element: editField } = await waitForFieldReady(w, 'edit-note-field');
     const removeBtn = editView.buttons.find((b) => b.label && b.label.startsWith('Remove'));
     if (editField && editField.frame && removeBtn && removeBtn.frame) {
       assert.ok(
