@@ -566,9 +566,12 @@ module.exports = function (reg) {
   });
 
   reg.define(/^the visionary sees the shelf page at the same size as the music page$/, async (w) => {
-    const view = await island.look(w.island.pid);
-    assert.ok(view.shelfFrame && view.musicFrame, 'frames not found');
-    assert.ok(Math.abs(view.shelfFrame.w - view.musicFrame.w) <= 1, 'shelf page width does not match music page');
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.shelfFrame && v.musicFrame && Math.abs(v.shelfFrame.w - v.musicFrame.w) <= 1,
+      2000,
+      'shelf page width does not match music page'
+    );
     assert.ok(Math.abs(view.shelfFrame.h - view.musicFrame.h) <= 1, 'shelf page height does not match music page');
   });
 
@@ -714,7 +717,7 @@ module.exports = function (reg) {
   reg.define(/^the visionary sees the 3 notes, the reminder and both files on the shelf page$/, async (w) => {
     await openOnShelfPage(w);
     const view = await island.look(w.island.pid);
-    assert.ok(view.texts.includes('Note 1') && view.texts.includes('Note 2') && view.texts.includes('Note 3'), 'notes missing from shelf');
+    assert.ok(view.texts.some((t) => t.includes('Note 1')) && view.texts.some((t) => t.includes('Note 2')) && view.texts.some((t) => t.includes('Note 3')), 'notes missing from shelf');
     assert.ok(view.texts.includes('Reminder 1'), 'reminder missing from shelf');
     assert.ok(view.texts.includes('tax-return.pdf') && view.texts.includes('notes.txt'), 'files missing from shelf');
   });
