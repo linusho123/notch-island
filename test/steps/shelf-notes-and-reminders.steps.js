@@ -115,10 +115,19 @@ module.exports = function (reg) {
 
   reg.define(/^the note "([^"]+)" is on the shelf$/, async (w, label) => {
     const raw = label.startsWith('✎ ') ? label.slice(2) : label;
+    const isCorrection = raw.includes('shwos');
+    const seed = isCorrection
+      ? [
+          { kind: 'note', text: 'first note' },
+          { kind: 'note', text: raw },
+          { kind: 'note', text: 'third note' },
+        ]
+      : [{ kind: 'note', text: raw }];
+
     island.feed(w, {
       clearShelf: true,
       clockDate: null,
-      seedShelf: [{ kind: 'note', text: raw }],
+      seedShelf: seed,
     });
     await playing(w, 'Wonderwall', 0);
     await ensureIsland(w);
@@ -244,6 +253,20 @@ module.exports = function (reg) {
     const titleEl = view.elements.find((e) => e.identifier === 'shelf-item-title' && e.value && (e.value.includes('shwos') || e.value.includes('idea:')));
     assert.ok(titleEl, 'could not find note title element');
     w.notePositionBefore = { x: titleEl.frame.x, y: titleEl.frame.y };
+
+    // M7: Capture disk identity/order/count and neighbor positions before Return
+    const shelfFile = path.join(scratch(w), 'island-data', 'shelf.json');
+    if (fs.existsSync(shelfFile)) {
+      const diskBefore = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
+      const targetDisk = diskBefore.find((it) => it.kind && it.kind.note && (it.kind.note.text.includes('shwos') || it.kind.note.text.includes('idea:')));
+      if (targetDisk) {
+        w.targetNoteId = targetDisk.id;
+        w.diskBefore = diskBefore;
+      }
+    }
+    const otherTitles = view.elements.filter((e) => e.identifier === 'shelf-item-title' && e !== titleEl && e.frame);
+    w.neighborsBefore = otherTitles.map((t) => ({ value: t.value, frame: { ...t.frame } }));
+
     const c = center(titleEl.frame);
     await harness.click(c.x, c.y);
     await sleep(150);
@@ -473,9 +496,25 @@ module.exports = function (reg) {
     if (w.notePositionBefore) {
       assert.ok(
         Math.abs(titleEl.frame.x - w.notePositionBefore.x) <= 2,
-        `expected note at x=${w.notePositionBefore.x}, got x=${titleEl.frame.x}`
+        `expected note at x=${w.notePositionBefore.x}, got x=${titleEl.frame.x} (M7)`
+      );
+      assert.ok(
+        Math.abs(titleEl.frame.y - w.notePositionBefore.y) <= 2,
+        `expected note at y=${w.notePositionBefore.y}, got y=${titleEl.frame.y} (M7)`
       );
     }
+    // Check neighbor positions on screen
+    if (w.neighborsBefore) {
+      for (const nb of w.neighborsBefore) {
+        const found = view.elements.find((e) => e.identifier === 'shelf-item-title' && e.value === nb.value && e.frame);
+        assert.ok(found, `neighbor note "${nb.value}" missing from shelf (M7)`);
+        assert.ok(
+          Math.abs(found.frame.x - nb.frame.x) <= 2 && Math.abs(found.frame.y - nb.frame.y) <= 2,
+          `neighbor note "${nb.value}" moved from (${nb.frame.x}, ${nb.frame.y}) to (${found.frame.x}, ${found.frame.y}) (M7)`
+        );
+      }
+    }
+
     const items = view.elements.filter((e) => e.identifier === 'shelf-item');
     assert.ok(items.length >= 1, 'no shelf-items found');
 
@@ -483,7 +522,23 @@ module.exports = function (reg) {
     assert.ok(fs.existsSync(shelfFile));
     const diskItems = JSON.parse(fs.readFileSync(shelfFile, 'utf8'));
     const clean = label.startsWith('✎ ') ? label.slice(2) : label;
-    assert.ok(diskItems.some((it) => it.kind && it.kind.note && it.kind.note.text === clean));
+
+    if (w.diskBefore && w.targetNoteId) {
+      assert.equal(diskItems.length, w.diskBefore.length, `expected ${w.diskBefore.length} items on disk, found ${diskItems.length} (M7)`);
+      const targetIndex = w.diskBefore.findIndex((it) => it.id === w.targetNoteId);
+      assert.ok(targetIndex >= 0, 'target note id not found in diskBefore (M7)');
+      assert.equal(diskItems[targetIndex].id, w.targetNoteId, `target note id changed after edit (M7)`);
+      assert.equal(diskItems[targetIndex].kind.note.text, clean, `expected corrected text "${clean}" (M7)`);
+      // Assert neighbors are unchanged in id, order, and content
+      for (let i = 0; i < diskItems.length; i++) {
+        if (i !== targetIndex) {
+          assert.equal(diskItems[i].id, w.diskBefore[i].id, `neighbor item ${i} id changed (M7)`);
+          assert.deepEqual(diskItems[i].kind, w.diskBefore[i].kind, `neighbor item ${i} content changed (M7)`);
+        }
+      }
+    } else {
+      assert.ok(diskItems.some((it) => it.kind && it.kind.note && it.kind.note.text === clean));
+    }
   });
 
   reg.define(/^the visionary sees the note holding (.+)$/, async (w, keptDesc) => {
