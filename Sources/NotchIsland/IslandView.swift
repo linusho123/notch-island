@@ -1080,7 +1080,6 @@ private struct ShelfItemView: View {
       .buttonStyle(.plain)
       .frame(width: 20, height: 20)
       .contentShape(Rectangle())
-      .offset(x: 4, y: -4)
       .accessibilityLabel("Remove \(item.title)")
       .accessibilityIdentifier("remove-\(item.title)")
     }
@@ -1107,7 +1106,6 @@ private struct ShelfItemView: View {
         .buttonStyle(.plain)
         .frame(width: 20, height: 20)
         .contentShape(Rectangle())
-        .offset(x: 2, y: -2)
         .accessibilityLabel("Remove \(item.title)")
         .accessibilityIdentifier("remove-\(item.title)")
       }

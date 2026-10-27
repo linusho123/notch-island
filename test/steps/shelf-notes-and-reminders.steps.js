@@ -161,7 +161,7 @@ module.exports = function (reg) {
       'new-note-field did not appear'
     );
     await harness.type(text);
-    await sleep(100);
+    await sleep(200);
     await harness.key(36); // Return
     await sleep(250);
   });
@@ -225,7 +225,7 @@ module.exports = function (reg) {
     await harness.key(0, 'cmd');
     await sleep(50);
     await harness.type(newText);
-    await sleep(100);
+    await sleep(200);
     await harness.key(36); // Return
     await sleep(250);
   });

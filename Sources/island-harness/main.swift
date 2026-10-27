@@ -797,7 +797,7 @@ case "type":
       up.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: utf16)
       postTagged(up)
     }
-    usleep(1000)
+    usleep(3000)
   }
   emit(["ok": true])
 case "tree":
