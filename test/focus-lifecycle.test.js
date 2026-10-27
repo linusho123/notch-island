@@ -38,6 +38,17 @@ test('M10 / R4: keyboard focus released when editing ends, page changes, or isla
 
   // Helper to assert focus is with frontBefore and island holds no focus
   async function assertFocusRestored() {
+    await island.until(async () => {
+      const now = await harness.frontmost();
+      if (now.pid !== frontBefore.pid) return false;
+      const keys = await harness.keyboardFocus();
+      if (keys.element === pid || keys.app === pid) return false;
+      if (keys.app && keys.app !== frontBefore.pid) return false;
+      const panels = await harness.windows(pid);
+      const keyed = panels.filter((p) => p.focused || p.main);
+      return keyed.length === 0;
+    }, 2500, 'focus was not fully restored to prior app');
+
     const now = await harness.frontmost();
     assert.equal(now.pid, frontBefore.pid, `focus was not restored to ${frontBefore.name}; current is ${now.name}`);
     const keys = await harness.keyboardFocus();
