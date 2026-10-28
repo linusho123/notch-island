@@ -32,6 +32,15 @@ function testBinary(pid) {
   }
   catch { return false; }
 }
+function describeProcess(pid) {
+  const fields = ['comm', 'ppid', 'lstart', 'args'].map((field) => {
+    let value;
+    try { value = execFileSync('ps', ['-ww', '-o', `${field}=`, '-p', String(pid)], { encoding: 'utf8' }).trim() || '<exited>'; }
+    catch { value = '<unavailable or exited>'; }
+    return `${field}=${JSON.stringify(value)}`;
+  });
+  return `pid=${pid} ${fields.join(' ')}`;
+}
 function assertFixtureSession({ islands = listIslands, exists = fs.existsSync,
   owned = () => false, allowInstalled = false, paused = activePause, isInstalled = installed,
   isTest = testBinary, graceMs = 3000, now = Date.now,
@@ -46,6 +55,6 @@ function assertFixtureSession({ islands = listIslands, exists = fs.existsSync,
     sleep(100);
     foreign = read();
   }
-  if (foreign.length) throw new Error(`BLOCKED: an unowned island is running (${foreign.join(', ')}); prepare a fixture-only session`);
+  if (foreign.length) throw new Error(`BLOCKED: an unowned island is running (${foreign.join(', ')}); prepare a fixture-only session\n${foreign.map(describeProcess).join('\n')}`);
 }
 module.exports = { assertFixtureSession, activePause };

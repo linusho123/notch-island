@@ -3,6 +3,34 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { load } = require('./support/load-isolated');
 
+test('NB1: refusal identifies every foreign PID by executable, parent, start time and arguments', () => {
+  const processes = {
+    41: { comm: '/foreign/NotchIsland.app/Contents/MacOS/NotchIsland', ppid: '17',
+      lstart: 'Wed Oct 28 01:02:03 2026', args: '/foreign/NotchIsland.app/Contents/MacOS/NotchIsland --unknown' },
+    42: { comm: '/another path/NotchIsland', ppid: '18',
+      lstart: 'Wed Oct 28 01:02:04 2026', args: `/another path/NotchIsland ${'long-argument '.repeat(30)}`.trim() },
+  };
+  const { assertFixtureSession } = load('fixture-preflight.js', {
+    './island-procs': {},
+    'node:child_process': { execFileSync: (cmd, args) => {
+      assert.equal(cmd, 'ps', 'diagnostics must be read-only');
+      assert.ok(args.includes('-ww'), 'diagnostics must not truncate arguments or paths');
+      const pid = args[args.indexOf('-p') + 1];
+      const field = args[args.indexOf('-o') + 1].replace(/=$/, '');
+      return processes[pid][field] + '\n';
+    } },
+  });
+  assert.throws(() => assertFixtureSession({ exists: () => false, islands: () => [41, 42], isTest: () => false }), (e) => {
+    assert.match(e.message, /BLOCKED: an unowned island is running/);
+    for (const [pid, fields] of Object.entries(processes)) {
+      const line = e.message.split('\n').find((s) => s.startsWith(`pid=${pid} `));
+      assert.ok(line, `missing diagnostic for PID ${pid}: ${e.message}`);
+      for (const [field, value] of Object.entries(fields)) assert.ok(line.includes(`${field}=${JSON.stringify(value)}`), line);
+    }
+    return true;
+  });
+});
+
 for (const stale of [false, true]) test(`M01: ${stale ? 'stale keeper' : 'installed observer'} refuses without intervention`, () => {
   const calls = [];
   const keeper = load('installed-island.js', {
