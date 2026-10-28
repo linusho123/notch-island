@@ -19,10 +19,10 @@ const scenes = require('./scenes');
 const run = promisify(execFile);
 
 function processTable() {
-  return execFileSync('/bin/ps', ['-axo', 'pid=,ppid=,args='], { encoding: 'utf8', maxBuffer: 16 << 20 })
+  return execFileSync('/bin/ps', ['-axo', 'pid=,ppid=,lstart=,state=,args='], { encoding: 'utf8', maxBuffer: 16 << 20 })
     .split('\n').flatMap((line) => {
-      const m = /^\s*(\d+)\s+(\d+)\s+(.+)$/.exec(line);
-      return m ? [{ pid: Number(m[1]), ppid: Number(m[2]), args: m[3] }] : [];
+      const m = /^\s*(\d+)\s+(\d+)\s+(\w{3}\s+\w{3}\s+\d+\s+[\d:]+\s+\d{4})\s+(\S+)\s+(.+)$/.exec(line);
+      return m ? [{ pid: Number(m[1]), ppid: Number(m[2]), started: m[3].replace(/\s+/g, ' '), state: m[4], args: m[5] }] : [];
     });
 }
 
@@ -193,13 +193,15 @@ async function sample(w) {
   const snapshots = check.parseTop(stdout);
   const companions = tables.flatMap((t) => t.processes).filter((p) =>
     p.args.startsWith(`${w.cost.binary} chrome-extension://`) || p.args.includes(w.cost.adapter));
-  const minute = check.sumMinute(snapshots, pid, companions.map((p) => p.pid));
+  const main = { pid, started: w.island.started.replace(/\s+/g, ' ') };
+  const required = check.requiredAdapters(tables, main, w.cost.adapter);
+  const minute = check.sumMinute(snapshots, pid, companions.filter((p) => p.args.startsWith(`${w.cost.binary} chrome-extension://`)).map((p) => p.pid), [required]);
   // The native host is the island binary launched by Chrome. None is expected
   // here: Wonderwall uses Music, and the release socket is in a scratch home.
   // If one exists for this exact executable, it is nevertheless included.
   const hosts = companions.filter((p) => p.args.startsWith(`${w.cost.binary} chrome-extension://`));
   w.cost.minute = { ...minute, elapsedMs, build: w.cost.build, top: `${stem}.top.txt`,
-    ownership: `${stem}.processes.json`, nativeHostPids: [...new Set(hosts.map((p) => p.pid))],
+    ownership: `${stem}.processes.json`, requiredService: required, nativeHostPids: [...new Set(hosts.map((p) => p.pid))],
     cpu: check.summary(minute.samples, 'CPU'), energyImpact: check.summary(minute.samples, 'Energy Impact') };
   w.cost.report = `${stem}.json`;
   fs.writeFileSync(w.cost.report, JSON.stringify(w.cost.minute, null, 2));

@@ -82,3 +82,16 @@ test('M11: optional transient descendants are counted only while present', () =>
   assert.equal(result.samples[0].cpu, 3.25);
   assert.equal(result.samples[1].cpu, 1.25);
 });
+
+test('M11: ownership snapshots require a live exact adapter identity throughout', () => {
+  const adapter = '/owned/NotchIsland.app/Contents/Resources/now-playing-adapter.dylib';
+  const main = { pid: 10, ppid: 1, started: 'main-start', state: 'S', args: '/owned/NotchIsland' };
+  const helper = { pid: 20, ppid: 10, started: 'adapter-start', state: 'S', args: `/usr/bin/perl -e script ${adapter}` };
+  const tables = [{ processes: [main, helper] }, { processes: [main, { ...helper, pid: 21, started: 'replacement' }] }];
+  assert.deepEqual(check.requiredAdapters(tables, main, adapter).pids, [20, 21]);
+  for (const broken of [[], [{ ...helper, state: 'Z' }], [{ ...helper, state: 'T' }],
+    [{ ...helper, args: `${helper.args}.foreign` }], [{ ...helper, ppid: 99, pid: 21 }],
+    [{ ...helper, started: 'reused' }]]) {
+    assert.throws(() => check.requiredAdapters([tables[0], { processes: [main, ...broken] }], main, adapter), /required|identity/);
+  }
+});

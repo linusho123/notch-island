@@ -49,6 +49,28 @@ function parseTop(raw) {
   });
 }
 
+// Every ps observation must contain the required service. A replacement must
+// have this fixture as parent and the exact adapter argument; a reused PID,
+// zombie or stopped helper is no functioning replacement. Optional children
+// (e.g. osascript) never enter this required set.
+function requiredAdapters(tables, main, adapter) {
+  const identities = new Map();
+  for (const table of tables) {
+    const root = table.processes.find((p) => p.pid === main.pid);
+    assert.ok(root && root.started === main.started && !/[ZT]/.test(root.state), 'measured island identity lost');
+    const live = table.processes.filter((p) => p.args.startsWith('/usr/bin/perl ')
+      && p.args.endsWith(` ${adapter}`) && !/[ZT]/.test(p.state));
+    const owned = live.filter((p) => {
+      const previous = identities.get(p.pid);
+      assert.ok(!previous || previous === p.started, 'required adapter PID identity changed');
+      return p.ppid === main.pid || previous === p.started;
+    });
+    assert.ok(owned.length, 'required service now-playing adapter absent without a live owned replacement');
+    for (const p of owned) identities.set(p.pid, p.started);
+  }
+  return { name: 'now-playing adapter', pids: [...identities.keys()] };
+}
+
 function sumMinute(snapshots, pid, companionPids = [], requiredServices = []) {
   assert.equal(snapshots.length, 61);
   const known = new Set([pid, ...companionPids]);
@@ -100,4 +122,4 @@ function assertCeiling(samples, measure, ceilingText) {
   return result;
 }
 
-module.exports = { assertRelease, parseTop, sumMinute, summary, assertCeiling, hash };
+module.exports = { assertRelease, parseTop, sumMinute, summary, assertCeiling, hash, requiredAdapters };
