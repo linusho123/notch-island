@@ -38,6 +38,18 @@ module.exports = { captureVerdict };
 // control in the measured island rect, and match the same rect with the
 // island closed. Measurements come from captured pixels, never app input.
 function sharedCaptureVerdict(shots) {
+  if (shots.service) {
+    try { require('./service-evidence').validate(shots.service.name, shots.service.evidence); }
+    catch (e) { return { ok: false, kind: 'prerequisite', message: e.message }; }
+  }
+  if (shots.timeline) {
+    const temporal = intervalVerdict(shots.timeline);
+    if (!temporal.ok) return temporal;
+  }
+  if (shots.playback) {
+    const playback = intervalVerdict({ ...shots.timeline, ...shots.playback });
+    if (!playback.ok) return playback;
+  }
   for (const name of ['screencapture', 'screenCaptureKit']) {
     const s = shots[name];
     if (!s) return { ok: false, kind: 'no-shot', message: `${name}: no capture` };
@@ -51,3 +63,28 @@ function sharedCaptureVerdict(shots) {
   return { ok: true, kind: 'ok', message: '' };
 }
 module.exports.sharedCaptureVerdict = sharedCaptureVerdict;
+
+// Every delivered frame in the bounded action interval is checked. Delivery
+// time is deliberately irrelevant: these are window-server capture times (or
+// the control clock decoded from the movie). A clean last frame cannot erase
+// an earlier leak. Gaps/overflows invalidate evidence instead of dropping it.
+function intervalVerdict(t) {
+  const bad = (message) => ({ ok: false, kind: 'interval', message });
+  if (!(Number.isFinite(t.start) && Number.isFinite(t.end) && t.end > t.start && t.end - t.start <= 30)
+    || !Array.isArray(t.frames) || !t.frames.length || t.frames.length > 1800 || t.overflow) return bad('no bounded capture interval');
+  if (!Array.isArray(t.visible) || t.visible.length !== 2 || t.visible[0] < t.start
+    || t.visible[1] > t.end || t.visible[1] <= t.visible[0]) return bad('no contemporaneous visible-island interval');
+  let previous = t.start;
+  let id = -1;
+  for (const f of t.frames) {
+    if (!Number.isFinite(f.captured) || f.captured < previous || f.id <= id
+      || f.captured - previous > 0.3) return bad('stale, unordered or missing capture frames');
+    if (!(f.control >= 0.9) || !(f.baselineControl >= 0.9)) return bad('nothing on screen — the control window is absent');
+    if (!Number.isFinite(f.changedFraction) || f.changedFraction > 0.015) return bad('island rect differs from the plain reference during the action');
+    previous = f.captured;
+    id = f.id;
+  }
+  if (previous < t.end) return bad('capture does not span the action');
+  return { ok: true, kind: 'ok', message: '' };
+}
+module.exports.intervalVerdict = intervalVerdict;

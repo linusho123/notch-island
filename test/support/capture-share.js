@@ -7,7 +7,12 @@ const { sharedCaptureVerdict } = require('./capture');
 const { scratch, startOwned } = require('./sandbox');
 const paths = require('./paths');
 
-async function start(w) {
+async function start(w, service) {
+  // R1 evidence is required BEFORE pausing an app, starting a stream or
+  // changing Music. An absent prerequisite is blocked, not a proxy pass.
+  if (service !== 'recording') {
+    w.captureService = { name: service, evidence: require('./service-evidence').load(service) };
+  }
   // Refuse conflicts before the explicit authorized P5 pause or a fixture.
   const { notch } = preflight();
   const island = require('./island');
@@ -46,13 +51,15 @@ async function start(w) {
     } finally { await procs.stop(handle); }
   };
   w.defer(stop);
-  w.captureShare = { handle, request, stop };
+  w.captureShare = { handle, request, stop, dir };
   await island.until(() => read('ready.json')?.streamStarted, 10000, 'SCK stream did not start');
   // Check again immediately before the existing launcher can touch anything.
   preflight();
   // V1's existing fixture and disconnect guardian unregister even if the
   // runner is SIGKILLed. It never pauses or restarts the installed island.
   await require('./login').prepare(w);
+  // Reused P3/P4 Given helpers must feed this exact owned fixture.
+  fs.symlinkSync(w.login.input, island.inputFile(w));
 }
 
 async function baseline(w) {
@@ -65,27 +72,39 @@ async function baseline(w) {
   assert.ok(result.baseline, 'no plain reference was captured');
 }
 
+async function arm(w, kind) {
+  w.captureKind = kind;
+  w.captureInterval = await w.captureShare.request({ op: 'arm', kind });
+}
+
 async function capture(w) {
   const island = require('./island');
   const before = await island.look(w.island.pid);
   assert.ok(w.captureVisible(before), 'nothing on screen: Accessibility lost the visible island before capture');
   const rect = w.captureKind === 'wing' ? before.wing.frame : before.panel;
-  const shots = await w.captureShare.request({ op: 'capture', rect, kind: w.captureKind });
+  const region = w.captureInterval.rect;
+  assert.ok(rect.x >= region.x - 1 && rect.y >= region.y - 1
+    && rect.x + rect.w <= region.x + region.w + 1 && rect.y + rect.h <= region.y + region.h + 1,
+  'visible island escaped the measured region');
+  const first = await w.captureShare.request({ op: 'mark' });
+  await w.captureShare.request({ op: 'capture' });
   const after = await island.look(w.island.pid);
   assert.ok(w.captureVisible(after), 'nothing on screen: Accessibility lost the visible island during capture');
-  const afterRect = w.captureKind === 'wing' ? after.wing.frame : after.panel;
-  assert.ok(['x', 'y', 'w', 'h'].every((k) => Math.abs(rect[k] - afterRect[k]) <= 1),
-    'the island moved during the capture');
-  // Optional measurement probes alter only the far-side check's input. They
-  // never change the app or turn a missing control into a successful absence.
-  if (process.env.P6_CAPTURE_PROBE === 'visible-island') {
-    for (const s of Object.values(shots)) s.changedFraction = 1;
-  } else if (process.env.P6_CAPTURE_PROBE === 'missing-control') {
-    for (const s of Object.values(shots)) s.control = 0;
+  const last = await w.captureShare.request({ op: 'mark' });
+  const shots = await w.captureShare.request({ op: 'capture' });
+  shots.timeline.end = last.time;
+  shots.timeline.visible = [first.time, last.time];
+  if (w.captureService) shots.service = w.captureService;
+  if (w.recording) {
+    await require('./recording').stop(w);
+    shots.playback = await w.captureShare.request({ op: 'playback', file: w.recording.file });
   }
-  console.log(`V2a capture ${w.captureKind}: ${JSON.stringify({ rect, shots })}`);
+  // Measurement-input probes, explicitly separate from physical app probes.
+  if (process.env.P6_CAPTURE_PROBE === 'visible-island') shots.timeline.frames[0].changedFraction = 1;
+  if (process.env.P6_CAPTURE_PROBE === 'missing-control') shots.timeline.frames[0].control = 0;
+  console.log(`P6 capture ${w.captureService?.name || 'native recording'} ${w.captureKind}: ${JSON.stringify({ rect, shots })}`);
   const verdict = sharedCaptureVerdict(shots);
   assert.ok(verdict.ok, verdict.message);
 }
 
-module.exports = { start, baseline, capture };
+module.exports = { start, baseline, arm, capture };
