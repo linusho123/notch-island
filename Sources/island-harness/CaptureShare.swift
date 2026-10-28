@@ -114,13 +114,12 @@ final class CaptureShare: NSObject, @preconcurrency SCStreamOutput, @preconcurre
       if Date() > end { throw NSError(domain: "SCK supplied no fresh complete frame", code: 2) }
       try await Task.sleep(nanoseconds: 20_000_000)
     }
-    let file = directory.appendingPathComponent("shot.png")
     let screenIndex =
       NSScreen.screens.firstIndex { screen in
         let id = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
         return id?.uint32Value == display?.displayID
       } ?? 0
-    guard let image = displayScreenshot(screenIndex + 1, file: file), let latest else {
+    guard let image = displayScreenshot(screenIndex + 1), let latest else {
       throw NSError(domain: "screencapture supplied no image", code: 3)
     }
     return ["screencapture": image, "screenCaptureKit": latest]

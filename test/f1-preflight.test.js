@@ -32,3 +32,22 @@ test('M01: login refuses before registry, fixture, harness or launch actions', a
   await assert.rejects(login.prepare({ defer() {} }), /BLOCKED/);
   assert.deepEqual(calls, []);
 });
+
+test('M01: read-only preflight rejects stale state and unowned observers, permits owned fixture only', () => {
+  const { assertFixtureSession } = load('fixture-preflight.js', { './island-procs': { listIslands: () => [] } });
+  assert.throws(() => assertFixtureSession({ exists: () => true, islands: () => [] }), /BLOCKED/);
+  assert.throws(() => assertFixtureSession({ exists: () => false, islands: () => [41] }), /BLOCKED/);
+  assertFixtureSession({ exists: () => false, islands: () => [41], owned: (pid) => pid === 41 });
+});
+
+test('M01: Music refuses before its keeper can restore or write anything', () => {
+  const calls = [];
+  const music = load('music.js', {
+    './paths': {}, './cleanup': { onCleanup() {} },
+    './fixture-preflight': { assertFixtureSession: () => { throw new Error('BLOCKED: installed observer'); } },
+    './procs': { ownsPid: () => false },
+    './music-keeper': { createKeeper: () => ({ save: () => calls.push('save/restore'), restore: () => calls.push('restore') }) },
+  });
+  assert.throws(music.keepMusic, /BLOCKED/);
+  assert.deepEqual(calls, []);
+});

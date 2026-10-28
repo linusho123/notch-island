@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { preflight } = require('./capture-preflight');
 const { sharedCaptureVerdict } = require('./capture');
-const { scratch } = require('./sandbox');
+const { scratch, startOwned } = require('./sandbox');
 const paths = require('./paths');
 
 async function start(w) {
@@ -14,11 +14,10 @@ async function start(w) {
   const procs = require('./procs');
   const dir = path.join(scratch(w), 'share');
   fs.mkdirSync(dir);
-  const log = fs.openSync(path.join(dir, 'stream.log'), 'a');
-  const handle = procs.start('Zoom/Meet capture stand-in', paths.harness,
-    ['capture-share', dir, notch.x, notch.y, notch.w, notch.h].map(String),
-    { env: { ...process.env, NOTCH_ISLAND_OWNER_PID: String(process.pid) }, stdio: ['ignore', log, log] });
-  fs.closeSync(log);
+  const log = path.join(dir, 'stream.log');
+  const handle = await startOwned(w, paths.harness,
+    ['capture-share', dir, notch.x, notch.y, notch.w, notch.h],
+    { env: { ...process.env, NOTCH_ISLAND_OWNER_PID: String(process.pid) }, stdout: log, stderr: log });
   const read = (name) => {
     const error = path.join(dir, 'error.json');
     if (fs.existsSync(error)) throw new Error(fs.readFileSync(error, 'utf8'));

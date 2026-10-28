@@ -124,3 +124,12 @@ for (const state of ['requiresApproval', 'enabled', 'notFound', 'notRegistered']
     assert.equal(calls[0][1], '--test-login-status-and-exit');
   });
 }
+
+test('M03: native unregister error cannot be hidden by an apparently absent status', () => {
+  const service = load('login-service.js', {
+    './paths': { root }, 'node:fs': { realpathSync: (p) => p },
+    'node:child_process': { execFileSync: () => identifier,
+      spawnSync: () => ({ status: 1, stderr: 'denied', stdout: JSON.stringify({ status: 'notRegistered', bundleID: identifier }) }) },
+  });
+  assert.throws(() => service.unregister(`${dir}/NotchIsland.app`, identifier), /denied/);
+});

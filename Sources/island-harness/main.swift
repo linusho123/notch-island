@@ -463,15 +463,22 @@ func luminance(_ image: CGImage, crop: CGRect) -> (max: Double, mean: Double) {
 }
 
 // The same system screenshot path for D110 and the running share stand-in.
-func displayScreenshot(_ index: Int, file: URL) -> CGImage? {
-  defer { try? FileManager.default.removeItem(at: file) }
-  let shot = Process()
-  shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-  shot.arguments = ["-x", "-D", String(index), file.path]
-  do { try shot.run() } catch { return nil }
-  shot.waitUntilExit()
-  guard shot.terminationStatus == 0 else { return nil }
-  return NSImage(contentsOf: file)?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+func displayScreenshot(_ index: Int) -> CGImage? {
+  let worker = Process()
+  worker.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
+  worker.arguments = ["capture-worker", String(index)]
+  let lifetime = Pipe()
+  let output = Pipe()
+  worker.standardInput = lifetime
+  worker.standardOutput = output
+  do { try worker.run() } catch { return nil }
+  // The worker owns screencapture, waits for it and removes its private
+  // image before returning bytes. Helper death closes lifetime's writer.
+  let data = output.fileHandleForReading.readDataToEndOfFile()
+  worker.waitUntilExit()
+  try? lifetime.fileHandleForWriting.close()
+  guard worker.terminationStatus == 0 else { return nil }
+  return NSImage(data: data)?.cgImage(forProposedRect: nil, context: nil, hints: nil)
 }
 
 /// capture-check x y w h: show a white backdrop window of our own over the
@@ -520,8 +527,7 @@ func captureCheck(_ rect: CGRect, islandPid: Int) -> Never {
   DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
     var result: [String: Any] = [:]
     let foreignBefore = foreignWindows()
-    let file = NSTemporaryDirectory() + "island-harness-\(getpid()).png"
-    if let image = displayScreenshot(1, file: URL(fileURLWithPath: file)) {
+    if let image = displayScreenshot(1) {
       let scale = Double(image.width) / Double(NSScreen.screens[0].frame.width)
       let crop = CGRect(
         x: rect.minX * scale, y: rect.minY * scale, width: rect.width * scale,
@@ -684,6 +690,18 @@ func runInputGuard() -> Never {
 // MARK: Commands
 
 switch command {
+case "capture-worker":
+  do {
+    let data = try OwnedCapture().run(
+      executable: URL(fileURLWithPath: "/usr/sbin/screencapture"),
+      arguments: { ["-x", "-D", arg(1), $0.path] },
+      parent: FileManager.default.temporaryDirectory, owner: .standardInput)
+    guard let data else { exit(2) }
+    // OwnedCapture removed the artifact before writing to a possibly dead reader.
+    FileHandle.standardOutput.write(data)
+    exit(0)
+  } catch { fail("capture worker: \(error)") }
+
 case "screen":
   emit(screensJSON())
 case "frontmost":
