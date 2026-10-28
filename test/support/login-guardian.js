@@ -40,7 +40,7 @@ async function cleanup(dir) {
   assert.equal(pids(binary).length, 0, 'a V1 test island survived cleanup');
   const service = require('./login-service');
   const env = { ...process.env, NOTCH_ISLAND_TEST_INPUT: input };
-  if (service.status(app, identifier, env) !== 'notRegistered') {
+  if (!['notRegistered', 'notFound'].includes(service.status(app, identifier, env))) {
     await service.unregister(app, identifier, env);
   }
   await service.assertUnregistered(app, identifier, env);

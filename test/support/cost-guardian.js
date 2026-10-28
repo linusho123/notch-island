@@ -40,7 +40,7 @@ async function cleanup(dir, home) {
   fs.writeFileSync(input, JSON.stringify({ dataDirectory: home }));
   const env = { ...process.env, HOME: home, CFFIXED_USER_HOME: home, NOTCH_ISLAND_TEST_INPUT: input };
   const service = require('./login-service');
-  if (service.status(app, identifier, env) !== 'notRegistered') await service.unregister(app, identifier, env);
+  if (!['notRegistered', 'notFound'].includes(service.status(app, identifier, env))) await service.unregister(app, identifier, env);
   await service.assertUnregistered(app, identifier, env);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.rmSync(home, { recursive: true, force: true });

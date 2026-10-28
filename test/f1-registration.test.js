@@ -190,3 +190,11 @@ for (const [record, allowed] of [
   if (allowed) await assert.doesNotReject(check());
   else await assert.rejects(check(), /live registration/);
 });
+
+for (const guardian of ['cost', 'login']) test(`B1: ${guardian} cleanup cross-checks notFound without unregistering a nonexistent service`, async () => {
+  const f = fixture({ status: 'notFound' });
+  f.service.assertUnregistered = async () => { f.calls.push('registry-cross-check'); };
+  await load(`${guardian}-guardian.js`, f.stubs).cleanup(guardian === 'cost' ? dir : '/repo/build/apps.noindex/p6-login-owned', home);
+  assert.ok(f.calls.includes('registry-cross-check'));
+  assert.ok(!f.calls.includes('unregister'));
+});
