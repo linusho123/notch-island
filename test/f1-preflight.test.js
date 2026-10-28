@@ -52,3 +52,21 @@ test('M01: Music refuses before its keeper can restore or write anything', () =>
   assert.throws(music.keepMusic, /BLOCKED/);
   assert.deepEqual(calls, []);
 });
+
+for (const persistent of [false, true]) test(`B5: exiting test binary grace, persistent=${persistent}`, () => {
+  const { assertFixtureSession } = load('fixture-preflight.js', { './island-procs': {} });
+  let clock = 0;
+  const check = () => assertFixtureSession({ exists: () => false,
+    islands: () => persistent || clock < 200 ? [41] : [], isTest: () => true,
+    now: () => clock, sleep: (ms) => { clock += ms; }, graceMs: 300 });
+  if (persistent) assert.throws(check, /unowned island/);
+  else assert.doesNotThrow(check);
+});
+
+test('B5: a persistent foreign island or reused PID never gets the test grace', () => {
+  const { assertFixtureSession } = load('fixture-preflight.js', { './island-procs': {} });
+  let waits = 0;
+  assert.throws(() => assertFixtureSession({ exists: () => false, islands: () => [41],
+    isTest: () => false, sleep: () => waits++ }), /unowned island/);
+  assert.equal(waits, 0);
+});

@@ -12,7 +12,7 @@ const { listIslands } = require('./island-procs');
 const INSTALLED_APP = '/Applications/NotchIsland.app';
 const INSTALLED_BINARY = path.join(INSTALLED_APP, 'Contents', 'MacOS', 'NotchIsland');
 
-function createInstalledKeeper({ driver, file, lease = {} }) {
+function createInstalledKeeper({ driver, file, lease = {}, sleep = sleepSync, now = Date.now, timeoutMs = 8000 }) {
   let saved = null;
 
   function persist() { fs.writeFileSync(file, JSON.stringify(saved)); }
@@ -38,6 +38,10 @@ function createInstalledKeeper({ driver, file, lease = {} }) {
   function resume() {
     if (!saved) return;
     if (driver.testIslands() > 0) driver.stopTestIslands();
+    // launchd children are owned by the detached fixture guardian, not by
+    // procs. Its disconnect cleanup may still be terminating that exact app.
+    const end = now() + timeoutMs;
+    while (driver.testIslands() > 0 && now() < end) sleep(100);
     if (driver.testIslands() > 0) {
       throw new Error('a test island is still running, so the installed island was not relaunched');
     }

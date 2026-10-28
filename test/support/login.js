@@ -55,6 +55,7 @@ async function prepare(w) {
     detached: true, stdio: ['ignore', log, log, 'ipc'],
   });
   fs.closeSync(log);
+  const disarm = require('./cleanup').onCleanup(() => { if (guardian.connected) guardian.disconnect(); });
   const finished = new Promise((resolve, reject) => {
     guardian.once('error', reject);
     guardian.once('exit', (code, signal) => code === 0 ? resolve()
@@ -66,6 +67,7 @@ async function prepare(w) {
   w.defer(async () => {
     if (guardian.connected) guardian.send('cleanup');
     await finished;
+    disarm();
   });
   await new Promise((resolve, reject) => {
     guardian.once('message', (m) => m.ready ? resolve() : reject(new Error(JSON.stringify(m))));

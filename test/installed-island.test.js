@@ -22,3 +22,55 @@ for (const state of ['stale', 'clear']) test(`installed keeper: ${state}`, (t) =
   assert.deepEqual(calls, []);
   assert.equal(fs.existsSync(file), state === 'stale');
 });
+
+function keeperFixture(t, { running = true, remaining = 0, exits = true } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fu-keeper-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'state.json');
+  const calls = [];
+  let clock = 0;
+  const keeper = createInstalledKeeper({ file, timeoutMs: 300, now: () => clock,
+    sleep: (ms) => { clock += ms; if (exits) remaining = 0; }, driver: {
+      installedRunning: () => running,
+      quitInstalled: () => { calls.push('quit'); running = false; },
+      launchInstalled: () => { calls.push('launch'); running = true; },
+      testIslands: () => remaining,
+      stopTestIslands: () => calls.push('stop-owned'),
+      registerLogin: () => { throw new Error('keeper must never register'); },
+      unregisterLogin: () => { throw new Error('keeper must never unregister'); },
+    } });
+  return { keeper, file, calls, running: () => running, setRemaining: (n) => { remaining = n; } };
+}
+
+test('B4: resume waits for the launchd fixture guardian before restoring installed island', (t) => {
+  const f = keeperFixture(t, { remaining: 1 });
+  f.keeper.pause();
+  f.keeper.resume();
+  assert.equal(f.running(), true);
+  assert.deepEqual(f.calls, ['quit', 'stop-owned', 'launch']);
+  assert.equal(fs.existsSync(f.file), false);
+});
+
+test('B6: two-islands guard retains journal and refuses a persistent fixture', (t) => {
+  const f = keeperFixture(t, { remaining: 1, exits: false });
+  f.keeper.pause();
+  assert.throws(f.keeper.resume, /test island is still running/);
+  assert.equal(f.running(), false);
+  assert.equal(fs.existsSync(f.file), true);
+  f.setRemaining(0);
+  f.keeper.resume();
+  assert.equal(f.running(), true);
+  assert.equal(fs.existsSync(f.file), false);
+});
+
+test('B6: installed island initially off stays off; keeper never changes login items', (t) => {
+  for (const running of [false, true]) {
+    const f = keeperFixture(t, { running });
+    f.keeper.pause();
+    f.keeper.resume();
+    f.keeper.resume();
+    assert.equal(f.running(), running);
+    assert.deepEqual(f.calls, running ? ['quit', 'launch'] : []);
+    assert.equal(fs.existsSync(f.file), false);
+  }
+});

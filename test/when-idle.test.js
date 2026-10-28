@@ -451,3 +451,29 @@ test('a stale lock from a dead process is cleared and acquired', () => {
   w.releaseLock(lockFile, { pid: process.pid });
 });
 
+
+test('B4: void mid-D60 waits for launchd fixture cleanup and restores the installed island', async (t) => {
+  const dir = tmp();
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'keeper.json');
+  const { createInstalledKeeper } = require('./support/installed-island');
+  let running = true;
+  let fixtureAlive = true;
+  let time = 0;
+  const keeper = createInstalledKeeper({ file, now: () => time, timeoutMs: 500,
+    sleep: (ms) => { time += ms; if (time >= 200) fixtureAlive = false; }, driver: {
+      installedRunning: () => running,
+      quitInstalled: () => { running = false; }, launchInstalled: () => { running = true; },
+      testIslands: () => Number(fixtureAlive), stopTestIslands() {},
+    } });
+  const guard = fakeGuardScript(dir, [[0, { ready: true }], [20, { harness: true }],
+    [500, { real: true, signal: 'tap', type: 5 }]]);
+  const r = await w.runGuarded({
+    command: [process.execPath, '-e', 'setInterval(() => {}, 1000)'],
+    guardCommand: [process.execPath, guard], harness: fakeHarness(),
+    onSpawn: () => keeper.pause(), restore: () => keeper.resume(), log() {},
+  });
+  assert.equal(r.void, true);
+  assert.equal(running, true, 'installed island stayed quit after void');
+  assert.equal(fs.existsSync(file), false, 'stale keeper blocks the next idle run');
+});

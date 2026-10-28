@@ -29,6 +29,7 @@ function fixture({ failed = false, status = 'requiresApproval' } = {}) {
     spawnSync: () => { calls.push('unregister'); return { status: failed ? 1 : 0 }; } };
   return { calls, service, stubs: {
     'node:fs': fs, 'node:child_process': cp,
+    './cleanup': { onCleanup: () => () => {} },
     './paths': { root, testBinary: '/test-binary' }, './login-guardian': { pids: () => [] },
     './login-service': service, './signing': () => ['--sign', 'test identity'],
     './registry': { enabledApp: async () => null, items: async () => [{ bundleID: identifier, disposition: '[disabled, visible]', url: `file://${dir}/NotchIsland.app` }] },
