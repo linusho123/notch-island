@@ -45,11 +45,13 @@ test('with only a host running there is no island to refuse for', () => {
   assert.deepEqual(listIslands({ exec: fakeExec([{ pid: 200, args: `${APP} ${ORIGIN}` }]) }), []);
 });
 
-test('the keeper does not quit, wait for or relaunch because of a host', () => {
+test('the keeper does not quit, wait for or relaunch because of a host', (t) => {
   const fs = require('node:fs');
   const os = require('node:os');
   const path = require('node:path');
-  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'islands-')), 'state.json');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'islands-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'state.json');
   const table = [{ pid: 200, args: `${APP} ${ORIGIN}` }];
   const log = [];
   const driver = {
