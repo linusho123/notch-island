@@ -35,13 +35,13 @@ async function cleanup(dir, home) {
   // The release cannot answer test commands. Restore the test executable
   // under the same owned identity even for approval-pending registrations.
   fs.copyFileSync(testBinary, binary);
-  execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', app], { stdio: 'pipe' });
+  execFileSync('/usr/bin/codesign', ['--force', ...require('./signing')(), app], { stdio: 'pipe' });
   const input = path.join(home, 'cleanup-input.json');
   fs.writeFileSync(input, JSON.stringify({ dataDirectory: home }));
   const env = { ...process.env, HOME: home, CFFIXED_USER_HOME: home, NOTCH_ISLAND_TEST_INPUT: input };
   const service = require('./login-service');
-  if (service.status(app, identifier, env) !== 'notRegistered') service.unregister(app, identifier, env);
-  service.assertUnregistered(app, identifier, env);
+  if (service.status(app, identifier, env) !== 'notRegistered') await service.unregister(app, identifier, env);
+  await service.assertUnregistered(app, identifier, env);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.rmSync(home, { recursive: true, force: true });
 }

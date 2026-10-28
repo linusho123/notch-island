@@ -51,7 +51,7 @@ if (process.argv.includes('--owner')) {
       if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
       // Recovery also makes a deliberately broken guardian probe safe.
       if (fs.existsSync(fixture.dir)) {
-        cleanup(fixture.dir);
+        await cleanup(fixture.dir);
         fs.rmSync(fixture.dir, { recursive: true, force: true });
       }
     }

@@ -32,11 +32,24 @@ function invoke(app, identifier, flag, env = process.env) {
 function status(app, identifier, env) {
   return invoke(app, identifier, '--test-login-status-and-exit', env);
 }
-function assertUnregistered(app, identifier, env) {
-  assert.equal(status(app, identifier, env), 'notRegistered', 'live registration: fixture must be retained and release must not launch');
+async function assertUnregistered(app, identifier, env) {
+  const native = status(app, identifier, env);
+  if (native === 'notRegistered') return;
+  if (native === 'notFound') {
+    // A never-registered sandboxed fixture has no service to find. Confirm
+    // that against BTM's exact URL; disabled historical rows are tombstones.
+    const { fileURLToPath } = require('node:url');
+    const records = await require('./registry').items();
+    const live = records.some((item) => item.url?.startsWith('file:')
+      && fileURLToPath(item.url).replace(/\/$/, '') === fs.realpathSync(app)
+      && !/\[\s*disabled\b/.test(item.disposition || ''));
+    assert.ok(!live, 'live registration: fixture URL is still registered');
+    return;
+  }
+  assert.fail('live registration: fixture must be retained and release must not launch');
 }
-function unregister(app, identifier, env) {
+async function unregister(app, identifier, env) {
   assert.equal(invoke(app, identifier, '--test-unregister-login-and-exit', env), 'notRegistered', 'unregister did not remove the owned service');
-  assertUnregistered(app, identifier, env);
+  await assertUnregistered(app, identifier, env);
 }
 module.exports = { status, assertUnregistered, unregister, TEST_IDENTIFIER, LOGIN_IDENTIFIER, COST_IDENTIFIER };

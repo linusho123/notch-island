@@ -23,7 +23,7 @@ function pids(binary) {
   });
 }
 
-function cleanup(dir) {
+async function cleanup(dir) {
   const { app, binary, input, identifier } = fixturePaths(dir);
   if (!fs.existsSync(path.join(dir, 'registration-armed'))) return;
   // The path is unique to this test. Re-read it before each signal; never
@@ -41,9 +41,9 @@ function cleanup(dir) {
   const service = require('./login-service');
   const env = { ...process.env, NOTCH_ISLAND_TEST_INPUT: input };
   if (service.status(app, identifier, env) !== 'notRegistered') {
-    service.unregister(app, identifier, env);
+    await service.unregister(app, identifier, env);
   }
-  service.assertUnregistered(app, identifier, env);
+  await service.assertUnregistered(app, identifier, env);
   const config = JSON.parse(fs.readFileSync(input, 'utf8'));
   fs.rmSync(config.chromeSocket, { force: true });
 }
@@ -56,7 +56,7 @@ if (require.main === module) {
     if (cleaning) return;
     cleaning = true;
     try {
-      cleanup(dir);
+      await cleanup(dir);
       fs.rmSync(dir, { recursive: true, force: true });
       if (process.connected) process.send({ cleaned: true });
       process.exit(0);

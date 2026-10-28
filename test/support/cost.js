@@ -112,7 +112,7 @@ async function prepare(w) {
   await island.until(async () => (await harness.windows(preflight.pid)).length > 0, 10000, 'registration preflight did not start');
   await procs.sleep(500);
   await procs.stop(preflight);
-  require('./login-service').assertUnregistered(app, identifier, { ...env, NOTCH_ISLAND_TEST_INPUT: input });
+  await require('./login-service').assertUnregistered(app, identifier, { ...env, NOTCH_ISLAND_TEST_INPUT: input });
   fs.copyFileSync(releaseBinary, binary);
   sign();
   assert.equal(check.hash(binary), build.sha256, 'release bytes changed after registration preflight');
