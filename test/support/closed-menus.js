@@ -64,11 +64,12 @@ async function prepare(w) {
   await login.prepare(w);
   w.chrome = await chrome.launch(w);
   const s = await harness.builtIn();
-  const [tab] = await w.chrome.pages();
+  const browser = w.chrome.browser;
+  const [tab] = await browser.pages();
   assert.ok(tab, 'the test Chrome has no page to place on the built-in display');
-  const { windowId } = await w.chrome.cdp.send('Browser.getWindowForTarget', { targetId: tab.targetId });
-  await w.chrome.cdp.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'normal' } });
-  await w.chrome.cdp.send('Browser.setWindowBounds', { windowId, bounds: {
+  const { windowId } = await browser.cdp.send('Browser.getWindowForTarget', { targetId: tab.targetId });
+  await browser.cdp.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'normal' } });
+  await browser.cdp.send('Browser.setWindowBounds', { windowId, bounds: {
     left: s.frame.x + 40, top: s.frame.y + s.notch.h + 60,
     width: Math.min(900, s.frame.w - 80), height: Math.min(650, s.frame.h - s.notch.h - 120),
   } });
@@ -145,8 +146,7 @@ function ownPane(target, window) {
   if (target.kind === 'wifi') names.push('wifi');
   // Only the pane's own identity or its heading qualifies. A generic Control
   // Center window containing a Wi-Fi button/tile cannot prove Wi-Fi opened.
-  const headings = (window.elements || []).filter((e) => e.role === 'AXWindow'
-    || e.role === 'AXHeading' || (e.role === 'AXStaticText' && e.frame?.y < f.y + 48));
+  const headings = (window.elements || []).filter((e) => e.role === 'AXWindow' || e.role === 'AXHeading');
   const titles = [window.title, ...headings.flatMap((e) => [e.title, e.description, e.identifier, e.value])];
   return titles.some((title) => title && names.includes(normalized(title)));
 }

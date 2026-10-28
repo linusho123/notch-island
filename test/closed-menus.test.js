@@ -104,6 +104,8 @@ test('M12: generic Control Center with a Wi-Fi tile is not the Wi-Fi pane', () =
   const { driver } = fixture();
   const generic = pane('Control Center', 'ControlCenter');
   generic.elements.push({ role: 'AXButton', description: 'Wi-Fi', depth: 2 });
+  generic.elements.push({ role: 'AXStaticText', value: 'Wi-Fi', depth: 3,
+    frame: { x: 1270, y: 54, w: 100, h: 20 } });
   for (const kind of ['wifi', 'status']) {
     const target = { ...wifi, kind };
     assert.equal(driver.opened(target, bare(statusItem), { ...bare(statusItem), windows: [generic] }), false);
@@ -159,4 +161,34 @@ test('S01: Help edge is immediately inside the boundary and catches a final-two-
   const centre = await driver.locate(w, helpName);
   assert.equal(centre.point.x, help.frame.x + help.frame.w / 2);
   assert.equal(swallowed(centre.point), false, 'the centre example must remain distinct');
+});
+
+test('M14: setup places the existing Chrome handle.browser on the built-in screen', async () => {
+  const calls = [];
+  let frame = { x: -900, y: 100, w: 800, h: 600 };
+  const handle = { pid: 20, browser: {
+    pages: async () => [{ targetId: 'fixture-tab' }],
+    cdp: { send: async (method, args) => {
+      calls.push({ method, args });
+      if (method === 'Browser.getWindowForTarget') return { windowId: 41 };
+      if (args.bounds.width) frame = { x: args.bounds.left, y: args.bounds.top, w: args.bounds.width, h: args.bounds.height };
+      return {};
+    } },
+  } };
+  const driver = load('closed-menus.js', {
+    './fixture-preflight': { assertFixtureSession() {} }, './procs': {},
+    './harness': { builtIn: async () => screen, activate: async (pid) => assert.equal(pid, handle.pid),
+      frontmost: async () => handle, windows: async () => [{ frame }] },
+    './island': { until: async (pred) => assert.ok(await pred()) }, './chrome': { launch: async () => handle },
+    './login': { prepare: async () => {} }, './scenes': { plainNotch: async () => calls.push('plain') },
+    './cleanup': {}, './paths': {},
+  });
+  const w = {};
+  await driver.prepare(w);
+  assert.equal(w.chrome, handle);
+  assert.equal(calls[0].args.targetId, 'fixture-tab');
+  assert.equal(calls[1].args.windowId, 41);
+  assert.equal(calls[1].args.bounds.windowState, 'normal');
+  assert.ok(frame.x >= 0 && frame.x + frame.w <= screen.frame.w && frame.y > notch.h);
+  assert.equal(calls[3], 'plain');
 });
