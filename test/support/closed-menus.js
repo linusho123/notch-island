@@ -111,9 +111,14 @@ async function locate(w, target) {
   }
   const point = center(item.frame);
   if (target.startsWith('the right-hand edge')) {
-    assert.ok(item.frame.w > 6, 'Help is too narrow to click three points inside its right edge');
-    point.x = item.frame.x + item.frame.w - 3;
+    // Half a logical point is inside the AX boundary, including on a Retina
+    // screen, and still exercises a dead zone confined to the final two points.
+    const inset = 0.5;
+    assert.ok(item.frame.w > inset, 'Help is too narrow for the inside-edge click');
+    point.x = item.frame.x + item.frame.w - inset;
   }
+  assert.ok(point.x >= item.frame.x && point.x < item.frame.x + item.frame.w
+    && point.y >= item.frame.y && point.y < item.frame.y + item.frame.h, 'the click is outside its AX item');
   assert.ok(point.x >= strip.x && point.x < strip.x + strip.w
     && point.y >= strip.y && point.y < strip.y + strip.h, 'the click is outside the built-in menu-bar strip');
   return { item, point, kind, target };

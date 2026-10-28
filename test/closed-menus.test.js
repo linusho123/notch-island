@@ -148,3 +148,15 @@ test('M14: built-in targets and non-origin display coordinates remain valid', as
     }
   }
 });
+
+test('S01: Help edge is immediately inside the boundary and catches a final-two-point swallow', async () => {
+  const { driver, w } = fixture();
+  const edge = await driver.locate(w, "the right-hand edge of Chrome's Help menu");
+  const right = help.frame.x + help.frame.w;
+  assert.ok(edge.point.x < right && edge.point.x >= right - 1, 'edge click must be at most one point inside');
+  const swallowed = (p) => p.x >= right - 2 && p.x < right;
+  assert.equal(swallowed(edge.point), true, 'a dead zone in the final two points escapes the edge example');
+  const centre = await driver.locate(w, helpName);
+  assert.equal(centre.point.x, help.frame.x + help.frame.w / 2);
+  assert.equal(swallowed(centre.point), false, 'the centre example must remain distinct');
+});
