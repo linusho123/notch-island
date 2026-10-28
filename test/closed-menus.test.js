@@ -192,3 +192,29 @@ test('M14: setup places the existing Chrome handle.browser on the built-in scree
   assert.ok(frame.x >= 0 && frame.x + frame.w <= screen.frame.w && frame.y > notch.h);
   assert.equal(calls[3], 'plain');
 });
+
+test('B2: run-7 Wi-Fi AXSystemDialog with wifi-header is the clicked pane', () => {
+  const { driver } = fixture();
+  const after = require('./fixtures/wifi-pane-run-7.json');
+  const item = { ...after.elements[0], owner: 'Control Center', pid: 30 };
+  const target = { kind: 'wifi', item, point: { x: 1380, y: 17 } };
+  assert.equal(driver.opened(target, bare(item), after), true);
+  const generic = structuredClone(after);
+  generic.windows[0].elements = generic.windows[0].elements.filter((e) => e.identifier !== 'wifi-header');
+  generic.windows[0].elements.push({ role: 'AXButton', description: 'Wi-Fi', identifier: 'wifi-tile' });
+  assert.equal(driver.opened(target, bare(item), generic), false);
+});
+
+test('B3: live status width and label changes keep the same identified item', () => {
+  const { driver } = fixture();
+  const item = { ...statusItem, identifier: 'meter-status', description: '12%', frame: { x: 950, y: 0, w: 80, h: 33 } };
+  const target = { kind: 'status', item, point: { x: 990, y: 16 } };
+  const top = { ...item, description: '100%', frame: { ...item.frame, w: 86 } };
+  const menu = { role: 'AXMenu', depth: 1, frame: { x: 950, y: 33, w: 200, h: 100 } };
+  const after = { elements: [top, menu], windows: [] };
+  assert.equal(driver.opened(target, bare(top), after), true);
+  for (const wrong of [{ ...top, identifier: 'other-status' }, { ...top, role: 'AXButton' },
+    { ...top, frame: { ...top.frame, x: 1036 } }]) {
+    assert.equal(driver.opened(target, bare(wrong), { ...after, elements: [wrong, menu] }), false);
+  }
+});

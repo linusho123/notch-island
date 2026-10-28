@@ -130,8 +130,13 @@ const visibleMenu = (s) => s.elements.filter((e) => e.role === 'AXMenu' && e.dep
   && e.frame?.w > 0 && e.frame?.h > 0
   && e.AXHidden !== true && e.AXVisible !== false);
 const windowKey = (w) => JSON.stringify([w.title, w.frame]);
-const sameItem = (a, b) => a && b && ['role', 'title', 'description', 'identifier'].every((k) => a[k] === b[k])
-  && ['x', 'y', 'w', 'h'].every((k) => a.frame?.[k] === b.frame?.[k]);
+// Live status labels can widen between AX reads. Identity and the anchored
+// left edge remain stable; never infer identity from a matching width.
+const sameItem = (a, b) => a && b && a.role === b.role
+  && (a.identifier ? a.identifier === b.identifier
+    : ['title', 'description'].every((k) => a[k] === b[k]))
+  && finiteFrame(a.frame) && finiteFrame(b.frame)
+  && ['x', 'y', 'h'].every((k) => a.frame[k] === b.frame[k]);
 const normalized = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 function ownPane(target, window) {
@@ -140,8 +145,18 @@ function ownPane(target, window) {
   const bottom = item.frame.y + item.frame.h;
   // Status popovers attach just below their own icon. An owner dialog on
   // another screen, or elsewhere on this screen, is not menu evidence.
-  if (!f || f.h <= item.frame.h || target.point.x < f.x || target.point.x >= f.x + f.w
-    || f.y < bottom - 2 || f.y > bottom + 16) return false;
+  if (!finiteFrame(f) || f.h <= item.frame.h || target.point.x < f.x || target.point.x >= f.x + f.w) return false;
+  // macOS 26's Wi-Fi pane is a tall AXSystemDialog starting at y=0.
+  // Its dedicated static-text header identifies the expanded pane, unlike
+  // the Wi-Fi tile inside the generic Control Center window.
+  const elements = window.elements || [];
+  if (target.kind === 'wifi' && item.owner === 'Control Center'
+    && elements.some((e) => e.role === 'AXWindow' && e.subrole === 'AXSystemDialog')
+    && f.y <= item.frame.y && f.y + f.h > bottom
+    && elements.some((e) => e.role === 'AXStaticText' && e.identifier === 'wifi-header'
+      && normalized(e.value) === 'wifi' && contained(e.frame, f)
+      && e.frame.y >= bottom && e.frame.y <= bottom + 40)) return true;
+  if (f.y < bottom - 2 || f.y > bottom + 16) return false;
   const names = [item.title, item.description, item.identifier?.split('.').at(-1)].map(normalized).filter(Boolean);
   if (target.kind === 'wifi') names.push('wifi');
   // Only the pane's own identity or its heading qualifies. A generic Control
@@ -172,6 +187,8 @@ async function click(w, name) {
   const before = await state(target);
   const top = before.elements[0];
   assert.ok(sameItem(target.item, top), 'the clicked menu-bar item changed before the click');
+  assert.ok(target.point.x >= top.frame.x && target.point.x < top.frame.x + top.frame.w,
+    'the live item no longer contains the click point');
   assert.ok(top.AXSelected !== true && top.AXExpanded !== true
     && visibleMenu(before).length === 0 && !before.windows.some((win) => ownPane(target, win)),
   'the target menu is already open before the click');

@@ -1,0 +1,92 @@
+{
+  "elements": [
+    {
+      "AXExpanded": false,
+      "AXHidden": false,
+      "AXSelected": false,
+      "depth": 0,
+      "description": "Wi\u2011Fi, connected, 3 bars",
+      "enabled": true,
+      "focused": false,
+      "frame": {
+        "h": 22,
+        "w": 22,
+        "x": 1369,
+        "y": 6
+      },
+      "identifier": "com.apple.menuextra.wifi",
+      "role": "AXMenuBarItem",
+      "subrole": "AXMenuExtra"
+    }
+  ],
+  "windows": [
+    {
+      "elements": [
+        {
+          "depth": 0,
+          "focused": true,
+          "frame": {
+            "h": 1058,
+            "w": 458,
+            "x": 1359,
+            "y": 0
+          },
+          "role": "AXWindow",
+          "subrole": "AXSystemDialog",
+          "title": "Control Center"
+        },
+        {
+          "depth": 1,
+          "focused": false,
+          "frame": {
+            "h": 1058,
+            "w": 458,
+            "x": 1359,
+            "y": 0
+          },
+          "role": "AXGroup",
+          "subrole": "AXHostingView"
+        },
+        {
+          "depth": 2,
+          "enabled": true,
+          "frame": {
+            "h": 16,
+            "w": 34,
+            "x": 1373,
+            "y": 48
+          },
+          "identifier": "wifi-header",
+          "role": "AXStaticText",
+          "value": "Wi\u2011Fi"
+        },
+        {
+          "depth": 2,
+          "description": "Wi\u2011Fi",
+          "enabled": true,
+          "frame": {
+            "h": 24,
+            "w": 54,
+            "x": 1599,
+            "y": 44
+          },
+          "identifier": "wifi-header",
+          "role": "AXCheckBox",
+          "subrole": "AXToggle",
+          "value": 1
+        }
+      ],
+      "focused": true,
+      "frame": {
+        "h": 1058,
+        "w": 458,
+        "x": 1359,
+        "y": 0
+      },
+      "fullScreen": false,
+      "main": true,
+      "minimized": false,
+      "title": "Control Center"
+    }
+  ]
+}
