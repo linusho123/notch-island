@@ -89,6 +89,7 @@ let keeperError = null;
  * unprotected.
  */
 function keepMusic() {
+  require('./fixture-preflight').assertFixtureSession({ owned: require('./procs').ownsPid });
   if (keeperError) throw keeperError;
   if (keeperArmed) return;
   try {

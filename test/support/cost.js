@@ -2,6 +2,7 @@
 // P6 D79: an unchanged, optimized release executable; real Music and macOS
 // top are the far side. No test input is fed or read by these checks.
 const assert = require('node:assert/strict');
+const { assertFixtureSession } = require('./fixture-preflight');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -28,6 +29,7 @@ function processTable() {
 const islandItems = async () => (await registry.items()).filter((i) => /local\.notch-island/.test(i.bundleID || ''));
 
 async function prepare(w) {
+  assertFixtureSession();
   // Fail before launching if this is debug, has test input, or does not match
   // SwiftPM's release compiler output. Both marker checks have a test-build
   // positive control, so an empty/wrong binary cannot silently pass.

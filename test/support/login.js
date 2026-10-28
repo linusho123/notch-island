@@ -3,6 +3,7 @@
 // registered URL in the background. No real login, installed-app keeper, or
 // user launch participates. All state belongs to a signed test bundle copy.
 const assert = require('node:assert/strict');
+const { assertFixtureSession } = require('./fixture-preflight');
 const fs = require('node:fs');
 const path = require('node:path');
 const { fileURLToPath } = require('node:url');
@@ -40,6 +41,7 @@ async function registered(w) {
 }
 
 async function prepare(w) {
+  assertFixtureSession();
   const before = await installedState();
   w.defer(async () => assert.deepEqual(await installedState(), before, 'the installed island registration changed'));
   const dir = fs.mkdtempSync(path.join(root, 'build', 'apps.noindex', 'p6-login-'));

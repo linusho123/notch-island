@@ -46,10 +46,8 @@ let sockets = 0;
 
 /** Start the island (a binary given, or the test build) and wait for it. */
 async function launch(world, binary = testBinary) {
-  armLoginCleanup();
-  // The visionary's installed island steps aside for the run and comes back
-  // when it ends (installed-island.js).
   pauseInstalled();
+  armLoginCleanup();
   if (runningIslands().length) {
     throw new Error(`another island is already running (pid ${runningIslands().join(', ')}); quit it before the tests`);
   }

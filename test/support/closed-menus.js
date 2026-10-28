@@ -2,6 +2,7 @@
 // D70: real pointer clicks, live AX menu-bar targets, and the menu's owning
 // process as the far side. No AXPress, stand-in status icon, or saved pixels.
 const assert = require('node:assert/strict');
+const { assertFixtureSession } = require('./fixture-preflight');
 const { execFileSync } = require('node:child_process');
 const harness = require('./harness');
 const island = require('./island');
@@ -14,6 +15,7 @@ const { harness: binary } = require('./paths');
 const center = (f) => ({ x: f.x + f.w / 2, y: f.y + f.h / 2 });
 
 async function prepare(w) {
+  assertFixtureSession();
   // V1's signed scratch fixture has a detached unregister-on-disconnect
   // guardian. The older island.launch keeper quits the installed app; D70
   // must leave that app running, so use the safe existing fixture instead.

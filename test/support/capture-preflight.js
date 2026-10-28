@@ -15,6 +15,7 @@ function foreignOverNotch(windows, notch) {
 }
 
 function preflight() {
+  require('./fixture-preflight').assertFixtureSession();
   const read = (...args) => JSON.parse(execFileSync(harness, args, { encoding: 'utf8' }));
   const { builtIn } = read('screen');
   if (!builtIn?.notch) throw new Error('BLOCKED: no built-in notch');
