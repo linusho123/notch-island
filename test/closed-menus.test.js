@@ -184,7 +184,7 @@ test('M14: setup places the existing Chrome handle.browser on the built-in scree
     './cleanup': {}, './paths': {},
   });
   const w = {};
-  await driver.prepare(w);
+  await assert.doesNotReject(driver.prepare(w));
   assert.equal(w.chrome, handle);
   assert.equal(calls[0].args.targetId, 'fixture-tab');
   assert.equal(calls[1].args.windowId, 41);
