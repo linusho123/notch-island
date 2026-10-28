@@ -5,7 +5,6 @@ const path = require('node:path');
 const { startOwned } = require('./sandbox');
 const { scratchDesktop, setupScreenshotLocation } = require('./shelf');
 const procs = require('./procs');
-const island = require('./island');
 const harness = require('./harness');
 const exactName = 'Screen Recording 2026-10-18 at 10.16.40.mov';
 
@@ -18,7 +17,7 @@ async function start(w, name = 'Screen Recording privacy.mov') {
   // Let the existing watcher observe its scratch location before creation.
   await procs.sleep(1200);
   const screens = await harness.screens();
-  const index = screens.screens.findIndex((s) => s.id === screens.builtIn.id) + 1;
+  const index = screens.screens.findIndex((s) => s.displayID === screens.builtIn.displayID) + 1;
   assert.ok(index > 0, 'no built-in recording display');
   const started = Date.now();
   const handle = await startOwned(w, '/usr/sbin/screencapture', ['-v', '-x', `-D${index}`, file]);
@@ -42,12 +41,5 @@ async function stop(w) {
   assert.ok(fs.existsSync(r.file) && fs.statSync(r.file).size > 0, 'native recording was not saved');
   r.stopped = true;
 }
-function assertArrival({ beforeItems, file, expectedFile, started, stat, view }) {
-  assert.equal(beforeItems, 0, 'recording arrival cannot be proved from a seeded shelf');
-  assert.equal(file, expectedFile, 'recording was not saved directly under its exact name');
-  assert.ok(stat.birthtimeMs >= started - 1000 && stat.size > 0, 'recording predates the native run');
-  assert.ok(view.open && view.page === 'shelf' && view.texts.includes(path.basename(file)), 'native recording did not arrive on the shelf');
-  assert.equal(view.elements.filter((e) => e.identifier === 'shelf-item').length, 1,
-    'watcher arrival must be the single new shelf item');
-}
+const { assertArrival } = require('./recording-check');
 module.exports = { start, stop, exactName, assertArrival };

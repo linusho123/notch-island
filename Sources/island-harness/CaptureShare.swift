@@ -1,9 +1,11 @@
 import AVFoundation
 import AppKit
 import CoreImage
+import HarnessCore
 import ScreenCaptureKit
 
-// P6's explicitly mapped capture proxy and native-recording decoder. The display filter excludes no windows. Keep an
+// P6's explicitly mapped capture proxy and native-recording decoder.
+// The display filter excludes no windows. Keep an
 // actual SCK stream alive across the user's action; inspect its delivered
 // frame as well as a screencapture shot. The two-colour, normally shared
 // windows are in the measured rect, below the island and above the menu bar.
@@ -15,7 +17,7 @@ final class CaptureShare: NSObject, @preconcurrency SCStreamOutput, @preconcurre
   var stream: SCStream?
   var display: SCDisplay?
   var latest: CGImage?
-  var frameTime: UInt64 = 0
+  var frameClock = CaptureFrameClock()
   var serial = 0
   var tick = 0
   var ticks: [Int: Double] = [:]
@@ -71,22 +73,25 @@ final class CaptureShare: NSObject, @preconcurrency SCStreamOutput, @preconcurre
       let status = attachments.first?[.status] as? Int,
       status == SCFrameStatus.complete.rawValue,
       let timestamp = attachments.first?[.displayTime] as? UInt64,
-      timestamp > frameTime,
       let buffer = CMSampleBufferGetImageBuffer(sampleBuffer)
     else { return }
     let image = CIImage(cvPixelBuffer: buffer)
-    latest = context.createCGImage(image, from: image.extent)
-    frameTime = timestamp
+    guard let captured = context.createCGImage(image, from: image.extent) else { return }
+    if frameClock.accept(displayTime: timestamp, receivedTime: mach_absolute_time()) {
+      latest = captured
+    }
     serial += 1
-    if let kind = watching, seconds(timestamp) >= began, let latest {
+    // Inspect late/reordered frames too. They cannot replace the latest image
+    // or prove freshness, but must not hide a transition leak.
+    if let kind = watching, seconds(timestamp) >= began {
       if frames.count >= 1800 || now - began > 30 {
         overflow = true
         return
       }
-      var frame = measurement(latest, kind, baseline["screenCaptureKit"])
+      var frame = measurement(captured, kind, baseline["screenCaptureKit"])
       frame["captured"] = seconds(timestamp)
       frame["id"] = serial
-      if let marker = markerTime(latest, kind), abs(marker - seconds(timestamp)) < 0.3 {
+      if let marker = markerTime(captured, kind), abs(marker - seconds(timestamp)) < 0.3 {
         frame["marker"] = marker
       } else {
         frame["control"] = 0.0
@@ -163,7 +168,7 @@ final class CaptureShare: NSObject, @preconcurrency SCStreamOutput, @preconcurre
     let requested = mach_absolute_time()
     pulse()
     let end = Date().addingTimeInterval(3)
-    while latest == nil || frameTime <= requested {
+    while latest == nil || !frameClock.isFresh(after: requested) {
       if Date() > end { throw NSError(domain: "SCK supplied no fresh complete frame", code: 2) }
       try await Task.sleep(nanoseconds: 20_000_000)
     }
@@ -264,11 +269,11 @@ final class CaptureShare: NSObject, @preconcurrency SCStreamOutput, @preconcurre
     return ticks[value]
   }
 
-  func playback(_ file: String, _ kind: String) throws -> [[String: Any]] {
+  func playback(_ file: String, _ kind: String) async throws -> [[String: Any]] {
     // Decode EVERY movie frame. No QuickTime window, app data, or re-recording
     // of playback. The on-screen clock ties movie frames to the live action.
     let asset = AVURLAsset(url: URL(fileURLWithPath: file))
-    guard let track = asset.tracks(withMediaType: .video).first else {
+    guard let track = try await asset.loadTracks(withMediaType: .video).first else {
       throw NSError(domain: "native recording has no video track", code: 7)
     }
     let reader = try AVAssetReader(asset: asset)
@@ -339,7 +344,7 @@ final class CaptureShare: NSObject, @preconcurrency SCStreamOutput, @preconcurre
         return
       }
       if op == "playback", let kind = watching, let movie = request["file"] as? String {
-        let frames = try playback(movie, kind)
+        let frames = try await playback(movie, kind)
         write("response.json", ["frames": frames])
         return
       }

@@ -38,3 +38,36 @@ test('M06: named viewer claims reject an unmapped generic proxy', () => {
     assert.equal(verdict(e).ok, false);
   }
 });
+
+test('M07: arrival rejects seeded contents, a renamed/old file and missing watcher arrival', () => {
+  const { assertArrival } = require('./support/recording-check');
+  const file = '/owned/Desktop/Screen Recording 2026-10-18 at 10.16.40.mov';
+  const row = { beforeItems: 0, file, expectedFile: file, started: 2000, stat: { birthtimeMs: 2001, size: 100 },
+    view: { open: true, page: 'shelf', texts: [require('node:path').basename(file)], elements: [{ identifier: 'shelf-item' }] } };
+  assert.doesNotThrow(() => assertArrival(row));
+  for (const change of [{ beforeItems: 1 }, { file: '/other.mov' }, { stat: { birthtimeMs: 0, size: 100 } },
+    { view: { ...row.view, texts: [] } }]) assert.throws(() => assertArrival({ ...row, ...change }));
+});
+
+test('M06: a reviewed real-service spike maps only its own service', () => {
+  const service = require('./support/service-evidence');
+  const observation = { visibleLocally: true, viewerControl: true, islandAbsent: true, artifact: 'viewer.mov', sha256: 'a'.repeat(64) };
+  const spike = { service: 'Zoom', source: 'Zoom viewer', version: 'fixture', macos: 'fixture', observedAt: '2026-10-27', reviewedBy: 'fixture',
+    observations: { panel: observation, wing: observation }, mapping: { checks: ['ScreenCaptureKit', 'screencapture'], reason: 'fixture mapping' } };
+  assert.doesNotThrow(() => service.validate('Zoom', spike));
+  assert.throws(() => service.validate('Meet', spike), /missing Meet/);
+  assert.throws(() => service.validate('Zoom', { ...spike, mapping: null }));
+  assert.throws(() => service.load('Zoom', null), /BLOCKED.*real Zoom/);
+});
+
+test('M08: evidence rejects truncated actions, missing visible correlation and duplicate frame IDs', () => {
+  for (const change of [
+    (e) => { e.timeline.frames.pop(); },
+    (e) => { e.timeline.visible = []; },
+    (e) => { e.timeline.frames[1].id = 1; },
+    (e) => { e.timeline.overflow = true; },
+    (e) => { e.timeline.frames[1].control = 0; },
+  ]) {
+    const e = evidence(); change(e); assert.equal(verdict(e).ok, false);
+  }
+});

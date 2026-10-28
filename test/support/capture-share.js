@@ -102,6 +102,9 @@ async function capture(w) {
   // Measurement-input probes, explicitly separate from physical app probes.
   if (process.env.P6_CAPTURE_PROBE === 'visible-island') shots.timeline.frames[0].changedFraction = 1;
   if (process.env.P6_CAPTURE_PROBE === 'missing-control') shots.timeline.frames[0].control = 0;
+  if (process.env.P6_CAPTURE_PROBE === 'stale-frame') shots.timeline.frames[0].captured = shots.timeline.start - 1;
+  if (process.env.P6_CAPTURE_PROBE === 'playback-leak' && shots.playback) shots.playback.frames[0].changedFraction = 1;
+  if (process.env.P6_CAPTURE_PROBE === 'playback-control' && shots.playback) shots.playback.frames[0].control = 0;
   console.log(`P6 capture ${w.captureService?.name || 'native recording'} ${w.captureKind}: ${JSON.stringify({ rect, shots })}`);
   const verdict = sharedCaptureVerdict(shots);
   assert.ok(verdict.ok, verdict.message);
