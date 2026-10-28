@@ -49,7 +49,7 @@ function parseTop(raw) {
   });
 }
 
-function sumMinute(snapshots, pid, companionPids = []) {
+function sumMinute(snapshots, pid, companionPids = [], requiredServices = []) {
   assert.equal(snapshots.length, 61);
   const known = new Set([pid, ...companionPids]);
   // Include all descendants, including short-lived AppleScript helpers. Keep
@@ -62,6 +62,10 @@ function sumMinute(snapshots, pid, companionPids = []) {
       for (const r of rows) if (known.has(r.ppid) && !known.has(r.pid)) {
         known.add(r.pid); changed = true;
       }
+    }
+    for (const service of requiredServices) {
+      assert.ok(rows.some((r) => service.pids.includes(r.pid) && known.has(r.pid)),
+        `required service ${service.name} absent without an owned replacement`);
     }
     const selected = rows.filter((r) => known.has(r.pid));
     for (const r of selected) processes.set(r.pid, { pid: r.pid, ppid: r.ppid, command: r.command });

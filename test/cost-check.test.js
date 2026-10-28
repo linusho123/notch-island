@@ -57,3 +57,28 @@ test('D79 uses the inclusive mean ceilings; reports max and >5s spikes without f
   assert.throws(() => check.assertCeiling(samples.slice(1), 'CPU', '3%'), /shorten/);
   assert.throws(() => check.assertCeiling(samples.map(() => ({ cpu: NaN })), 'CPU', '3%'), /invalid/);
 });
+
+test('M11: a required adapter cannot disappear after the baseline', () => {
+  const data = rows();
+  for (let i = 1; i < data.length; i++) data[i] = data[i].filter((r) => r.pid !== 20);
+  assert.throws(() => check.sumMinute(data, 10, [], [{ name: 'adapter', pids: [20] }]), /required.*adapter/);
+});
+
+test('M11: an owned replacement counts; foreign substitutes and gaps invalidate the minute', () => {
+  const data = rows();
+  for (let i = 20; i < data.length; i++) data[i][1] = { ...data[i][1], pid: 21, cpu: 2, power: 3 };
+  const required = [{ name: 'adapter', pids: [20, 21] }];
+  assert.equal(check.sumMinute(data, 10, [], required).samples[30].cpu, 3);
+  data[30][1].ppid = 999;
+  // A first sighting must belong to the measured island, not merely match a name.
+  for (let i = 20; i < data.length; i++) data[i][1].ppid = 999;
+  assert.throws(() => check.sumMinute(data, 10, [], required), /required.*adapter/);
+});
+
+test('M11: optional transient descendants are counted only while present', () => {
+  const data = rows();
+  data[1].push({ pid: 50, ppid: 10, cpu: 2, power: 3, command: 'osascript' });
+  const result = check.sumMinute(data, 10, [], [{ name: 'adapter', pids: [20] }]);
+  assert.equal(result.samples[0].cpu, 3.25);
+  assert.equal(result.samples[1].cpu, 1.25);
+});
