@@ -49,7 +49,7 @@ test('M05: disconnect preserves a scratch mount lacking ownership instead of del
   Object.assign(fake, { argv: ['node', 'guardian', dir], connected: true, send() {}, exit: (code) => { exit = code; } });
   load('scratch-guardian.js', {
     './scratch-images': require('./support/scratch-images'),
-    'node:child_process': { execFileSync: () => `image-path : /foreign/image.dmg\n/dev/disk41\tAPFS\t${fs.realpathSync(dir)}/ScratchVolume\n` },
+    'node:child_process': { execFileSync: () => `image-path : /foreign/image.dmg\n/dev/disk40\tGUID_partition_scheme\n/dev/disk41\tAPFS\t${fs.realpathSync(dir)}/ScratchVolume\n` },
   }, { process: fake, console: { error() {} } });
   fake.emit('disconnect');
   await new Promise((r) => setTimeout(r, 300));
