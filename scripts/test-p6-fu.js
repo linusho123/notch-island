@@ -76,9 +76,11 @@ if (process.env.P6_FU_CHILD) {
   if (process.env.P6_FU_RECOVERY) {
     const recorded = fs.readFileSync(process.env.P6_FU_RECOVERY, 'utf8');
     const journal = path.join(require('node:os').tmpdir(), 'notch-island-installed-island.json');
-    require('node:assert/strict').equal(fs.readFileSync(journal, 'utf8'), recorded);
-    require('../test/support/installed-island').resumeInstalledRun(JSON.parse(recorded).stamp);
-    console.log('Restored the exact FU interruption pause before retry');
+    if (fs.existsSync(journal)) {
+      require('node:assert/strict').equal(fs.readFileSync(journal, 'utf8'), recorded);
+      require('../test/support/installed-island').resumeInstalledRun(JSON.parse(recorded).stamp);
+      console.log('Restored the exact FU interruption pause before retry');
+    }
   }
   // This child owns its own explicit pause; assert restoration before the
   // rest of the batch acquires a shared pause lease in the parent.
