@@ -14,6 +14,7 @@ runFeatures(path.join(__dirname, '..', 'features'), {
   'new-song-notice': require('./steps/new-song-notice.steps'),
   'shelf-captures-and-files': require('./steps/shelf-captures-and-files.steps'),
   'shelf-notes-and-reminders': require('./steps/shelf-notes-and-reminders.steps'),
+  'around-the-clock': require('./steps/around-the-clock.steps'),
 }, {
   wip: [
     'around-the-clock',
