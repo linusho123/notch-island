@@ -718,6 +718,38 @@ case "menubar":
 case "extras":
   requireTrust()
   emit(["items": extrasJSON()])
+case "menu-state":
+  // Read the menu-bar/status item at a live AX-derived point, including its
+  // selection and menu children. Merely knowing its commands is not proof
+  // that a real click opened it (closed menus can expose commands too).
+  requireTrust()
+  let app = appElement(pid_t(num(1)))
+  let point = CGPoint(x: num(2), y: num(3))
+  var found: AXUIElement?
+  for name in [kAXMenuBarAttribute, "AXExtrasMenuBar"] {
+    guard let bar = attr(app, name),
+      let items = attr(bar as! AXUIElement, kAXChildrenAttribute) as? [AXUIElement]
+    else { continue }
+    if let item = items.first(where: { frameOf($0)?.contains(point) == true }) {
+      found = item
+      break
+    }
+  }
+  guard let item = found else { fail("no menu-bar item at the given point in \(arg(1))") }
+  var elements: [[String: Any]] = []
+  func readMenu(_ el: AXUIElement, depth: Int) {
+    guard depth < 12 else { return }
+    var d = describe(el, depth: depth)
+    for name in ["AXSelected", "AXExpanded", "AXHidden", "AXVisible"] {
+      if let value = attr(el, name) as? Bool { d[name] = value }
+    }
+    elements.append(d)
+    for child in (attr(el, kAXChildrenAttribute) as? [AXUIElement]) ?? [] {
+      readMenu(child, depth: depth + 1)
+    }
+  }
+  readMenu(item, depth: 0)
+  emit(["elements": elements, "windows": windowsJSON(pid_t(num(1)))])
 case "activate":
   guard let app = NSRunningApplication(processIdentifier: pid_t(num(1))) else {
     fail("no such app")

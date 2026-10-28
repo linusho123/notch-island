@@ -1,13 +1,18 @@
 'use strict';
-// P6 V1 only. Q1 binds login to the system registry and a background launch;
+// P6 V1 and V4. Q1 binds login to the system registry and a background launch;
 // the visionary's one real logout/login check remains deferred to phase end.
 const assert = require('node:assert/strict');
 const login = require('../support/login');
 const music = require('../support/music');
 const island = require('../support/island');
+const closedMenus = require('../support/closed-menus');
 const { playing, pointerAway, rest, openOnMusicPage, RULED_REST_MS } = require('./music-panel.steps').helpers;
 
 module.exports = (reg) => {
+  reg.define(/^Chrome is in front and the island is closed to the plain notch$/, closedMenus.prepare);
+  reg.define(/^the visionary clicks (Chrome's Help menu, the nearest menu left of the notch|the right-hand edge of Chrome's Help menu|the Wi-Fi icon|the leftmost status icon right of the notch)$/, closedMenus.click);
+  reg.define(/^the visionary sees (Chrome's Help menu open|the Wi-Fi menu open|that status icon's own menu open, as before)$/, closedMenus.assertOpen);
+
   reg.define(/^the visionary has not opened the island themselves$/, async (w) => {
     await login.prepare(w);
   });
