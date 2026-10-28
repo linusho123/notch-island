@@ -204,9 +204,8 @@ final class CaptureShare: NSObject, @preconcurrency SCStreamOutput, @preconcurre
         if abs(x - rep.pixelsWide / 2) <= 2 { continue }
         guard let c = rep.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { continue }
         let left = x < rep.pixelsWide / 2
-        if left
-          ? (c.greenComponent > 0.85 && c.redComponent < 0.15 && c.blueComponent < 0.15)
-          : (c.redComponent > 0.85 && c.blueComponent > 0.85 && c.greenComponent < 0.15)
+        if CaptureControlColor.matches(
+          red: c.redComponent, green: c.greenComponent, blue: c.blueComponent, left: left)
         {
           correct += 1
         }
@@ -287,6 +286,7 @@ final class CaptureShare: NSObject, @preconcurrency SCStreamOutput, @preconcurre
     guard reader.startReading() else { throw reader.error! }
     var result: [[String: Any]] = []
     var index = 0
+    var reference = CaptureRecordingReference<CGImage>()
     while let sample = output.copyNextSampleBuffer() {
       index += 1
       guard index <= 3600, let buffer = CMSampleBufferGetImageBuffer(sample) else {
@@ -298,8 +298,12 @@ final class CaptureShare: NSObject, @preconcurrency SCStreamOutput, @preconcurre
       else { throw NSError(domain: "recorded frame lost its contemporaneous control", code: 9) }
       // All pre-action frames also have to contain the control. Only frames
       // from this action are compared with its plain reference.
+      reference.observe(image, captured: marker, actionStart: began)
       if marker < began { continue }
-      var frame = measurement(image, kind, baseline["screencapture"])
+      guard let plain = reference.frame else {
+        throw NSError(domain: "native recording has no pre-action reference", code: 11)
+      }
+      var frame = measurement(image, kind, plain)
       frame["captured"] = marker
       frame["id"] = index
       frame["presentation"] = CMSampleBufferGetPresentationTimeStamp(sample).seconds
