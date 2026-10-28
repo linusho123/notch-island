@@ -177,7 +177,8 @@ final class CaptureShare: NSObject, @preconcurrency SCStreamOutput, @preconcurre
         let id = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
         return id?.uint32Value == display?.displayID
       } ?? 0
-    guard let image = displayScreenshot(screenIndex + 1), let latest else {
+    let shot = await CaptureWork.run { displayScreenshot(screenIndex + 1) }
+    guard let image = shot, let latest else {
       throw NSError(domain: "screencapture supplied no image", code: 3)
     }
     return ["screencapture": image, "screenCaptureKit": latest]

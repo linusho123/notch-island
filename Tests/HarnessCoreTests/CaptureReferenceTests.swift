@@ -1,3 +1,4 @@
+import Foundation
 import HarnessCore
 import Testing
 
@@ -40,5 +41,25 @@ import Testing
     var reference = CaptureRecordingReference<String>()
     reference.observe("island leaking", captured: 2, actionStart: 2)
     #expect(reference.frame == nil)
+  }
+}
+
+@Suite struct CaptureWorkTests {
+  @Test @MainActor func blockingScreenshotDoesNotFreezeTheControlClock() async {
+    var ticks = 0
+    let pulse = Task { @MainActor in
+      while !Task.isCancelled {
+        try? await Task.sleep(nanoseconds: 10_000_000)
+        ticks += 1
+      }
+    }
+    let result = await CaptureWork.run {
+      Thread.sleep(forTimeInterval: 0.15)
+      return 42
+    }
+    let observed = ticks
+    pulse.cancel()
+    #expect(result == 42)
+    #expect(observed > 0)
   }
 }
