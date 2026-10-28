@@ -37,26 +37,6 @@ async function prepare(w) {
   const before = (await islandItems()).filter((i) => !i.bundleID?.startsWith('local.notch-island.cost.'));
   const fixture = fs.mkdtempSync(path.join(root, 'build', 'apps.noindex', 'p6-cost-'));
   const home = fs.mkdtempSync('/tmp/ni-cost-home-');
-  // Normal Foundation home resolution, not an app test switch. Keep the
-  // release code intact and give the fixture its own Apple Events identity.
-  // Service Management IPC/job creation are denied before launch and proved
-  // using the test build first; this release copy must never register.
-  const app = path.join(fixture, 'NotchIsland.app');
-  fs.cpSync(releaseApp, app, { recursive: true });
-  const binary = path.join(app, 'Contents', 'MacOS', 'NotchIsland');
-  const adapter = path.join(app, 'Contents', 'Resources', 'now-playing-adapter.dylib');
-  assert.equal(check.hash(binary), originalBuild.sha256, 'scratch executable is not the checked release binary');
-  // A separate identity prevents LaunchServices from redirecting the installed
-  // app's existing login-item URL when it notices this scratch bundle.
-  const identifier = `local.notch-island.cost.${path.basename(fixture)}`;
-  execFileSync('/usr/libexec/PlistBuddy', ['-c', `Set :CFBundleIdentifier ${identifier}`, path.join(app, 'Contents', 'Info.plist')]);
-  const entitlements = path.join(home, 'entitlements.plist');
-  fs.writeFileSync(entitlements, `<?xml version="1.0"?><plist version="1.0"><dict>
-    <key>com.apple.security.automation.apple-events</key><true/>
-    <key>com.apple.security.temporary-exception.apple-events</key><array><string>com.apple.Music</string></array>
-    </dict></plist>`);
-  const sign = () => execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', '--entitlements', entitlements, app], { stdio: 'pipe' });
-  sign();
   const guardianLog = fs.openSync(path.join(home, 'guardian.log'), 'a');
   const guardian = spawn(process.execPath, [path.join(__dirname, 'cost-guardian.js'), fixture, home], {
     detached: true, stdio: ['ignore', guardianLog, guardianLog, 'ipc'],
@@ -78,6 +58,26 @@ async function prepare(w) {
     guardian.once('error', reject);
     guardian.once('exit', (code) => reject(new Error(`cost guardian not ready: ${code}`)));
   });
+  // Normal Foundation home resolution, not an app test switch. Keep the
+  // release code intact and give the fixture its own Apple Events identity.
+  // Service Management IPC/job creation are denied before launch and proved
+  // using the test build first; this release copy must never register.
+  const app = path.join(fixture, 'NotchIsland.app');
+  fs.cpSync(releaseApp, app, { recursive: true });
+  const binary = path.join(app, 'Contents', 'MacOS', 'NotchIsland');
+  const adapter = path.join(app, 'Contents', 'Resources', 'now-playing-adapter.dylib');
+  assert.equal(check.hash(binary), originalBuild.sha256, 'scratch executable is not the checked release binary');
+  // A separate identity prevents LaunchServices from redirecting the installed
+  // app's existing login-item URL when it notices this scratch bundle.
+  const identifier = `local.notch-island.cost.${path.basename(fixture)}`;
+  execFileSync('/usr/libexec/PlistBuddy', ['-c', `Set :CFBundleIdentifier ${identifier}`, path.join(app, 'Contents', 'Info.plist')]);
+  const entitlements = path.join(home, 'entitlements.plist');
+  fs.writeFileSync(entitlements, `<?xml version="1.0"?><plist version="1.0"><dict>
+    <key>com.apple.security.automation.apple-events</key><true/>
+    <key>com.apple.security.temporary-exception.apple-events</key><array><string>com.apple.Music</string></array>
+    </dict></plist>`);
+  const sign = () => execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', '--entitlements', entitlements, app], { stdio: 'pipe' });
+  sign();
   // Only identity/signature changed: the Mach-O linker UUID and release
   // compiler flags must still match, and test-input markers remain absent.
   const build = { ...check.assertRelease(binary), originalSha256: originalBuild.sha256, identifier,
@@ -99,6 +99,7 @@ async function prepare(w) {
   sign();
   const input = path.join(home, 'preflight.json');
   fs.writeFileSync(input, JSON.stringify({ dataDirectory: home, screenshotDirectory: path.join(home, 'Desktop'), chromeSocket: path.join(home, 'chrome.sock') }));
+  fs.writeFileSync(path.join(fixture, 'registration-armed'), identifier);
   const preflight = procs.start('D79 test-build registration preflight', '/usr/bin/sandbox-exec', ['-p', profile, binary], {
     env: { ...env, NOTCH_ISLAND_TEST_INPUT: input },
   });
@@ -106,7 +107,7 @@ async function prepare(w) {
   await island.until(async () => (await harness.windows(preflight.pid)).length > 0, 10000, 'registration preflight did not start');
   await procs.sleep(500);
   await procs.stop(preflight);
-  assert.equal(await registry.enabledApp(identifier), null, 'sandbox allowed test registration: release will not be launched');
+  require('./login-service').assertUnregistered(app, identifier, { ...env, NOTCH_ISLAND_TEST_INPUT: input });
   fs.copyFileSync(releaseBinary, binary);
   sign();
   assert.equal(check.hash(binary), build.sha256, 'release bytes changed after registration preflight');
@@ -122,7 +123,8 @@ async function prepare(w) {
   w.island = handle;
   w.defer(async () => {
     await procs.stop(handle);
-    assert.equal(await registry.enabledApp(identifier), null, 'release fixture became enabled');
+    // The guardian restores the test executable and verifies native removal.
+    // BTM enablement alone cannot establish that this identity is absent.
   });
   w.cost = { build, binary, adapter, home, logFile };
   w.defer(() => {

@@ -38,9 +38,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
-    if TestInput.unregisterLoginAndExit {
-      try? SMAppService.mainApp.unregister()
-      exit(0)
+    if TestInput.unregisterLoginAndExit || TestInput.loginStatusAndExit {
+      do {
+        if TestInput.unregisterLoginAndExit {
+          try SMAppService.mainApp.unregister()
+          guard SMAppService.mainApp.status == .notRegistered else {
+            throw NSError(domain: "LoginCleanup", code: 1)
+          }
+        }
+        let status: String
+        switch SMAppService.mainApp.status {
+        case .notRegistered: status = "notRegistered"
+        case .enabled: status = "enabled"
+        case .requiresApproval: status = "requiresApproval"
+        case .notFound: status = "notFound"
+        @unknown default: throw NSError(domain: "LoginCleanup", code: 2)
+        }
+        let response = ["status": status, "bundleID": Bundle.main.bundleIdentifier ?? ""]
+        let data = try JSONSerialization.data(withJSONObject: response)
+        FileHandle.standardOutput.write(data)
+        exit(0)
+      } catch {
+        FileHandle.standardError.write(Data("login service failed: \(error)\n".utf8))
+        exit(1)
+      }
     }
     registerLoginItem()
 

@@ -4,7 +4,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFileSync, spawnSync } = require('node:child_process');
+const { execFileSync } = require('node:child_process');
 const { root, testBinary } = require('./paths');
 const { pids } = require('./login-guardian');
 
@@ -13,6 +13,11 @@ async function cleanup(dir, home) {
   assert.match(path.basename(dir), /^p6-cost-[A-Za-z0-9]+$/);
   assert.equal(path.dirname(home), '/tmp');
   assert.match(path.basename(home), /^ni-cost-home-[A-Za-z0-9]+$/);
+  if (!fs.existsSync(path.join(dir, 'registration-armed'))) {
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(home, { recursive: true, force: true });
+    return;
+  }
   const app = path.join(dir, 'NotchIsland.app');
   const binary = path.join(app, 'Contents', 'MacOS', 'NotchIsland');
   const identifier = `local.notch-island.cost.${path.basename(dir)}`;
@@ -27,20 +32,16 @@ async function cleanup(dir, home) {
     while (pids(binary).length && Date.now() < end) execFileSync('sleep', ['0.1']);
   }
   assert.equal(pids(binary).length, 0, 'release fixture survived cleanup');
-  const { enabledApp } = require('./registry');
-  if (await enabledApp(identifier)) {
-    // Only this fixture's ID; never local.notch-island or the V1 test ID.
-    fs.copyFileSync(testBinary, binary);
-    execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', app], { stdio: 'pipe' });
-    const input = path.join(home, 'cleanup-input.json');
-    fs.writeFileSync(input, JSON.stringify({ dataDirectory: home }));
-    const r = spawnSync(binary, ['--test-unregister-login-and-exit'], {
-      env: { ...process.env, HOME: home, CFFIXED_USER_HOME: home, NOTCH_ISLAND_TEST_INPUT: input },
-      encoding: 'utf8', timeout: 20000,
-    });
-    assert.equal(r.status, 0, `fixture unregister failed: ${r.stderr || r.error}`);
-  }
-  assert.equal(await enabledApp(identifier), null, 'cost fixture left enabled');
+  // The release cannot answer test commands. Restore the test executable
+  // under the same owned identity even for approval-pending registrations.
+  fs.copyFileSync(testBinary, binary);
+  execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', app], { stdio: 'pipe' });
+  const input = path.join(home, 'cleanup-input.json');
+  fs.writeFileSync(input, JSON.stringify({ dataDirectory: home }));
+  const env = { ...process.env, HOME: home, CFFIXED_USER_HOME: home, NOTCH_ISLAND_TEST_INPUT: input };
+  const service = require('./login-service');
+  if (service.status(app, identifier, env) !== 'notRegistered') service.unregister(app, identifier, env);
+  service.assertUnregistered(app, identifier, env);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.rmSync(home, { recursive: true, force: true });
 }

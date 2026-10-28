@@ -11,7 +11,7 @@ const { spawn, execFileSync } = require('node:child_process');
 const registry = require('./registry');
 const procs = require('./procs');
 const harness = require('./harness');
-const { root, testApp, testBundleID } = require('./paths');
+const { root, testApp } = require('./paths');
 const { fixturePaths, pids } = require('./login-guardian');
 
 async function until(pred, message, ms = 15000) {
@@ -26,13 +26,14 @@ const installedState = async () => (await registry.items()).filter((i) => i.bund
 const version = (app) => execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleVersion',
   path.join(app, 'Contents', 'Info.plist')], { encoding: 'utf8' }).trim();
 
-function stamp(app, number) {
+function stamp(app, number, identifier) {
+  if (identifier) execFileSync('/usr/libexec/PlistBuddy', ['-c', `Set :CFBundleIdentifier ${identifier}`, path.join(app, 'Contents', 'Info.plist')]);
   execFileSync('/usr/libexec/PlistBuddy', ['-c', `Set :CFBundleVersion ${number}`, path.join(app, 'Contents', 'Info.plist')]);
   execFileSync('codesign', ['--force', '--sign', '-', app], { stdio: 'pipe' });
 }
 
 async function registered(w) {
-  const found = await registry.enabledApp(testBundleID);
+  const found = await registry.enabledApp(w.login.identifier);
   assert.ok(found, 'macOS does not list the test island as an enabled login item');
   const app = fileURLToPath(found.url).replace(/\/$/, '');
   assert.equal(app, w.login.app, 'the enabled login item points at a different app');
@@ -46,16 +47,6 @@ async function prepare(w) {
   w.defer(async () => assert.deepEqual(await installedState(), before, 'the installed island registration changed'));
   const dir = fs.mkdtempSync(path.join(root, 'build', 'apps.noindex', 'p6-login-'));
   const paths = fixturePaths(dir);
-  // Test build only; its input redirects data, captures and socket into scratch.
-  fs.cpSync(testApp, paths.app, { recursive: true });
-  stamp(paths.app, 6001);
-  const data = path.join(dir, 'data');
-  const desktop = path.join(dir, 'Desktop');
-  fs.mkdirSync(data);
-  fs.mkdirSync(desktop);
-  const socket = `/tmp/ni-${path.basename(dir)}.sock`;
-  fs.writeFileSync(paths.input, JSON.stringify({ dataDirectory: data, screenshotDirectory: desktop, chromeSocket: socket }));
-  w.login = { ...paths, dir };
   const log = fs.openSync(path.join(dir, 'guardian.log'), 'a');
   const guardian = spawn(process.execPath, [path.join(__dirname, 'login-guardian.js'), dir], {
     detached: true, stdio: ['ignore', log, log, 'ipc'],
@@ -78,9 +69,20 @@ async function prepare(w) {
     guardian.once('error', reject);
     guardian.once('exit', (code) => reject(new Error(`login guardian exited before ready: ${code}`)));
   });
+  // Test build only; its input redirects data, captures and socket into scratch.
+  fs.cpSync(testApp, paths.app, { recursive: true });
+  stamp(paths.app, 6001, paths.identifier);
+  const data = path.join(dir, 'data');
+  const desktop = path.join(dir, 'Desktop');
+  fs.mkdirSync(data);
+  fs.mkdirSync(desktop);
+  const socket = `/tmp/ni-${path.basename(dir)}.sock`;
+  fs.writeFileSync(paths.input, JSON.stringify({ dataDirectory: data, screenshotDirectory: desktop, chromeSocket: socket }));
+  w.login = { ...paths, dir };
   const n = (await harness.builtIn()).notch;
   await harness.move(n.x + n.w / 2, 420);
   assert.equal(pids(paths.binary).length, 0);
+  fs.writeFileSync(path.join(dir, 'registration-armed'), paths.identifier);
   const handle = procs.start('previous test island', paths.binary, [], {
     env: { ...process.env, NOTCH_ISLAND_TEST_INPUT: paths.input },
   });
@@ -100,7 +102,7 @@ async function login(w, reason) {
   if (reason === 'after a restart for an update') {
     // A normal Quit event is handled by NSApplication, just as an updater's
     // clean exit. The target is this test bundle, never the installed ID.
-    execFileSync('osascript', ['-e', `tell application id "${testBundleID}" to quit`], { timeout: 10000 });
+    execFileSync('osascript', ['-e', `tell application id "${w.login.identifier}" to quit`], { timeout: 10000 });
     await until(() => !procs.alive(old), 'previous build did not quit cleanly');
     await procs.sleep(50);
     assert.equal(old.child.exitCode, 0, 'previous build did not exit cleanly');

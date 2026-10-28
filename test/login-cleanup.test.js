@@ -28,7 +28,7 @@ if (process.argv.includes('--owner')) {
     await assert.rejects(executeSteps([{ text: 'start' }, { text: 'fail' }], reg, w), /deliberate step failure/);
     assert.equal(fs.existsSync(w.login.dir), false, 'failing step leaked a login fixture');
     assert.equal(pids(w.login.binary).length, 0);
-    assert.equal(await registry.enabledApp('local.notch-island.test'), null);
+    assert.equal(await registry.enabledApp(w.login.identifier), null);
   });
 
   test('login fixture unregisters even after its runner receives SIGKILL', async () => {
@@ -40,13 +40,13 @@ if (process.argv.includes('--owner')) {
     });
     try {
       assert.ok(pids(fixture.binary).length > 0, 'no test instance existed before the kill');
-      assert.ok(await registry.enabledApp('local.notch-island.test'), 'login item was not enabled before the kill');
+      assert.ok(await registry.enabledApp(fixture.identifier), 'login item was not enabled before the kill');
       child.kill('SIGKILL');
       const end = Date.now() + 30000;
       while (fs.existsSync(fixture.dir) && Date.now() < end) await sleep(100);
       assert.equal(fs.existsSync(fixture.dir), false, 'SIGKILL leaked a login fixture');
       assert.equal(pids(fixture.binary).length, 0);
-      assert.equal(await registry.enabledApp('local.notch-island.test'), null);
+      assert.equal(await registry.enabledApp(fixture.identifier), null);
     } finally {
       if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
       // Recovery also makes a deliberately broken guardian probe safe.

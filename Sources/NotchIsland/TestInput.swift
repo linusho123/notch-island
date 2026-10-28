@@ -109,6 +109,9 @@ enum TestInput {
     }
 
     /// The harness's clean-up: unregister the login item and exit.
+    static var loginStatusAndExit: Bool {
+      CommandLine.arguments.contains("--test-login-status-and-exit")
+    }
     static var unregisterLoginAndExit: Bool {
       CommandLine.arguments.contains("--test-unregister-login-and-exit")
     }
@@ -123,6 +126,7 @@ enum TestInput {
     static let dataDirectory: URL? = nil
     static func musicIgnores(_ command: String) -> Bool { false }
     static let unregisterLoginAndExit = false
+    static let loginStatusAndExit = false
     static var leftButtonReading: Bool? { nil }
     static var outputDevice: OutputDevice? { nil }
     static var leftGap: CGFloat? { nil }
