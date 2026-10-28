@@ -55,6 +55,9 @@ function assertFixtureSession({ islands = listIslands, exists = fs.existsSync,
     sleep(100);
     foreign = read();
   }
+  // A PID can exit between enumeration and binary classification. Confirm
+  // the current islands before refusing, without giving unknown apps grace.
+  if (foreign.length) foreign = read();
   if (foreign.length) throw new Error(`BLOCKED: an unowned island is running (${foreign.join(', ')}); prepare a fixture-only session\n${foreign.map(describeProcess).join('\n')}`);
 }
 module.exports = { assertFixtureSession, activePause };

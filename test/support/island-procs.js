@@ -17,7 +17,9 @@ function listIslands({ exec = execFileSync } = {}) {
   return out.split('\n').filter(Boolean).map(Number).filter((pid) => {
     try {
       const args = exec('ps', ['-ww', '-o', 'args=', '-p', String(pid)], { encoding: 'utf8' }).trim();
-      return Boolean(args) && !isHostMode(args);
+      // Exiting hosts lose their origin before pgrep stops listing them.
+      // These ps placeholders (or no args after exit) are not live islands.
+      return Boolean(args) && args !== '(NotchIsland)' && args !== '<defunct>' && !isHostMode(args);
     } catch { return false; }
   });
 }

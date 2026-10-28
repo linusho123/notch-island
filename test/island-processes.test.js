@@ -71,6 +71,15 @@ test('B5: a PID that exits between pgrep and ps is no longer an island', () => {
   assert.deepEqual(listIslands({ exec: fakeExec([{ pid: 200, args: '' }]) }), []);
 });
 
+for (const args of ['(NotchIsland)', '<defunct>', '']) test(`NB1: an exiting host with ps args ${JSON.stringify(args)} is not an island`, () => {
+  const exec = fakeExec([
+    { pid: 100, args: APP },
+    { pid: 200, args },
+    { pid: 300, args: '/unknown/NotchIsland --unknown' },
+  ]);
+  assert.deepEqual(listIslands({ exec }), [100, 300]);
+});
+
 test('B5: long fixture paths cannot truncate the native-host origin', () => {
   const args = `${'/repo/build/apps.noindex/p6-login-longpath/'.repeat(3)}NotchIsland ${ORIGIN}`;
   const exec = (cmd, flags) => cmd === 'pgrep' ? '200\n' : flags.includes('-ww') ? args : args.slice(0, 120);

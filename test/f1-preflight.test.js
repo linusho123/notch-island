@@ -99,6 +99,24 @@ test('B5: a persistent foreign island or reused PID never gets the test grace', 
   assert.equal(waits, 0);
 });
 
+test('NB1: a PID that vanishes before classification does not refuse the fixture', () => {
+  const { assertFixtureSession } = load('fixture-preflight.js', { './island-procs': {} });
+  let reads = 0;
+  assert.doesNotThrow(() => assertFixtureSession({ exists: () => false,
+    islands: () => ++reads === 1 ? [41] : [], isTest: () => false,
+    sleep: () => assert.fail('an unknown PID must not get the test grace') }));
+  assert.ok(reads >= 2, 'confirm the PID is still an island before refusing');
+});
+
+test('NB1: a persistent installed island requires explicit allowance', () => {
+  const { assertFixtureSession } = load('fixture-preflight.js', { './island-procs': {} });
+  const options = { exists: () => false, islands: () => [41],
+    isTest: () => false, isInstalled: (pid) => pid === 41,
+    sleep: () => assert.fail('the installed island must not get the test grace') };
+  assert.throws(() => assertFixtureSession(options), /unowned island is running \(41\)/);
+  assert.doesNotThrow(() => assertFixtureSession({ ...options, allowInstalled: true }));
+});
+
 test('B5: a retiring owned scratch fixture gets the same grace as the standard test binary', () => {
   for (const location of ['p6-login-owned', 'p6-cost-owned']) {
     let clock = 0;
