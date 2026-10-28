@@ -216,40 +216,13 @@ final class CaptureShare: NSObject, @preconcurrency SCStreamOutput, @preconcurre
     return total > 0 ? correct / total : 0
   }
 
-  func difference(_ a: CGImage, _ b: CGImage, _ rect: CGRect, _ control: CGRect) -> Double {
-    guard let first = pixels(a, rect), let second = pixels(b, rect),
-      first.pixelsWide == second.pixelsWide, first.pixelsHigh == second.pixelsHigh
-    else { return 1 }
-    var changed = 0.0
-    var total = 0.0
-    for y in stride(from: 0, to: first.pixelsHigh, by: 2) {
-      for x in stride(from: 0, to: first.pixelsWide, by: 2) {
-        let point = CGPoint(
-          x: rect.minX + Double(x) / Double(first.pixelsWide) * rect.width,
-          y: rect.minY + Double(y) / Double(first.pixelsHigh) * rect.height)
-        // The timestamp changes on purpose; its two-colour presence and code
-        // are checked separately in every frame.
-        if control.insetBy(dx: -1, dy: -1).contains(point) { continue }
-        guard let c = first.colorAt(x: x, y: y)?.usingColorSpace(.sRGB),
-          let d = second.colorAt(x: x, y: y)?.usingColorSpace(.sRGB)
-        else { return 1 }
-        if max(
-          abs(c.redComponent - d.redComponent), abs(c.greenComponent - d.greenComponent),
-          abs(c.blueComponent - d.blueComponent)) > 0.08
-        {
-          changed += 1
-        }
-        total += 1
-      }
-    }
-    return total > 0 ? changed / total : 1
-  }
-
   func measurement(_ image: CGImage, _ kind: String, _ plain: CGImage?) -> [String: Any] {
     guard let plain, let control = controlRects[kind] else { return ["control": 0] }
     return [
       "control": controlScore(image, control), "baselineControl": controlScore(plain, control),
-      "changedFraction": difference(plain, image, region(kind), control),
+      "changedFraction": display.map {
+        CapturePixels.difference(plain, image, region(kind), control, display: $0.frame)
+      } ?? 1,
       "imageSize": [image.width, image.height], "baselineSize": [plain.width, plain.height],
       "displayFrame": display.map { rectJSON($0.frame) } ?? [:],
       "controlRect": rectJSON(control),
