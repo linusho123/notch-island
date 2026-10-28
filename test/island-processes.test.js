@@ -66,3 +66,13 @@ test('the keeper does not quit, wait for or relaunch because of a host', (t) => 
   keeper.resume();
   assert.deepEqual(log, [], 'the keeper touched the installed app because a host runs');
 });
+
+test('B5: a PID that exits between pgrep and ps is no longer an island', () => {
+  assert.deepEqual(listIslands({ exec: fakeExec([{ pid: 200, args: '' }]) }), []);
+});
+
+test('B5: long fixture paths cannot truncate the native-host origin', () => {
+  const args = `${'/repo/build/apps.noindex/p6-login-longpath/'.repeat(3)}NotchIsland ${ORIGIN}`;
+  const exec = (cmd, flags) => cmd === 'pgrep' ? '200\n' : flags.includes('-ww') ? args : args.slice(0, 120);
+  assert.deepEqual(listIslands({ exec }), []);
+});

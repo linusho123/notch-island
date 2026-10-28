@@ -15,7 +15,10 @@ function listIslands({ exec = execFileSync } = {}) {
   let out;
   try { out = exec('pgrep', ['-x', 'NotchIsland'], { encoding: 'utf8' }); } catch { return []; }
   return out.split('\n').filter(Boolean).map(Number).filter((pid) => {
-    try { return !isHostMode(exec('ps', ['-o', 'args=', '-p', String(pid)], { encoding: 'utf8' })); } catch { return false; }
+    try {
+      const args = exec('ps', ['-ww', '-o', 'args=', '-p', String(pid)], { encoding: 'utf8' }).trim();
+      return Boolean(args) && !isHostMode(args);
+    } catch { return false; }
   });
 }
 
