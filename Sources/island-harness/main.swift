@@ -462,6 +462,18 @@ func luminance(_ image: CGImage, crop: CGRect) -> (max: Double, mean: Double) {
   return (maxL, n > 0 ? sum / n : 0)
 }
 
+// The same system screenshot path for D110 and the running share stand-in.
+func displayScreenshot(_ index: Int, file: URL) -> CGImage? {
+  defer { try? FileManager.default.removeItem(at: file) }
+  let shot = Process()
+  shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+  shot.arguments = ["-x", "-D", String(index), file.path]
+  do { try shot.run() } catch { return nil }
+  shot.waitUntilExit()
+  guard shot.terminationStatus == 0 else { return nil }
+  return NSImage(contentsOf: file)?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+}
+
 /// capture-check x y w h: show a white backdrop window of our own over the
 /// rect (below the menu bar's level), then capture the rect with macOS's own
 /// `screencapture` and with ScreenCaptureKit, and report how bright each
@@ -509,14 +521,7 @@ func captureCheck(_ rect: CGRect, islandPid: Int) -> Never {
     var result: [String: Any] = [:]
     let foreignBefore = foreignWindows()
     let file = NSTemporaryDirectory() + "island-harness-\(getpid()).png"
-    let shot = Process()
-    shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-    shot.arguments = ["-x", "-D", "1", file]
-    try? shot.run()
-    shot.waitUntilExit()
-    if let image = NSImage(contentsOfFile: file)?.cgImage(
-      forProposedRect: nil, context: nil, hints: nil)
-    {
+    if let image = displayScreenshot(1, file: URL(fileURLWithPath: file)) {
       let scale = Double(image.width) / Double(NSScreen.screens[0].frame.width)
       let crop = CGRect(
         x: rect.minX * scale, y: rect.minY * scale, width: rect.width * scale,
@@ -524,7 +529,6 @@ func captureCheck(_ rect: CGRect, islandPid: Int) -> Never {
       let l = luminance(image, crop: crop)
       result["screencapture"] = ["max": l.max, "mean": l.mean]
     }
-    try? FileManager.default.removeItem(atPath: file)
     Task {
       do {
         let content = try await SCShareableContent.excludingDesktopWindows(
@@ -1150,6 +1154,10 @@ case "status-stand-in":
     }
   }
   withExtendedLifetime(clicks) { app.run() }
+case "capture-share":
+  MainActor.assumeIsolated {
+    captureShare(arg(1), CGRect(x: num(2), y: num(3), width: num(4), height: num(5)))
+  }
 case "capture-check":
   captureCheck(
     CGRect(x: num(1), y: num(2), width: num(3), height: num(4)), islandPid: Int(num(5)))

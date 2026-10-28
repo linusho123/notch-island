@@ -33,3 +33,21 @@ function captureVerdict(shots) {
 }
 
 module.exports = { captureVerdict };
+
+// V2a: both capture paths must contain the normally shared two-colour
+// control in the measured island rect, and match the same rect with the
+// island closed. Measurements come from captured pixels, never app input.
+function sharedCaptureVerdict(shots) {
+  for (const name of ['screencapture', 'screenCaptureKit']) {
+    const s = shots[name];
+    if (!s) return { ok: false, kind: 'no-shot', message: `${name}: no capture` };
+    if (!(s.control >= 0.9) || !(s.baselineControl >= 0.9)) {
+      return { ok: false, kind: 'no-control', message: `${name}: nothing on screen — the control window is absent` };
+    }
+    if (!Number.isFinite(s.changedFraction) || s.changedFraction > 0.015) {
+      return { ok: false, kind: 'd110', message: `${name}: island rect differs from the plain reference (${s.changedFraction})` };
+    }
+  }
+  return { ok: true, kind: 'ok', message: '' };
+}
+module.exports.sharedCaptureVerdict = sharedCaptureVerdict;
