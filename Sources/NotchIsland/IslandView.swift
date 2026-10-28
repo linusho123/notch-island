@@ -80,6 +80,16 @@ final class IslandModel: ObservableObject {
     }
   }
 
+  /// A click outside the island keeps what was typed, as Return would.
+  func commitAnyNoteEditing() {
+    if isEnteringNewNote {
+      commitNewNote(newNoteText)
+    }
+    if let id = editingNoteID {
+      commitEditingNote(id: id, newText: editingNoteText)
+    }
+  }
+
   func commitEditingNote(id: UUID, newText: String) {
     let clean = newText.trimmingCharacters(in: .whitespacesAndNewlines)
     if clean.isEmpty {

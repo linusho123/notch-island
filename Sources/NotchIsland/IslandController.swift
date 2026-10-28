@@ -123,7 +123,10 @@ final class IslandController: NSObject, NSMenuDelegate {
   private var machine: HoverMachine
   private var pager = PageScroller()
   private var focusLifecycle = FocusLifecycle()
-  private var previousFrontApp: NSRunningApplication?
+  /// Whether a note editor has the card's keyboard focus, so it is given
+  /// back only when it was taken: closing or turning the page with no note
+  /// open leaves the card window alone.
+  private var holdsKeyboardFocus = false
   private var deadlineTimer: Timer?
   private var monitor: Any?
   /// While the island is open, pointer moves anywhere are watched, so leaving
@@ -188,24 +191,25 @@ final class IslandController: NSObject, NSMenuDelegate {
       self?.shelfItemDragEnded(item: item, operation: op, screenPoint: pt)
     }
     cardPanel.allowsKeyWindow = false
+    // The card is a non-activating panel: it takes the keys while a note is
+    // typed without the app in front ever stepping back, so there is no
+    // second activation to hand the focus over, and nothing to race.
     model.onEditingNoteChanged = { [weak self] editing in
       guard let self else { return }
       if editing {
         self.focusLifecycle.startEditing()
-        if let front = NSWorkspace.shared.frontmostApplication,
-          front.processIdentifier != ProcessInfo.processInfo.processIdentifier
-        {
-          self.previousFrontApp = front
-        }
+        self.machine.editingBegan()
+        self.holdsKeyboardFocus = true
         self.cardPanel.allowsKeyWindow = true
-        NSApp.activate(ignoringOtherApps: true)
         self.cardPanel.makeKey()
+        self.settle()
       } else {
         self.focusLifecycle.endEditing()
         self.releaseKeyboardFocus()
-        if let prev = self.previousFrontApp {
-          prev.activate()
-          self.previousFrontApp = nil
+        if self.machine.isEditing {
+          let (_, inside) = self.pointerInside()
+          self.machine.editingEnded(inside: inside, at: self.now)
+          self.settle()
         }
       }
     }
@@ -360,10 +364,6 @@ final class IslandController: NSObject, NSMenuDelegate {
         model.endAnyNoteEditing()
         focusLifecycle.onIslandClosed()
         releaseKeyboardFocus()
-        if let prev = previousFrontApp {
-          prev.activate()
-          previousFrontApp = nil
-        }
         pager.reset()
         model.page = .music
       }
@@ -416,10 +416,14 @@ final class IslandController: NSObject, NSMenuDelegate {
     }
     if open, openMonitor == nil {
       openMonitor = NSEvent.addGlobalMonitorForEvents(
-        matching: [.mouseMoved, .leftMouseDragged, .leftMouseUp]
+        matching: [.mouseMoved, .leftMouseDragged, .leftMouseUp, .leftMouseDown]
       ) { [weak self] event in
         guard let self else { return }
-        if event.type == .leftMouseUp, self.pressStartedOnIsland {
+        if event.type == .leftMouseDown {
+          // A click in another app ends the typing and keeps the note; the
+          // island then closes after its grace as usual.
+          if self.machine.isEditing { self.model.commitAnyNoteEditing() }
+        } else if event.type == .leftMouseUp, self.pressStartedOnIsland {
           _ = self.handle(event)
         } else {
           self.pointerChanged()
@@ -475,10 +479,6 @@ final class IslandController: NSObject, NSMenuDelegate {
           model.endAnyNoteEditing()
           focusLifecycle.onPageChanged(to: .music)
           releaseKeyboardFocus()
-          if let prev = previousFrontApp {
-            prev.activate()
-            previousFrontApp = nil
-          }
         }
         model.page = newPage
         return nil
@@ -493,8 +493,12 @@ final class IslandController: NSObject, NSMenuDelegate {
   }
 
   /// Gives keyboard focus back (R4): the card stops being key-capable, loses
-  /// first responder and key status, and the app steps back.
+  /// first responder and key status, and the app steps back. Only when a note
+  /// took it: the re-ordering below would otherwise blink the card on every
+  /// close and every turn back to the music page.
   private func releaseKeyboardFocus() {
+    guard holdsKeyboardFocus else { return }
+    holdsKeyboardFocus = false
     cardPanel.allowsKeyWindow = false
     cardPanel.makeFirstResponder(nil)
     cardPanel.resignKey()
@@ -502,6 +506,9 @@ final class IslandController: NSObject, NSMenuDelegate {
     // The window server keeps reporting the card as the focused window until
     // it is re-ordered; cycling it in place clears that without a visible change.
     if cardPanel.isVisible {
+      #if ISLAND_TEST_INPUT
+        NSLog("notch-island: card re-ordered")
+      #endif
       cardPanel.orderOut(nil)
       cardPanel.orderFrontRegardless()
     }

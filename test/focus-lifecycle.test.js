@@ -8,6 +8,9 @@ const assert = require('node:assert/strict');
 const harness = require('./support/harness');
 const island = require('./support/island');
 const { launchDropStandIn } = require('./support/shelf');
+const { scratch } = require('./support/sandbox');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -139,8 +142,63 @@ test('M10 / R4: keyboard focus released when editing ends, page changes, or isla
   await island.waitFor(pid, (v) => v.open && v.page === 'shelf', 2500, 'shelf page did not show');
   await clickAddNote();
 
-  // Move far away to close the island
+  // A note being typed holds the island open with the pointer off it: the
+  // keys keep landing in the note, never in the app behind.
+  await harness.type('away');
+  const standInCenter = center(standIn.window);
+  await harness.move(standInCenter.x, standInCenter.y);
+  await sleep(1500); // three times the grace
+  const held = await island.look(pid);
+  assert.ok(held.open, 'the island closed while a note was being typed');
+  assert.ok(held.elements.some((e) => e.identifier === 'new-note-field'), 'the note field went away');
+  await harness.type('less');
+
+  // A click outside ends the typing and keeps the note; the island closes
+  // after its grace and the focus is back with the app behind.
+  await harness.click(standInCenter.x, standInCenter.y);
+  await island.waitFor(pid, (v) => !v.open, 2500, 'island did not close after the click outside');
+  await assertFocusRestored();
+  await harness.click(notch.x + notch.w / 2, notch.y + 10);
+  const reopened = await island.waitFor(pid, (v) => v.open, 2500, 'island did not reopen');
+  await harness.glide(center(reopened.panel).x, center(reopened.panel).y, 4, 8);
+  await sleep(60);
+  await harness.scroll(-80, 'trackpad');
+  await island.waitFor(pid, (v) => v.page === 'shelf' && v.texts.some((t) => t.includes('awayless')), 2500,
+    'the note typed with the pointer off the island was not kept as "awayless"');
+});
+
+test('closing and turning back to music with no note open never re-orders the card', async (t) => {
+  const defers = [];
+  const world = { defer: (fn) => defers.push(fn) };
+  t.after(async () => {
+    try { await harness.release(); } catch {}
+    for (const fn of defers.reverse()) {
+      try { await fn(); } catch {}
+    }
+  });
+
+  const { pid } = await island.launch(world);
+  const { notch } = await harness.builtIn();
+  await harness.click(notch.x + notch.w / 2, notch.y + 10);
+  const view = await island.waitFor(pid, (v) => v.open && v.page === 'music', 2500, 'island did not open on music');
+  const c = center(view.panel);
+  await harness.glide(c.x, c.y, 4, 8);
+  await sleep(60);
+  await harness.scroll(-80, 'trackpad');
+  await island.waitFor(pid, (v) => v.open && v.page === 'shelf', 2500, 'shelf page did not show');
+  await sleep(400);
+
+  // The test build logs each re-order of the card (the step that gives a
+  // note's keyboard focus back); with no note open there must be none, not
+  // on turning back to music and not on closing.
+  const logFile = path.join(scratch(world), 'island.log');
+  const reorders = () => (fs.readFileSync(logFile, 'utf8').match(/card re-ordered/g) || []).length;
+  await harness.scroll(80, 'trackpad');
+  await island.waitFor(pid, (v) => v.open && v.page === 'music', 2500, 'did not return to music page');
+  await sleep(300);
+  assert.equal(reorders(), 0, 'the card was re-ordered (hidden and shown) turning back to music');
   await harness.move(notch.x + notch.w / 2, notch.y + 400);
   await island.waitFor(pid, (v) => !v.open, 2500, 'island did not close');
-  await assertFocusRestored();
+  await sleep(300);
+  assert.equal(reorders(), 0, 'the card was re-ordered (hidden and shown) on closing');
 });

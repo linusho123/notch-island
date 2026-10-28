@@ -31,7 +31,8 @@ public enum IslandState: Equatable, Sendable {
 /// The pointer rules of the island as a pure state machine: a rest opens it, a
 /// sweep does not (D51, D99); a click opens it at once (D74); it closes after a
 /// grace off the island, never while a drag that began on it is under way
-/// (D52). Time is passed in, so the rules are tested without a clock.
+/// (D52), nor while a note is being typed on it. Time is passed in, so the
+/// rules are tested without a clock.
 public struct HoverMachine: Sendable {
   public private(set) var state: IslandState = .closed
   public var timing: IslandTiming
@@ -39,6 +40,7 @@ public struct HoverMachine: Sendable {
   private var restAnchor: (x: Double, y: Double, time: TimeInterval)?
   private var graceStart: TimeInterval?
   private var dragging = false
+  private var editing = false
 
   public init(timing: IslandTiming = .standard) {
     self.timing = timing
@@ -66,7 +68,7 @@ public struct HoverMachine: Sendable {
     case .open:
       if inside {
         graceStart = nil
-      } else if !dragging, graceStart == nil {
+      } else if !dragging, !editing, graceStart == nil {
         graceStart = time
       }
     }
@@ -94,10 +96,28 @@ public struct HoverMachine: Sendable {
   public mutating func dragEnded(inside: Bool, at time: TimeInterval) {
     guard dragging else { return }
     dragging = false
-    if state == .open, !inside { graceStart = time }
+    if state == .open, !inside, !editing { graceStart = time }
   }
 
   public var isDragging: Bool { dragging }
+
+  /// A note began to be typed on the open island; it holds the island open
+  /// with the pointer off it, so the typing never falls into the app behind.
+  public mutating func editingBegan() {
+    guard state == .open else { return }
+    editing = true
+    graceStart = nil
+  }
+
+  /// The typing ended (Return, Escape, a click outside); `inside` says
+  /// whether the pointer is on the island.
+  public mutating func editingEnded(inside: Bool, at time: TimeInterval) {
+    guard editing else { return }
+    editing = false
+    if state == .open, !inside, !dragging { graceStart = time }
+  }
+
+  public var isEditing: Bool { editing }
 
   /// The left button's real state, looked at on the open poll. A drag whose
   /// mouse-up never arrived is ended here, so the island cannot stay open for
@@ -110,7 +130,7 @@ public struct HoverMachine: Sendable {
   public var nextDeadline: TimeInterval? {
     switch state {
     case .closed: return restAnchor.map { $0.time + timing.rest }
-    case .open: return dragging ? nil : graceStart.map { $0 + timing.grace }
+    case .open: return dragging || editing ? nil : graceStart.map { $0 + timing.grace }
     }
   }
 
@@ -131,6 +151,7 @@ public struct HoverMachine: Sendable {
     restAnchor = nil
     graceStart = nil
     dragging = false
+    editing = false
   }
 
   /// An external drag arrived on the notch; open the island as a drop target (D33).
