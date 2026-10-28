@@ -92,6 +92,7 @@ test('B4: only the originating waiter can resume a dead owner pause after SIGKIL
   assert.equal(running, false);
   assert.equal(fs.existsSync(file), true);
   ownerAlive = false;
+  assert.throws(() => keeper.resumeRun('unrelated-waiter'), /BLOCKED/);
   keeper.resumeRun(saved.stamp);
   assert.equal(running, true);
   assert.equal(fs.existsSync(file), false);
