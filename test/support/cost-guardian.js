@@ -60,7 +60,8 @@ if (require.main === module) {
   process.on('disconnect', finish);
   process.on('message', (m) => { if (m === 'cleanup') finish(); });
   for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(signal, finish);
-  process.send({ ready: true });
+  if (process.connected) process.send({ ready: true }, (error) => { if (error) finish(); });
+  else finish();
 }
 
 module.exports = { cleanup };

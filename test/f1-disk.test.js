@@ -36,3 +36,23 @@ for (const kind of ['foreign-name', 'misleading-path', 'owned', 'wrong-device', 
     else assert.equal(detaches.length, 0, 'foreign disk must never be detached');
   });
 }
+
+test('M05: disconnect preserves a scratch mount lacking ownership instead of deleting through it', async (t) => {
+  const { EventEmitter } = require('node:events');
+  const base = path.join(os.tmpdir(), 'notch-island-tests');
+  fs.mkdirSync(base, { recursive: true });
+  const dir = fs.mkdtempSync(path.join(base, 'scenario-'));
+  fs.mkdirSync(path.join(dir, 'ScratchVolume'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const fake = new EventEmitter();
+  let exit;
+  Object.assign(fake, { argv: ['node', 'guardian', dir], connected: true, send() {}, exit: (code) => { exit = code; } });
+  load('scratch-guardian.js', {
+    './scratch-images': require('./support/scratch-images'),
+    'node:child_process': { execFileSync: () => `image-path : /foreign/image.dmg\n/dev/disk41\tAPFS\t${fs.realpathSync(dir)}/ScratchVolume\n` },
+  }, { process: fake, console: { error() {} } });
+  fake.emit('disconnect');
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal(exit, 1);
+  assert.ok(fs.existsSync(dir), 'cleanup deleted through an unowned mount');
+});
