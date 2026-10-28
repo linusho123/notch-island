@@ -39,7 +39,9 @@ async function start(w, service) {
       const response = read(value.op === 'stop' ? 'stopped.json' : 'response.json');
       if (response?.error) throw new Error(response.error);
       return response;
-    }, 10000, `share stand-in did not answer ${value.op}`);
+    // Movie decoding is offline and may inspect hundreds of full frames.
+    // Keep live-control requests short; never relax the captured interval.
+    }, value.op === 'playback' ? 60000 : 10000, `share stand-in did not answer ${value.op}`);
   };
   const stop = async () => {
     if (stopped) return;

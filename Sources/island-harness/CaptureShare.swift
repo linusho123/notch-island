@@ -250,6 +250,9 @@ final class CaptureShare: NSObject, @preconcurrency SCStreamOutput, @preconcurre
     return [
       "control": controlScore(image, control), "baselineControl": controlScore(plain, control),
       "changedFraction": difference(plain, image, region(kind), control),
+      "imageSize": [image.width, image.height], "baselineSize": [plain.width, plain.height],
+      "displayFrame": display.map { rectJSON($0.frame) } ?? [:],
+      "controlRect": rectJSON(control),
     ]
   }
 

@@ -1,0 +1,963 @@
+{
+  "rect": {
+    "h": 33,
+    "w": 133,
+    "x": 630,
+    "y": 0
+  },
+  "shots": {
+    "screencapture": {
+      "baselineControl": 0,
+      "changedFraction": 0,
+      "control": 0
+    },
+    "screenCaptureKit": {
+      "baselineControl": 1,
+      "changedFraction": 0,
+      "control": 1
+    },
+    "timeline": {
+      "frames": [
+        {
+          "baselineControl": 1,
+          "captured": 884697.942225875,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 205,
+          "marker": 884697.901684125
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884698.0255584584,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 206,
+          "marker": 884697.9916044166
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884698.1255590834,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 207,
+          "marker": 884698.0912107916
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884698.2255586666,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 208,
+          "marker": 884698.1915970834
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884698.3255585,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 209,
+          "marker": 884698.2915914584
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884698.4255584584,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 210,
+          "marker": 884698.3916107917
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884698.525557875,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 211,
+          "marker": 884698.4915950416
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884698.5588915834,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 212,
+          "marker": 884698.4915950416
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884698.6255581666,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 213,
+          "marker": 884698.5911552084
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884698.725557625,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 214,
+          "marker": 884698.6915933334
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884698.82555775,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 215,
+          "marker": 884698.7915893333
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884698.925557625,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 216,
+          "marker": 884698.891597375
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884699.0255574584,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 217,
+          "marker": 884698.991615625
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884699.1255573333,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 218,
+          "marker": 884699.0911552084
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884699.2255571666,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 219,
+          "marker": 884699.191621375
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884699.3255569583,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 220,
+          "marker": 884699.291570875
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884699.425556875,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 221,
+          "marker": 884699.3908020834
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884699.5422234166,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 222,
+          "marker": 884699.49159825
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884699.6255565834,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 223,
+          "marker": 884699.5911725834
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884699.725556375,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 224,
+          "marker": 884699.6916040834
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884699.82555625,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 225,
+          "marker": 884699.7916057084
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884699.9255562084,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 226,
+          "marker": 884699.8915816667
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.0255556667,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 227,
+          "marker": 884699.9915943333
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.1255559166,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 228,
+          "marker": 884700.0911660417
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.2255556666,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 229,
+          "marker": 884700.1916059584
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.275555625,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 230,
+          "marker": 884700.1916059584
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.3088889166,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 231,
+          "marker": 884700.1916059584
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.3422222084,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 232,
+          "marker": 884700.309171
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.425555375,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 233,
+          "marker": 884700.39159325
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.4922220416,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 234,
+          "marker": 884700.39159325
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.5255552917,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 235,
+          "marker": 884700.39159325
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.5588885417,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 236,
+          "marker": 884700.511975875
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.5922219167,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 237,
+          "marker": 884700.511975875
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.6422217084,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 238,
+          "marker": 884700.591159375
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.675555,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 239,
+          "marker": 884700.591159375
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.70888825,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 240,
+          "marker": 884700.591159375
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.742221625,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 241,
+          "marker": 884700.6911504166
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.7755549166,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 242,
+          "marker": 884700.6911504166
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.808888125,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 243,
+          "marker": 884700.6911504166
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.8422215417,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 244,
+          "marker": 884700.7911545833
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.8755547917,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 245,
+          "marker": 884700.8552027084
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.9088879584,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 246,
+          "marker": 884700.8552027084
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.9422213334,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 247,
+          "marker": 884700.8552027084
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884700.975554625,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 248,
+          "marker": 884700.8552027084
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884701.12555425,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 249,
+          "marker": 884700.8552027084
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884701.3422205417,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 250,
+          "marker": 884701.3041937916
+        },
+        {
+          "baselineControl": 1,
+          "captured": 884701.375554,
+          "changedFraction": 0,
+          "control": 1,
+          "id": 251,
+          "marker": 884701.351643875
+        }
+      ],
+      "overflow": false,
+      "start": 884697.901684125,
+      "end": 884701.3039764584,
+      "visible": [
+        884700.8017396666,
+        884701.3039764584
+      ]
+    },
+    "playback": {
+      "frames": [
+        {
+          "baselineControl": 0,
+          "captured": 884697.901684125,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 15,
+          "presentation": 0.9666666666666667
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884697.9916044166,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 16,
+          "presentation": 1.05
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884698.0912107916,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 17,
+          "presentation": 1.15
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884698.1915970834,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 18,
+          "presentation": 1.25
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884698.2915914584,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 19,
+          "presentation": 1.35
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884698.2915914584,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 20,
+          "presentation": 1.4333333333333333
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884698.3916107917,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 21,
+          "presentation": 1.45
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884698.4915950416,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 22,
+          "presentation": 1.55
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884698.4915950416,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 23,
+          "presentation": 1.5666666666666667
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884698.4915950416,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 24,
+          "presentation": 1.5833333333333333
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884698.4915950416,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 25,
+          "presentation": 1.6333333333333333
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884698.5911552084,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 26,
+          "presentation": 1.65
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884698.6915933334,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 27,
+          "presentation": 1.75
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884698.7915893333,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 28,
+          "presentation": 1.85
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884698.891597375,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 29,
+          "presentation": 1.95
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884698.991615625,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 30,
+          "presentation": 2.05
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884699.0911552084,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 31,
+          "presentation": 2.15
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884699.191621375,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 32,
+          "presentation": 2.25
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884699.291570875,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 33,
+          "presentation": 2.35
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884699.3908020834,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 34,
+          "presentation": 2.45
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884699.49159825,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 35,
+          "presentation": 2.55
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884699.49159825,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 36,
+          "presentation": 2.566666666666667
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884699.5911725834,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 37,
+          "presentation": 2.65
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884699.6916040834,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 38,
+          "presentation": 2.75
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884699.7916057084,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 39,
+          "presentation": 2.85
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884699.7916057084,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 40,
+          "presentation": 2.933333333333333
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884699.8915816667,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 41,
+          "presentation": 2.95
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884699.9915943333,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 42,
+          "presentation": 3.05
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.0911660417,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 43,
+          "presentation": 3.15
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.1916059584,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 44,
+          "presentation": 3.25
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.1916059584,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 45,
+          "presentation": 3.3
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.1916059584,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 46,
+          "presentation": 3.3333333333333335
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.309171,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 47,
+          "presentation": 3.3666666666666667
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.39159325,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 48,
+          "presentation": 3.45
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.39159325,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 49,
+          "presentation": 3.5
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.39159325,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 50,
+          "presentation": 3.5166666666666666
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.39159325,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 51,
+          "presentation": 3.533333333333333
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.39159325,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 52,
+          "presentation": 3.55
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.511975875,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 53,
+          "presentation": 3.566666666666667
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.511975875,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 54,
+          "presentation": 3.5833333333333335
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.511975875,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 55,
+          "presentation": 3.6
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.511975875,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 56,
+          "presentation": 3.6166666666666667
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.511975875,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 57,
+          "presentation": 3.6333333333333333
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.591159375,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 58,
+          "presentation": 3.65
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.591159375,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 59,
+          "presentation": 3.6666666666666665
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.591159375,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 60,
+          "presentation": 3.683333333333333
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.591159375,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 61,
+          "presentation": 3.7
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.591159375,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 62,
+          "presentation": 3.716666666666667
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.591159375,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 63,
+          "presentation": 3.7333333333333334
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.6911504166,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 64,
+          "presentation": 3.75
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.6911504166,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 65,
+          "presentation": 3.783333333333333
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.6911504166,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 66,
+          "presentation": 3.8
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.6911504166,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 67,
+          "presentation": 3.816666666666667
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.6911504166,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 68,
+          "presentation": 3.8333333333333335
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.7911545833,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 69,
+          "presentation": 3.85
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.7911545833,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 70,
+          "presentation": 3.8666666666666667
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.7911545833,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 71,
+          "presentation": 3.8833333333333333
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.8552027084,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 72,
+          "presentation": 3.9
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.8552027084,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 73,
+          "presentation": 3.933333333333333
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.8552027084,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 74,
+          "presentation": 3.95
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.8552027084,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 75,
+          "presentation": 3.966666666666667
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.8552027084,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 76,
+          "presentation": 4
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.8552027084,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 77,
+          "presentation": 4.016666666666667
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884700.8552027084,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 78,
+          "presentation": 4.15
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884701.3041937916,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 79,
+          "presentation": 4.366666666666666
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884701.351643875,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 80,
+          "presentation": 4.4
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884701.3911544166,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 81,
+          "presentation": 4.45
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884701.3911544166,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 82,
+          "presentation": 4.566666666666666
+        },
+        {
+          "baselineControl": 0,
+          "captured": 884701.3911544166,
+          "changedFraction": 1,
+          "control": 1,
+          "id": 83,
+          "presentation": 4.65
+        }
+      ]
+    }
+  }
+}
