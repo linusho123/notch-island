@@ -1,6 +1,6 @@
 #!/bin/sh
 # Builds notch-island with Swift Package Manager (Command Line Tools, no
-# Xcode), bundles it as an agent app (no Dock icon) and signs it ad hoc.
+# Xcode), bundles it as an agent app (no Dock icon) and signs it with one local identity (scripts/signing.sh).
 #
 #   build/apps.noindex/release/NotchIsland.app   the app as installed: no test input
 #   build/apps.noindex/test/NotchIsland.app      the same app with the test-only input
@@ -10,6 +10,17 @@
 set -eu
 cd "$(dirname "$0")/.."
 VERSION=$(node -p "require('./package.json').version")
+
+# The apps are signed with one identity kept across builds, so macOS
+# remembers Automation consent between them (scripts/signing.sh).
+sign_app() {
+  old_ifs=$IFS
+  IFS='
+'
+  set -- $(sh scripts/signing.sh) "$1"
+  IFS=$old_ifs
+  codesign --force "$@" >/dev/null
+}
 
 bundle() { # <swift build path> <bundle dir> <bundle id> <name>
   bin="$1/release/NotchIsland"
@@ -21,7 +32,7 @@ bundle() { # <swift build path> <bundle dir> <bundle id> <name>
   cp build/now-playing-adapter.dylib "$app/Contents/Resources/now-playing-adapter.dylib"
   sed -e "s/__BUNDLE_ID__/$3/" -e "s/__VERSION__/$VERSION/" -e "s/__NAME__/$4/" \
     app/Info.plist > "$app/Contents/Info.plist"
-  codesign --force --sign - "$app" >/dev/null
+  sign_app "$app"
   echo "built $app"
 }
 

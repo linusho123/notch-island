@@ -16,6 +16,8 @@ const harness = require('./harness');
 const island = require('./island');
 const music = require('./music');
 const scenes = require('./scenes');
+const signing = require('./signing');
+const { COST_IDENTIFIER } = require('./login-service');
 const run = promisify(execFile);
 
 function processTable() {
@@ -70,15 +72,16 @@ async function prepare(w) {
   const adapter = path.join(app, 'Contents', 'Resources', 'now-playing-adapter.dylib');
   assert.equal(check.hash(binary), originalBuild.sha256, 'scratch executable is not the checked release binary');
   // A separate identity prevents LaunchServices from redirecting the installed
-  // app's existing login-item URL when it notices this scratch bundle.
-  const identifier = `local.notch-island.cost.${path.basename(fixture)}`;
+  // app's existing login-item URL when it notices this scratch bundle. It is
+  // the same on every run, so macOS asks for Automation consent only once.
+  const identifier = COST_IDENTIFIER;
   execFileSync('/usr/libexec/PlistBuddy', ['-c', `Set :CFBundleIdentifier ${identifier}`, path.join(app, 'Contents', 'Info.plist')]);
   const entitlements = path.join(home, 'entitlements.plist');
   fs.writeFileSync(entitlements, `<?xml version="1.0"?><plist version="1.0"><dict>
     <key>com.apple.security.automation.apple-events</key><true/>
     <key>com.apple.security.temporary-exception.apple-events</key><array><string>com.apple.Music</string></array>
     </dict></plist>`);
-  const sign = () => execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', '--entitlements', entitlements, app], { stdio: 'pipe' });
+  const sign = () => execFileSync('/usr/bin/codesign', ['--force', ...signing(), '--entitlements', entitlements, app], { stdio: 'pipe' });
   sign();
   // Only identity/signature changed: the Mach-O linker UUID and release
   // compiler flags must still match, and test-input markers remain absent.

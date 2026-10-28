@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const { assertFixtureSession } = require('./fixture-preflight');
 const fs = require('node:fs');
 const path = require('node:path');
+const signing = require('./signing');
 const { fileURLToPath } = require('node:url');
 const { spawn, execFileSync } = require('node:child_process');
 const registry = require('./registry');
@@ -29,7 +30,7 @@ const version = (app) => execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :
 function stamp(app, number, identifier) {
   if (identifier) execFileSync('/usr/libexec/PlistBuddy', ['-c', `Set :CFBundleIdentifier ${identifier}`, path.join(app, 'Contents', 'Info.plist')]);
   execFileSync('/usr/libexec/PlistBuddy', ['-c', `Set :CFBundleVersion ${number}`, path.join(app, 'Contents', 'Info.plist')]);
-  execFileSync('codesign', ['--force', '--sign', '-', app], { stdio: 'pipe' });
+  execFileSync('codesign', ['--force', ...signing(), app], { stdio: 'pipe' });
 }
 
 async function registered(w) {

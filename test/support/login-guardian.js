@@ -12,7 +12,7 @@ function fixturePaths(dir) {
   assert.equal(path.dirname(dir), parent, 'login fixture must be inside build/apps.noindex');
   assert.match(path.basename(dir), /^p6-login-[A-Za-z0-9]+$/);
   const app = path.join(dir, 'NotchIsland.app');
-  return { app, identifier: `local.notch-island.test.${path.basename(dir)}`, binary: path.join(app, 'Contents', 'MacOS', 'NotchIsland'), input: path.join(dir, 'input.json') };
+  return { app, identifier: require('./login-service').LOGIN_IDENTIFIER, binary: path.join(app, 'Contents', 'MacOS', 'NotchIsland'), input: path.join(dir, 'input.json') };
 }
 
 function pids(binary) {

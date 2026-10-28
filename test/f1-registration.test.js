@@ -5,7 +5,7 @@ const { load } = require('./support/load-isolated');
 const root = '/repo';
 const dir = '/repo/build/apps.noindex/p6-cost-owned';
 const home = '/tmp/ni-cost-home-owned';
-const identifier = 'local.notch-island.cost.p6-cost-owned';
+const identifier = 'local.notch-island.cost.fixture';
 
 function fixture({ failed = false, status = 'requiresApproval' } = {}) {
   const calls = [];
@@ -16,6 +16,7 @@ function fixture({ failed = false, status = 'requiresApproval' } = {}) {
     readFileSync: () => JSON.stringify({ chromeSocket: '/tmp/ni-p6-login-owned.sock' }),
   };
   const service = {
+    COST_IDENTIFIER: identifier, LOGIN_IDENTIFIER: 'local.notch-island.test.login-fixture',
     status: () => { calls.push('status'); return status; },
     assertUnregistered: () => { if (status !== 'notRegistered') throw new Error('live registration'); },
     unregister: () => {
@@ -29,7 +30,7 @@ function fixture({ failed = false, status = 'requiresApproval' } = {}) {
   return { calls, service, stubs: {
     'node:fs': fs, 'node:child_process': cp,
     './paths': { root, testBinary: '/test-binary' }, './login-guardian': { pids: () => [] },
-    './login-service': service,
+    './login-service': service, './signing': () => ['--sign', '-'],
     './registry': { enabledApp: async () => null, items: async () => [{ bundleID: identifier, disposition: '[disabled, visible]', url: `file://${dir}/NotchIsland.app` }] },
   } };
 }

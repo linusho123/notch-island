@@ -20,7 +20,7 @@ async function cleanup(dir, home) {
   }
   const app = path.join(dir, 'NotchIsland.app');
   const binary = path.join(app, 'Contents', 'MacOS', 'NotchIsland');
-  const identifier = `local.notch-island.cost.${path.basename(dir)}`;
+  const identifier = require('./login-service').COST_IDENTIFIER;
   const plist = path.join(app, 'Contents', 'Info.plist');
   assert.equal(execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIdentifier', plist], { encoding: 'utf8' }).trim(), identifier);
   // Stop only this fixture. The adapter exits on its stdin pipe closing.

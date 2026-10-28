@@ -28,6 +28,7 @@ test('M01: login refuses before registry, fixture, harness or launch actions', a
     './fixture-preflight': { assertFixtureSession: () => { throw new Error('BLOCKED: installed observer'); } },
     './registry': { items: action('registry') }, './procs': { start: action('launch') },
     './harness': { builtIn: action('pointer') }, './paths': {}, './login-guardian': {},
+    './signing': action('signing'),
   });
   await assert.rejects(login.prepare({ defer() {} }), /BLOCKED/);
   assert.deepEqual(calls, []);
