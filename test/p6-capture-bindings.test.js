@@ -59,3 +59,17 @@ test('M06: each named service survives the Given binding', async () => {
     assert.equal(identity, service);
   }
 });
+
+test('M07: capture setup uses an owned roomy scene and an explicit 135-point input', async () => {
+  let gap;
+  const find = bindings({
+    '../support/capture-share': { start: async () => {}, baseline: async () => {} },
+    '../support/recording': { start: async () => {} },
+    '../support/island': { feed: (_, patch) => { gap = patch.leftGap; } },
+    './new-song-notice.steps': (reg) => reg.define(/^the island is closed and the free gap left of the notch (.+)$/, async (_, description) => {
+      assert.equal(description, 'is wider than the cover art and the whole title', 'capture setup must not depend on Chrome having its old menu width');
+    }),
+  });
+  await find('the visionary is recording the screen')({});
+  assert.equal(gap, 135);
+});

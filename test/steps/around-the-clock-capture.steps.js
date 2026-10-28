@@ -35,7 +35,10 @@ const visibleWing = (v) => Boolean(v.wing?.art && v.wing.title === 'Champagne Su
 
 async function prepare(w, service) {
   await share.start(w, service);
-  await step(notice, 'the island is closed and the free gap left of the notch is 135 points wide, as with Chrome in front', w);
+  await step(notice, 'the island is closed and the free gap left of the notch is wider than the cover art and the whole title', w);
+  // P3's owned stand-in proves room exists; the existing input fixes the
+  // D108 title example without depending on Chrome's changing menu width.
+  island.feed(w, { leftGap: 135 });
   await share.baseline(w);
 }
 

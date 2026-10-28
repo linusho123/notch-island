@@ -16,10 +16,13 @@ feature.scenarios = feature.scenarios.filter((s) => !s.tags.includes('@D70') && 
 if (process.env.P6_F2_CHILD === '1') {
   require('../test/support/require-idle').assertInIdleRun();
   if (process.env.P6_F2_APP) require('../test/support/paths').testApp = process.env.P6_F2_APP;
-  const registry = new StepRegistry();
-  require('../test/steps/around-the-clock.steps')(registry);
   const pattern = new RegExp(process.env.P6_F2_ROWS || '.');
   feature.scenarios = feature.scenarios.filter((s) => pattern.test(s.name));
+  const texts = feature.scenarios.flatMap((s) => s.steps.map((step) => step.text));
+  const registry = new StepRegistry();
+  require('../test/steps/around-the-clock.steps')({ define: (pattern, fn) => {
+    if (texts.some((text) => pattern.test(text))) registry.define(pattern, fn);
+  } });
   runFeature(feature, registry);
 } else {
   require('../test/support/require-idle').assertInIdleRun();
