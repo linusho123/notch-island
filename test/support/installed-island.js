@@ -55,7 +55,20 @@ function createInstalledKeeper({ driver, file, lease = {}, sleep = sleepSync, no
     if (!saved && fs.existsSync(file)) throw new Error('BLOCKED: stale installed-island keeper state');
   }
 
-  return { pause, resume, sweep };
+  // The waiter may finish its own pause after a forcibly killed owner. This
+  // is explicit and run-scoped; imports and later unrelated runs never recover.
+  function resumeRun(stamp) {
+    if (!saved && fs.existsSync(file)) {
+      const previous = JSON.parse(fs.readFileSync(file, 'utf8'));
+      if (!stamp || previous.stamp !== stamp || driver.ownerAlive(previous)) {
+        throw new Error('BLOCKED: this pause belongs to another or still-running owner');
+      }
+      saved = previous;
+    }
+    resume();
+  }
+
+  return { pause, resume, sweep, resumeRun };
 }
 
 // ------------------------------------------------------------- the real Mac
@@ -85,6 +98,7 @@ function stopByBinary(pids, binary, what) {
 }
 
 const realDriver = {
+  ownerAlive: (saved) => require('./procs').startTimeOf(saved.pid) === saved.started,
   installedRunning: () => installedPids().length > 0,
   quitInstalled: () => stopByBinary(installedPids, INSTALLED_BINARY, 'the installed island'),
   launchInstalled: () => {
@@ -120,4 +134,9 @@ function pauseInstalled() {
   keeper.pause();
 }
 
-module.exports = { createInstalledKeeper, pauseInstalled, INSTALLED_APP };
+function resumeInstalledRun(stamp = process.env.NOTCH_ISLAND_POST_STAMP) {
+  require('./require-idle').assertInIdleRun();
+  keeper.resumeRun(stamp);
+}
+
+module.exports = { createInstalledKeeper, pauseInstalled, resumeInstalledRun, INSTALLED_APP };

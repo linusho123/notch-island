@@ -46,7 +46,7 @@ async function prepare(w) {
     detached: true, stdio: ['ignore', guardianLog, guardianLog, 'ipc'],
   });
   fs.closeSync(guardianLog);
-  const disarm = require('./cleanup').onCleanup(() => { if (guardian.connected) guardian.disconnect(); });
+  const disarm = require('./cleanup').onCleanup(() => { if (guardian.connected) guardian.send('cleanup'); });
   const finished = new Promise((resolve, reject) => {
     guardian.once('error', reject);
     guardian.once('exit', (code) => code === 0 ? resolve() : reject(new Error(`cost guardian exited ${code}: ${home}/guardian.log`)));

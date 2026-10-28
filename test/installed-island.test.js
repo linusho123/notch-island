@@ -74,3 +74,25 @@ test('B6: installed island initially off stays off; keeper never changes login i
     assert.equal(fs.existsSync(f.file), false);
   }
 });
+
+test('B4: only the originating waiter can resume a dead owner pause after SIGKILL', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fu-resume-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'state.json');
+  const saved = { wasRunning: true, pid: 123, started: 'birth', stamp: 'originating-waiter' };
+  fs.writeFileSync(file, JSON.stringify(saved));
+  let running = false;
+  let ownerAlive = true;
+  const keeper = createInstalledKeeper({ file, driver: {
+    installedRunning: () => running, ownerAlive: () => ownerAlive, testIslands: () => 0,
+    launchInstalled: () => { running = true; },
+  } });
+  assert.throws(() => keeper.resumeRun('unrelated-waiter'), /BLOCKED/);
+  assert.throws(() => keeper.resumeRun(saved.stamp), /BLOCKED/);
+  assert.equal(running, false);
+  assert.equal(fs.existsSync(file), true);
+  ownerAlive = false;
+  keeper.resumeRun(saved.stamp);
+  assert.equal(running, true);
+  assert.equal(fs.existsSync(file), false);
+});

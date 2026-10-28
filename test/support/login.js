@@ -55,7 +55,7 @@ async function prepare(w) {
     detached: true, stdio: ['ignore', log, log, 'ipc'],
   });
   fs.closeSync(log);
-  const disarm = require('./cleanup').onCleanup(() => { if (guardian.connected) guardian.disconnect(); });
+  const disarm = require('./cleanup').onCleanup(() => { if (guardian.connected) guardian.send('cleanup'); });
   const finished = new Promise((resolve, reject) => {
     guardian.once('error', reject);
     guardian.once('exit', (code, signal) => code === 0 ? resolve()

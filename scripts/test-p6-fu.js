@@ -71,6 +71,15 @@ if (process.env.P6_FU_CHILD) {
   }
   const verified = spawnSync(process.execPath, ['scripts/verify-installed-login.js'], { stdio: 'inherit' });
   if (verified.status !== 0) process.exit(1);
+  // A failed FU interruption probe can be continued with its exact recorded
+  // lease. No discovery or recovery of another run's state is allowed here.
+  if (process.env.P6_FU_RECOVERY) {
+    const recorded = fs.readFileSync(process.env.P6_FU_RECOVERY, 'utf8');
+    const journal = path.join(require('node:os').tmpdir(), 'notch-island-installed-island.json');
+    require('node:assert/strict').equal(fs.readFileSync(journal, 'utf8'), recorded);
+    require('../test/support/installed-island').resumeInstalledRun(JSON.parse(recorded).stamp);
+    console.log('Restored the exact FU interruption pause before retry');
+  }
   // This child owns its own explicit pause; assert restoration before the
   // rest of the batch acquires a shared pause lease in the parent.
   const voided = run('void-d60', ['test/fu-void-login.test.js']);
