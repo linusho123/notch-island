@@ -22,27 +22,10 @@ function runHdiutil(args, opts = {}) {
   return execFileSync('/usr/bin/hdiutil', args, opts);
 }
 
+const scratchImages = require('./scratch-images');
+
 function detachStaleScratchImages() {
-  try {
-    const out = runHdiutil(['info'], { encoding: 'utf8' });
-    const blocks = String(out || '').split(/^={40,}$/m);
-    const scratchBase = path.join(os.tmpdir(), 'notch-island-tests');
-    for (const block of blocks) {
-      if (!block.trim()) continue;
-      const imagePathMatch = block.match(/image-path\s*:\s*(.+)$/m);
-      const imagePath = imagePathMatch ? imagePathMatch[1].trim() : '';
-      const isUnderScratch = imagePath && (imagePath.includes('/notch-island-tests/') || imagePath.startsWith(scratchBase));
-      const hasExactVolumeName = block.includes('NotchIslandScratchDocs');
-      if (isUnderScratch || hasExactVolumeName) {
-        const devMatches = [...block.matchAll(/\/dev\/disk\d+(?![a-z0-9])/g)].map((m) => m[0]);
-        for (const dev of devMatches) {
-          try {
-            runHdiutil(['detach', dev, '-force', '-quiet']);
-          } catch {}
-        }
-      }
-    }
-  } catch {}
+  scratchImages.detachStale(runHdiutil);
 }
 
 function scratchDesktop(w) {
@@ -62,32 +45,26 @@ function scratchVolume(w) {
   if (w) {
     const dmg = path.join(scratch(w), 'documents.dmg');
     w._scratchVolumeDir = mountDir;
-    let mounted = false;
     const detach = () => {
-      if (!mounted && !w._scratchDocsMounted) return;
-      mounted = false;
+      if (!w._scratchDocsMounted) return;
+      assert.ok(scratchImages.detach(dmg, runHdiutil), 'scratch disk ownership no longer matches; retained for recovery');
       w._scratchDocsMounted = false;
-      try {
-        runHdiutil(['detach', mountDir, '-force', '-quiet']);
-      } catch {}
-      detachStaleScratchImages();
     };
+    w._detachScratchDocuments = detach;
     w.defer(detach);
-    cleanup.onCleanup(detach);
+    const removeCleanup = cleanup.onCleanup(detach);
+    w.defer(() => removeCleanup());
 
     try {
       runHdiutil(['create', '-size', '20m', '-fs', 'APFS', '-volname', 'NotchIslandScratchDocs', dmg, '-quiet']);
-      mounted = true;
+      const attached = String(runHdiutil(['attach', dmg, '-mountpoint', mountDir, '-nobrowse'], { encoding: 'utf8' }));
+      const device = attached.match(/^(\/dev\/disk\d+)\s/m)?.[1];
+      assert.ok(device, 'attach did not report its device identity; scratch retained for recovery');
+      scratchImages.record(dmg, device);
       w._scratchDocsMounted = true;
-      runHdiutil(['attach', dmg, '-mountpoint', mountDir, '-nobrowse', '-quiet']);
     } catch (err) {
-      mounted = false;
-      w._scratchDocsMounted = false;
       delete w._scratchVolumeDir;
-      try {
-        runHdiutil(['detach', mountDir, '-force', '-quiet']);
-      } catch {}
-      detachStaleScratchImages();
+      // An ambiguous/failed attach grants no authority to detach a mountpoint.
       throw new Error(`scratch disk image creation or attach failed: ${err.message}`);
     }
   }
@@ -104,16 +81,7 @@ function scratchDocuments(w) {
 }
 
 function detachScratchDocuments(w) {
-  if (w && w._scratchDocsMounted) {
-    w._scratchDocsMounted = false;
-    const target = w._scratchVolumeDir || w._scratchDocsDir;
-    if (target) {
-      try {
-        runHdiutil(['detach', target, '-force', '-quiet']);
-      } catch {}
-    }
-    detachStaleScratchImages();
-  }
+  if (w?._scratchDocsMounted) w._detachScratchDocuments();
 }
 
 function scratchArchive(w) {
