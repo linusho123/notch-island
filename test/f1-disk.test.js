@@ -6,11 +6,13 @@ const os = require('node:os');
 const path = require('node:path');
 const { load } = require('./support/load-isolated');
 
-for (const kind of ['foreign-name', 'misleading-path', 'owned', 'wrong-device', 'replaced-image']) {
+for (const kind of ['foreign-name', 'misleading-path', 'owned', 'wrong-device', 'replaced-image', 'foreign-record']) {
   test(`M05: stale disk ${kind} requires canonical image and recorded device ownership`, (t) => {
     const base = path.join(os.tmpdir(), 'notch-island-tests');
     fs.mkdirSync(base, { recursive: true });
-    const dir = fs.mkdtempSync(path.join(base, 'scenario-'));
+    const outer = kind === 'foreign-record' ? fs.mkdtempSync(path.join(os.tmpdir(), 'f1-foreign-disk-')) : base;
+    if (outer !== base) t.after(() => fs.rmSync(outer, { recursive: true, force: true }));
+    const dir = fs.mkdtempSync(path.join(outer, 'scenario-'));
     t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
     const image = path.join(dir, 'documents.dmg');
     fs.writeFileSync(image, 'owned');

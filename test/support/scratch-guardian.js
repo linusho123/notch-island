@@ -35,10 +35,13 @@ async function finish() {
     assert.ok(current.ino === identity.ino && current.dev === identity.dev, 'scratch directory identity changed');
     if (fs.existsSync(path.join(dir, 'ScratchVolume'))) {
       const run = (args, opts) => execFileSync('/usr/bin/hdiutil', args, opts);
-      const mounted = images.images(run).filter((i) => {
-        try { return fs.realpathSync(i.image).startsWith(`${fs.realpathSync(dir)}/`); } catch { return false; }
-      });
-      for (const i of mounted) assert.ok(images.detach(i.image, run), 'mounted scratch has no matching ownership record; retained');
+      const canonical = fs.realpathSync(dir);
+      const inside = (p) => p === canonical || p.startsWith(`${canonical}/`);
+      const belongs = (i) => inside(path.resolve(i.image)) || i.mounts.some(inside);
+      for (const i of images.images(run).filter(belongs)) {
+        assert.ok(images.detach(i.image, run), 'mounted scratch has no matching ownership record; retained');
+      }
+      assert.equal(images.images(run).filter(belongs).length, 0, 'scratch is still mounted; retained');
     }
     fs.rmSync(dir, { recursive: true });
     process.exit(0);

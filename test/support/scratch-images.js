@@ -9,7 +9,8 @@ function images(run) {
   return String(run(['info'], { encoding: 'utf8' }) || '').split(/^={40,}$/m).flatMap((block) => {
     const image = block.match(/^image-path\s*:\s*(.+)$/m)?.[1].trim();
     const devices = [...block.matchAll(/^(\/dev\/disk\d+)\s/gm)].map((m) => m[1]);
-    return image ? [{ image, devices }] : [];
+    const mounts = [...block.matchAll(/^\/dev\/disk\S+\s+\S+\s+(\/[^\n]+)$/gm)].map((m) => m[1].trim());
+    return image ? [{ image, devices, mounts }] : [];
   });
 }
 function ownership(image) {
