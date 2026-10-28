@@ -6,6 +6,7 @@ const { assertFixtureSession } = require('./fixture-preflight');
 const { execFileSync } = require('node:child_process');
 const harness = require('./harness');
 const island = require('./island');
+const procs = require('./procs');
 const chrome = require('./chrome');
 const login = require('./login');
 const scenes = require('./scenes');
@@ -13,6 +14,41 @@ const { onCleanup } = require('./cleanup');
 const { harness: binary } = require('./paths');
 
 const center = (f) => ({ x: f.x + f.w / 2, y: f.y + f.h / 2 });
+
+// D70 needs a running fixture, not merely an absence of open content. Keep
+// this stronger assertion local: isPlainNotch is also used for visibility
+// observations elsewhere. Every AX read is bracketed by the process registry's
+// PID/start-time check; a dead or reused PID cannot contribute a good sample.
+function owned(w) {
+  return Boolean(w.island?.started && !w.island.exited
+    && procs.ownsPid(w.island.pid) && procs.alive(w.island));
+}
+
+async function closedSample(w) {
+  const before = owned(w);
+  const windows = await harness.windows(w.island.pid);
+  return { t: Date.now(), windows, owned: before && owned(w) };
+}
+
+function assertClosed(sample, n, when) {
+  assert.ok(sample.owned, `${when}: owned island process identity lost`);
+  assert.ok(Array.isArray(sample.windows) && sample.windows.length > 0
+    && sample.windows.every((w) => w.frame && ['x', 'y', 'w', 'h'].every((k) => Number.isFinite(w.frame[k]))),
+  `${when}: missing or unreadable island AX window`);
+  const view = island.parse(sample.windows, n);
+  assert.ok(view.notchPart && ['x', 'y', 'w', 'h'].every((k) => Math.abs(view.notchPart[k] - n[k]) <= 1)
+    && island.isPlainNotch(view, n), `${when}: the running island is not closed to its notch`);
+}
+
+async function watchClosed(w) {
+  const end = Date.now() + 900;
+  const samples = [];
+  do {
+    samples.push(await closedSample(w));
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  } while (Date.now() < end);
+  return samples;
+}
 
 async function prepare(w) {
   assertFixtureSession({ allowInstalled: true });
@@ -89,7 +125,7 @@ async function click(w, name) {
   const top = before.elements[0];
   assert.ok(top && top.AXSelected !== true && top.AXExpanded !== true, 'the target menu is already open before the click');
   const n = (await harness.builtIn()).notch;
-  assert.ok(island.isPlainNotch(await island.look(w.island.pid), n), 'the island is not plain before the menu click');
+  assertClosed(await closedSample(w), n, 'before the menu click');
   // Arm Escape before the click, for assertion failures and signal exits too.
   // Only Escape is ever sent to a real status app; no command inside is clicked.
   let armed = true;
@@ -101,10 +137,14 @@ async function click(w, name) {
   });
   w.closedMenu = { target, before, n, disarm, clear: () => { armed = false; } };
   // Jump straight to the target; never sweep across the notch on the way.
-  const watch = harness.watch(w.island.pid, 900, 25);
-  await harness.move(target.point.x, target.point.y);
-  await harness.click(target.point.x, target.point.y);
-  w.closedMenu.samples = await watch;
+  const results = await Promise.allSettled([watchClosed(w), (async () => {
+    await harness.move(target.point.x, target.point.y);
+    assert.ok(owned(w), 'before mouse-down: owned island process identity lost');
+    await harness.click(target.point.x, target.point.y);
+    assertClosed(await closedSample(w), n, 'after the menu click');
+  })()]);
+  for (const r of results) if (r.status === 'rejected') throw r.reason;
+  w.closedMenu.samples = results[0].value;
 }
 
 async function assertOpen(w, result) {
@@ -120,10 +160,9 @@ async function assertOpen(w, result) {
   }, 2500, () => `${target.target}: its own menu did not open after the real click: ${JSON.stringify(last)}`);
   assert.ok(evidence.samples.length > 10, 'too few Accessibility looks around the click');
   for (const sample of evidence.samples) {
-    assert.ok(island.isPlainNotch(island.parse(sample.windows, n), n),
-      `${target.target}: the island opened a panel or wing during the click at ${sample.t} ms`);
+    assertClosed(sample, n, `${target.target} watch at ${sample.t} ms`);
   }
-  assert.ok(island.isPlainNotch(await island.look(w.island.pid), n), 'the island did not stay closed while the menu was open');
+  assertClosed(await closedSample(w), n, 'final open-menu assertion');
   console.log(`D70 ${target.target}: owner=${target.item.owner} pid=${target.item.pid} AX=${JSON.stringify(target.item.frame)} click=${JSON.stringify(target.point)} menu open; island plain`);
   await harness.key(53);
   await island.until(async () => !opened(target, before, await state(target)), 2500,
@@ -132,4 +171,4 @@ async function assertOpen(w, result) {
   evidence.disarm();
 }
 
-module.exports = { prepare, click, assertOpen };
+module.exports = { prepare, locate, opened, click, assertOpen };
