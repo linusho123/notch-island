@@ -38,7 +38,9 @@ if (process.env.P6_F1_FEATURE_CHILD === '1') {
     { row: 'login cleanup after runner SIGKILL', status: 'bound, not run' });
   fs.writeFileSync('/tmp/ni-p6/f1-ui-rows.json', JSON.stringify(rows, null, 2));
   console.log(`F1 selected ${rows.length} rows, listed in /tmp/ni-p6/f1-ui-rows.json`);
-  try { require('../test/support/fixture-preflight').assertFixtureSession(); }
+  const verification = spawnSync(process.execPath, ['scripts/verify-installed-login.js'], { stdio: 'inherit' });
+  if (verification.status !== 0) process.exit(1);
+  try { require('../test/support/installed-island').pauseInstalled(); }
   catch (e) { console.error(e.message); process.exit(1); }
   const result = spawnSync(process.execPath, ['--test', '--test-concurrency=1', '--test-reporter=tap',
     __filename, 'test/hidden-from-capture.test.js', 'test/login-cleanup.test.js'], {

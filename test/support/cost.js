@@ -29,6 +29,8 @@ function processTable() {
 const islandItems = async () => (await registry.items()).filter((i) => /local\.notch-island/.test(i.bundleID || ''));
 
 async function prepare(w) {
+  assertFixtureSession({ allowInstalled: true });
+  require('./installed-island').pauseInstalled();
   assertFixtureSession();
   // Fail before launching if this is debug, has test input, or does not match
   // SwiftPM's release compiler output. Both marker checks have a test-build

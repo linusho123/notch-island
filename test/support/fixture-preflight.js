@@ -1,14 +1,29 @@
 'use strict';
-// Read-only and safe to import before UI helpers. No recovery is attempted.
+// Read-only. A live pause lease is shared only by processes in the same
+// guarded UI run. Stale state and unrelated islands always refuse.
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const { listIslands } = require('./island-procs');
 const keeperFile = path.join(os.tmpdir(), 'notch-island-installed-island.json');
+const installedBinary = '/Applications/NotchIsland.app/Contents/MacOS/NotchIsland';
+function activePause() {
+  try {
+    const saved = JSON.parse(fs.readFileSync(keeperFile, 'utf8'));
+    return Boolean(saved.stamp && saved.stamp === process.env.NOTCH_ISLAND_POST_STAMP
+      && saved.started && Number.isInteger(saved.pid)
+      && execFileSync('ps', ['-o', 'lstart=', '-p', String(saved.pid)], { encoding: 'utf8' }).trim() === saved.started);
+  } catch { return false; }
+}
+function installed(pid) {
+  try { return execFileSync('ps', ['-o', 'comm=', '-p', String(pid)], { encoding: 'utf8' }).trim() === installedBinary; }
+  catch { return false; }
+}
 function assertFixtureSession({ islands = listIslands, exists = fs.existsSync,
-  owned = () => false } = {}) {
-  if (exists(keeperFile)) throw new Error(`BLOCKED: installed-island keeper state needs human recovery: ${keeperFile}`);
-  const foreign = islands().filter((pid) => !owned(pid));
+  owned = () => false, allowInstalled = false, paused = activePause, isInstalled = installed } = {}) {
+  if (exists(keeperFile) && !paused()) throw new Error(`BLOCKED: installed-island keeper state needs human recovery: ${keeperFile}`);
+  const foreign = islands().filter((pid) => !owned(pid) && !(allowInstalled && isInstalled(pid)));
   if (foreign.length) throw new Error(`BLOCKED: an unowned island is running (${foreign.join(', ')}); prepare a fixture-only session`);
 }
-module.exports = { assertFixtureSession };
+module.exports = { assertFixtureSession, activePause };

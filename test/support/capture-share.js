@@ -8,7 +8,7 @@ const { scratch, startOwned } = require('./sandbox');
 const paths = require('./paths');
 
 async function start(w) {
-  // Refuse before starting a fixture; never use the installed-app keeper.
+  // Refuse conflicts before the explicit authorized P5 pause or a fixture.
   const { notch } = preflight();
   const island = require('./island');
   const procs = require('./procs');

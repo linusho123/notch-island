@@ -67,7 +67,7 @@ test('M03: pending registration blocks release launch even when BTM has no enabl
     'node:fs': { ...f.stubs['node:fs'], mkdtempSync: (p) => p.includes('home') ? home : dir,
       cpSync: () => {}, openSync: () => 123, closeSync: () => {}, mkdirSync: () => {} },
     'node:child_process': { ...f.stubs['node:child_process'], spawn: () => guardian, execFile: () => {} },
-    './fixture-preflight': { assertFixtureSession() {} },
+    './fixture-preflight': { assertFixtureSession() {} }, './installed-island': { pauseInstalled() {} },
     './cost-check': { assertRelease: () => ({ sha256: 'same' }), hash: () => 'same' },
     './paths': { root, testBinary: '/test', releaseBinary: '/release', releaseApp: '/release.app' },
     './harness': { windows: async () => [{}] },

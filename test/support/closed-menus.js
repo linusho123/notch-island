@@ -15,10 +15,9 @@ const { harness: binary } = require('./paths');
 const center = (f) => ({ x: f.x + f.w / 2, y: f.y + f.h / 2 });
 
 async function prepare(w) {
-  assertFixtureSession();
-  // V1's signed scratch fixture has a detached unregister-on-disconnect
-  // guardian. The older island.launch keeper quits the installed app; D70
-  // must leave that app running, so use the safe existing fixture instead.
+  assertFixtureSession({ allowInstalled: true });
+  // V1 owns a signed scratch fixture and a detached cleanup guardian.
+  // Its explicit P5 pause keeps the installed observer out of fixture Music.
   await login.prepare(w);
   w.chrome = await chrome.launch(w);
   await harness.activate(w.chrome.pid);

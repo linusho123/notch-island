@@ -1,7 +1,7 @@
 'use strict';
 // D60/Q1: read the real login registry, then ask LaunchServices to open its
-// registered URL in the background. No real login, installed-app keeper, or
-// user launch participates. All state belongs to a signed test bundle copy.
+// registered URL in the background. The authorized P5 keeper isolates the
+// installed app before fixture actions; no real login participates. All state belongs to a signed test bundle copy.
 const assert = require('node:assert/strict');
 const { assertFixtureSession } = require('./fixture-preflight');
 const fs = require('node:fs');
@@ -42,6 +42,8 @@ async function registered(w) {
 }
 
 async function prepare(w) {
+  assertFixtureSession({ allowInstalled: true });
+  require('./installed-island').pauseInstalled();
   assertFixtureSession();
   const before = await installedState();
   w.defer(async () => assert.deepEqual(await installedState(), before, 'the installed island registration changed'));

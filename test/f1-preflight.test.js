@@ -10,7 +10,7 @@ for (const stale of [false, true]) test(`M01: ${stale ? 'stale keeper' : 'instal
       rmSync: () => calls.push('remove'), writeFileSync: () => calls.push('write') },
     'node:child_process': { execFileSync: (cmd) => { calls.push(cmd); throw new Error('system action forbidden'); } },
     './cleanup': { onCleanup: () => {} }, './paths': { testBinary: '/fixture' },
-    './island-procs': { listIslands: () => [] },
+    './island-procs': { listIslands: () => [] }, './procs': { startTimeOf: () => 'fake' },
     './fixture-preflight': { assertFixtureSession: () => { throw new Error('BLOCKED: fixture conflict'); } },
   });
   assert.deepEqual(calls, [], 'import attempted recovery');
