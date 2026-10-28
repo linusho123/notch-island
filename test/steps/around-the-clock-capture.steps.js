@@ -106,7 +106,7 @@ module.exports = (reg) => {
     await share.capture(w);
     w.captureChecked = true;
   });
-  reg.define(/^the visionary sees nothing of the island in (what the (?:Zoom|Meet) viewers see|the played-back recording)(, only the plain menu bar around the notch)?$/, async (w, target) => {
+  reg.define(/^the visionary sees nothing of the island in (what the (?:Zoom|Meet) viewers see|the played-back recording)(?:, only the plain menu bar around the notch)?$/, async (w, target) => {
     assertTarget(w, target);
     if (!w.captureChecked) await share.capture(w);
   });

@@ -19,6 +19,7 @@ function bindings(overrides = {}) {
     const matches = rows.filter((r) => r.pattern.test(text));
     assert.equal(matches.length, 1, `binding missing or ambiguous: ${text}`);
     const { pattern, fn } = matches[0];
+    assert.equal(fn.length - 1, pattern.exec(text).slice(1).length, `binding drops sentence parameters: ${text}`);
     return (w) => fn(w, ...pattern.exec(text).slice(1));
   };
 }
