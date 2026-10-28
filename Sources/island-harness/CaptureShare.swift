@@ -361,7 +361,26 @@ final class CaptureShare: NSObject, @preconcurrency SCStreamOutput, @preconcurre
         throw NSError(domain: "capture was not armed before action", code: 4)
       }
       var result: [String: Any] = [:]
-      for (name, image) in shots { result[name] = measurement(image, kind, baseline[name]) }
+      for (name, image) in shots {
+        var measured = measurement(image, kind, baseline[name])
+        if let control = controlRects[kind], let rep = pixels(image, control) {
+          measured["controlRGB"] = [0.25, 0.75].map { fraction -> [Double] in
+            guard
+              let c = rep.colorAt(
+                x: Int(Double(rep.pixelsWide) * fraction), y: rep.pixelsHigh / 4
+              )?.usingColorSpace(.sRGB)
+            else { return [] }
+            return [c.redComponent, c.greenComponent, c.blueComponent]
+          }
+          if let display {
+            let flipped = CGRect(
+              x: control.minX, y: display.frame.maxY - (control.maxY - display.frame.minY),
+              width: control.width, height: control.height)
+            measured["flippedControl"] = controlScore(image, flipped)
+          }
+        }
+        result[name] = measured
+      }
       result["timeline"] = ["start": began, "frames": frames, "overflow": overflow]
       write("response.json", result)
     } catch { write("response.json", ["error": "\(error)"]) }
