@@ -118,3 +118,33 @@ test('M12: another icon or unanchored same-name pane cannot satisfy the clicked 
   const elsewhere = { ...pane('Wi-Fi', 'WiFi'), frame: { x: -400, y: 400, w: 300, h: 400 } };
   assert.equal(driver.opened(wifi, bare(statusItem), { ...bare(statusItem), windows: [elsewhere] }), false);
 });
+
+for (const [name, item, external] of [
+  ['external-left Help', help, { x: -300, y: 0, w: 48, h: 34 }],
+  ['external-right status', statusItem, { x: 1900, y: 6, w: 22, h: 22 }],
+  ['external-right Wi-Fi', statusItem, { x: 1900, y: 6, w: 22, h: 22 }],
+  ['above-screen Help', help, { x: 580, y: -40, w: 48, h: 34 }],
+  ['below-strip status', statusItem, { x: 1400, y: 30, w: 22, h: 22 }],
+]) test(`M14: ${name} is rejected despite notch-relative ordering`, async () => {
+  const target = name.includes('Help') ? helpName : name.includes('Wi-Fi') ? 'the Wi-Fi icon' : 'the leftmost status icon right of the notch';
+  const { driver, w } = fixture({ menus: [{ ...item, frame: external }], extras: [{ ...item, frame: external }] });
+  await assert.rejects(driver.locate(w, target), /built-in|screen|strip/);
+});
+
+test('M14: built-in targets and non-origin display coordinates remain valid', async () => {
+  const offset = { x: 200, y: -300 };
+  const shift = (f) => ({ ...f, x: f.x + offset.x, y: f.y + offset.y });
+  for (const shifted of [false, true]) {
+    const transform = (f) => shifted ? shift(f) : f;
+    const { driver, w } = fixture({
+      menus: [{ ...help, frame: transform(help.frame) }], extras: [{ ...statusItem, frame: transform(statusItem.frame) }],
+      builtIn: { frame: transform(screen.frame), notch: transform(notch) },
+    });
+    for (const name of [helpName, 'the Wi-Fi icon', 'the leftmost status icon right of the notch']) {
+      const target = await driver.locate(w, name);
+      const f = transform(screen.frame);
+      assert.ok(target.point.x >= f.x && target.point.x < f.x + f.w);
+      assert.ok(target.point.y >= f.y && target.point.y < f.y + notch.h);
+    }
+  }
+});

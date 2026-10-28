@@ -14,6 +14,13 @@ const { onCleanup } = require('./cleanup');
 const { harness: binary } = require('./paths');
 
 const center = (f) => ({ x: f.x + f.w / 2, y: f.y + f.h / 2 });
+const finiteFrame = (f) => f && ['x', 'y', 'w', 'h'].every((k) => Number.isFinite(f[k])) && f.w > 0 && f.h > 0;
+const contained = (f, outer) => finiteFrame(f) && f.x >= outer.x && f.y >= outer.y
+  && f.x + f.w <= outer.x + outer.w && f.y + f.h <= outer.y + outer.h;
+const menuStrip = (s) => ({ x: s.frame.x, y: s.frame.y, w: s.frame.w, h: s.notch.y + s.notch.h - s.frame.y });
+// AX reports Chrome's menu items as 34 points tall in a 33-point strip.
+// Permit that single border point in the item frame, never in the click.
+const inStrip = (f, strip) => contained(f, { ...strip, h: strip.h + 1 });
 
 // D70 needs a running fixture, not merely an absence of open content. Keep
 // this stronger assertion local: isPlainNotch is also used for visibility
@@ -56,28 +63,40 @@ async function prepare(w) {
   // Its explicit P5 pause keeps the installed observer out of fixture Music.
   await login.prepare(w);
   w.chrome = await chrome.launch(w);
+  const s = await harness.builtIn();
+  const [tab] = await w.chrome.pages();
+  assert.ok(tab, 'the test Chrome has no page to place on the built-in display');
+  const { windowId } = await w.chrome.cdp.send('Browser.getWindowForTarget', { targetId: tab.targetId });
+  await w.chrome.cdp.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'normal' } });
+  await w.chrome.cdp.send('Browser.setWindowBounds', { windowId, bounds: {
+    left: s.frame.x + 40, top: s.frame.y + s.notch.h + 60,
+    width: Math.min(900, s.frame.w - 80), height: Math.min(650, s.frame.h - s.notch.h - 120),
+  } });
   await harness.activate(w.chrome.pid);
   await island.until(async () => (await harness.frontmost()).pid === w.chrome.pid, 5000,
     'the test Chrome did not come to the front');
+  await island.until(async () => (await harness.windows(w.chrome.pid)).some((win) =>
+    !win.minimized && contained(win.frame, s.frame)), 5000, 'the test Chrome is not on the built-in display');
   await scenes.plainNotch(w);
 }
 
 async function locate(w, target) {
-  const { notch: n } = await harness.builtIn();
+  const screen = await harness.builtIn();
+  const n = screen.notch;
+  const strip = menuStrip(screen);
   let item;
   let kind;
   if (target.includes('Help menu')) {
-    const menus = (await harness.menubar(w.chrome.pid)).filter((i) => i.frame?.w > 0);
+    const menus = (await harness.menubar(w.chrome.pid)).filter((i) => inStrip(i.frame, strip));
     item = menus.find((i) => i.title === 'Help');
-    assert.ok(item, "Chrome's menu bar shows no Help menu");
+    assert.ok(item, "Chrome's Help menu is not in the built-in menu-bar strip");
     assert.ok(item.frame.x + item.frame.w <= n.x, "Chrome's Help menu is not left of the notch");
     assert.equal(menus.filter((i) => i.frame.x + i.frame.w <= n.x)
       .sort((a, b) => b.frame.x - a.frame.x)[0].title, 'Help', 'Help is not the nearest app menu left of the notch');
     item = { ...item, pid: w.chrome.pid, owner: 'test Chrome' };
     kind = 'help';
   } else {
-    const extras = (await harness.extras()).filter((i) => i.frame?.w > 0
-      && i.frame.h > 0 && i.frame.y < n.y + n.h && i.frame.y + i.frame.h > n.y);
+    const extras = (await harness.extras()).filter((i) => inStrip(i.frame, strip));
     if (target === 'the Wi-Fi icon') {
       item = extras.find((i) => i.owner === 'Control Center'
         && /wi.?fi/i.test([i.identifier, i.description, i.title].join(' ')));
@@ -87,7 +106,7 @@ async function locate(w, target) {
         .sort((a, b) => a.frame.x - b.frame.x)[0];
       kind = 'status';
     }
-    assert.ok(item, `the menu bar shows no ${target}`);
+    assert.ok(item, `the built-in menu-bar strip shows no ${target}`);
     assert.ok(item.frame.x >= n.x + n.w, `${target} is not right of the notch`);
   }
   const point = center(item.frame);
@@ -95,6 +114,8 @@ async function locate(w, target) {
     assert.ok(item.frame.w > 6, 'Help is too narrow to click three points inside its right edge');
     point.x = item.frame.x + item.frame.w - 3;
   }
+  assert.ok(point.x >= strip.x && point.x < strip.x + strip.w
+    && point.y >= strip.y && point.y < strip.y + strip.h, 'the click is outside the built-in menu-bar strip');
   return { item, point, kind, target };
 }
 
