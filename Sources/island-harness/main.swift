@@ -462,6 +462,25 @@ func luminance(_ image: CGImage, crop: CGRect) -> (max: Double, mean: Double) {
   return (maxL, n > 0 ? sum / n : 0)
 }
 
+// The same system screenshot path for D110 and the running share stand-in.
+func displayScreenshot(_ index: Int) -> CGImage? {
+  let worker = Process()
+  worker.executableURL = URL(fileURLWithPath: CommandLine.arguments[0])
+  worker.arguments = ["capture-worker", String(index)]
+  let lifetime = Pipe()
+  let output = Pipe()
+  worker.standardInput = lifetime
+  worker.standardOutput = output
+  do { try worker.run() } catch { return nil }
+  // The worker owns screencapture, waits for it and removes its private
+  // image before returning bytes. Helper death closes lifetime's writer.
+  let data = output.fileHandleForReading.readDataToEndOfFile()
+  worker.waitUntilExit()
+  try? lifetime.fileHandleForWriting.close()
+  guard worker.terminationStatus == 0 else { return nil }
+  return NSImage(data: data)?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+}
+
 /// capture-check x y w h: show a white backdrop window of our own over the
 /// rect (below the menu bar's level), then capture the rect with macOS's own
 /// `screencapture` and with ScreenCaptureKit, and report how bright each
@@ -508,15 +527,7 @@ func captureCheck(_ rect: CGRect, islandPid: Int) -> Never {
   DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
     var result: [String: Any] = [:]
     let foreignBefore = foreignWindows()
-    let file = NSTemporaryDirectory() + "island-harness-\(getpid()).png"
-    let shot = Process()
-    shot.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-    shot.arguments = ["-x", "-D", "1", file]
-    try? shot.run()
-    shot.waitUntilExit()
-    if let image = NSImage(contentsOfFile: file)?.cgImage(
-      forProposedRect: nil, context: nil, hints: nil)
-    {
+    if let image = displayScreenshot(1) {
       let scale = Double(image.width) / Double(NSScreen.screens[0].frame.width)
       let crop = CGRect(
         x: rect.minX * scale, y: rect.minY * scale, width: rect.width * scale,
@@ -524,7 +535,6 @@ func captureCheck(_ rect: CGRect, islandPid: Int) -> Never {
       let l = luminance(image, crop: crop)
       result["screencapture"] = ["max": l.max, "mean": l.mean]
     }
-    try? FileManager.default.removeItem(atPath: file)
     Task {
       do {
         let content = try await SCShareableContent.excludingDesktopWindows(
@@ -680,6 +690,18 @@ func runInputGuard() -> Never {
 // MARK: Commands
 
 switch command {
+case "capture-worker":
+  do {
+    let data = try OwnedCapture().run(
+      executable: URL(fileURLWithPath: "/usr/sbin/screencapture"),
+      arguments: { ["-x", "-D", arg(1), $0.path] },
+      parent: FileManager.default.temporaryDirectory, owner: .standardInput)
+    guard let data else { exit(2) }
+    // OwnedCapture removed the artifact before writing to a possibly dead reader.
+    FileHandle.standardOutput.write(data)
+    exit(0)
+  } catch { fail("capture worker: \(error)") }
+
 case "screen":
   emit(screensJSON())
 case "frontmost":
@@ -718,6 +740,38 @@ case "menubar":
 case "extras":
   requireTrust()
   emit(["items": extrasJSON()])
+case "menu-state":
+  // Read the menu-bar/status item at a live AX-derived point, including its
+  // selection and menu children. Merely knowing its commands is not proof
+  // that a real click opened it (closed menus can expose commands too).
+  requireTrust()
+  let app = appElement(pid_t(num(1)))
+  let point = CGPoint(x: num(2), y: num(3))
+  var found: AXUIElement?
+  for name in [kAXMenuBarAttribute, "AXExtrasMenuBar"] {
+    guard let bar = attr(app, name),
+      let items = attr(bar as! AXUIElement, kAXChildrenAttribute) as? [AXUIElement]
+    else { continue }
+    if let item = items.first(where: { frameOf($0)?.contains(point) == true }) {
+      found = item
+      break
+    }
+  }
+  guard let item = found else { fail("no menu-bar item at the given point in \(arg(1))") }
+  var elements: [[String: Any]] = []
+  func readMenu(_ el: AXUIElement, depth: Int) {
+    guard depth < 12 else { return }
+    var d = describe(el, depth: depth)
+    for name in ["AXSelected", "AXExpanded", "AXHidden", "AXVisible"] {
+      if let value = attr(el, name) as? Bool { d[name] = value }
+    }
+    elements.append(d)
+    for child in (attr(el, kAXChildrenAttribute) as? [AXUIElement]) ?? [] {
+      readMenu(child, depth: depth + 1)
+    }
+  }
+  readMenu(item, depth: 0)
+  emit(["elements": elements, "windows": windowsJSON(pid_t(num(1)))])
 case "activate":
   guard let app = NSRunningApplication(processIdentifier: pid_t(num(1))) else {
     fail("no such app")
@@ -1118,6 +1172,10 @@ case "status-stand-in":
     }
   }
   withExtendedLifetime(clicks) { app.run() }
+case "capture-share":
+  MainActor.assumeIsolated {
+    captureShare(arg(1), CGRect(x: num(2), y: num(3), width: num(4), height: num(5)))
+  }
 case "capture-check":
   captureCheck(
     CGRect(x: num(1), y: num(2), width: num(3), height: num(4)), islandPid: Int(num(5)))

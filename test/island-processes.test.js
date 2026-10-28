@@ -45,11 +45,13 @@ test('with only a host running there is no island to refuse for', () => {
   assert.deepEqual(listIslands({ exec: fakeExec([{ pid: 200, args: `${APP} ${ORIGIN}` }]) }), []);
 });
 
-test('the keeper does not quit, wait for or relaunch because of a host', () => {
+test('the keeper does not quit, wait for or relaunch because of a host', (t) => {
   const fs = require('node:fs');
   const os = require('node:os');
   const path = require('node:path');
-  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'islands-')), 'state.json');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'islands-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'state.json');
   const table = [{ pid: 200, args: `${APP} ${ORIGIN}` }];
   const log = [];
   const driver = {
@@ -63,4 +65,23 @@ test('the keeper does not quit, wait for or relaunch because of a host', () => {
   keeper.pause();
   keeper.resume();
   assert.deepEqual(log, [], 'the keeper touched the installed app because a host runs');
+});
+
+test('B5: a PID that exits between pgrep and ps is no longer an island', () => {
+  assert.deepEqual(listIslands({ exec: fakeExec([{ pid: 200, args: '' }]) }), []);
+});
+
+for (const args of ['(NotchIsland)', '<defunct>', '']) test(`NB1: an exiting host with ps args ${JSON.stringify(args)} is not an island`, () => {
+  const exec = fakeExec([
+    { pid: 100, args: APP },
+    { pid: 200, args },
+    { pid: 300, args: '/unknown/NotchIsland --unknown' },
+  ]);
+  assert.deepEqual(listIslands({ exec }), [100, 300]);
+});
+
+test('B5: long fixture paths cannot truncate the native-host origin', () => {
+  const args = `${'/repo/build/apps.noindex/p6-login-longpath/'.repeat(3)}NotchIsland ${ORIGIN}`;
+  const exec = (cmd, flags) => cmd === 'pgrep' ? '200\n' : flags.includes('-ww') ? args : args.slice(0, 120);
+  assert.deepEqual(listIslands({ exec }), []);
 });

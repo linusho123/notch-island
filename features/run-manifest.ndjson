@@ -1,22 +1,22 @@
 {"run-manifest":1}
-{"file":"around-the-clock.feature","title":"A screen recording that has just ended still lands on the shelf","status":"unbound"}
-{"file":"around-the-clock.feature","title":"Clicking Chrome's Help menu, the nearest menu left of the notch beside the closed island works as today [1]","status":"unbound"}
-{"file":"around-the-clock.feature","title":"Clicking the Wi-Fi icon beside the closed island works as today [3]","status":"unbound"}
-{"file":"around-the-clock.feature","title":"Clicking the leftmost status icon right of the notch beside the closed island works as today [4]","status":"unbound"}
-{"file":"around-the-clock.feature","title":"Clicking the right-hand edge of Chrome's Help menu beside the closed island works as today [2]","status":"unbound"}
-{"file":"around-the-clock.feature","title":"Logging in after a restart following a crash has the island working with nobody opening it [2]","status":"unbound"}
-{"file":"around-the-clock.feature","title":"Logging in after a restart for an update has the island working with nobody opening it [1]","status":"unbound"}
-{"file":"around-the-clock.feature","title":"Logging in after logging out has the island working with nobody opening it [3]","status":"unbound"}
-{"file":"around-the-clock.feature","title":"Over a closed minute of Wonderwall, the island's CPU stays at or under 3% [1]","status":"unbound"}
-{"file":"around-the-clock.feature","title":"Over a closed minute of Wonderwall, the island's Energy Impact stays at or under 5 [2]","status":"unbound"}
-{"file":"around-the-clock.feature","title":"When the share ends, the island works as before","status":"unbound"}
-{"file":"around-the-clock.feature","title":"While recording the screen, the visionary still has the island and the capture shows none of it: the visionary clicks the notch [3]","status":"unbound"}
-{"file":"around-the-clock.feature","title":"While sharing the screen in Meet, the visionary still has the island and the capture shows none of it: the visionary rests the pointer on the notch for 2 seconds [2]","status":"unbound"}
-{"file":"around-the-clock.feature","title":"While sharing the screen in Zoom, the visionary still has the island and the capture shows none of it: \"Champagne Supernova\" starts in Apple Music [1]","status":"unbound"}
-{"file":"around-the-clock.feature","title":"While sharing the screen in Zoom, the visionary still has the island and the capture shows none of it: the visionary drags \"tax-return.pdf\" onto the notch and lets go [4]","status":"unbound"}
-{"file":"around-the-clock.feature","title":"With the music page over \"Wonderwall\" on screen while sharing the screen in Meet, what the Meet viewers see holds none of it [2]","status":"unbound"}
-{"file":"around-the-clock.feature","title":"With the shelf page, holding the note \"✎ idea: notch app shows lyrics\" on screen while sharing the screen in Zoom, what the Zoom viewers see holds none of it [1]","status":"unbound"}
-{"file":"around-the-clock.feature","title":"With the wing left of the notch for \"Champagne Supernova\" on screen while recording the screen, the played-back recording holds none of it [3]","status":"unbound"}
+{"file":"around-the-clock.feature","title":"A screen recording that has just ended still lands on the shelf","status":"passed"}
+{"file":"around-the-clock.feature","title":"Clicking Chrome's Help menu, the nearest menu left of the notch beside the closed island works as today [1]","status":"passed"}
+{"file":"around-the-clock.feature","title":"Clicking the Wi-Fi icon beside the closed island works as today [3]","status":"passed"}
+{"file":"around-the-clock.feature","title":"Clicking the leftmost status icon right of the notch beside the closed island works as today [4]","status":"passed"}
+{"file":"around-the-clock.feature","title":"Clicking the right-hand edge of Chrome's Help menu beside the closed island works as today [2]","status":"passed"}
+{"file":"around-the-clock.feature","title":"Logging in after a restart following a crash has the island working with nobody opening it [2]","status":"passed"}
+{"file":"around-the-clock.feature","title":"Logging in after a restart for an update has the island working with nobody opening it [1]","status":"passed"}
+{"file":"around-the-clock.feature","title":"Logging in after logging out has the island working with nobody opening it [3]","status":"passed"}
+{"file":"around-the-clock.feature","title":"Over a closed minute of Wonderwall, the island's CPU stays at or under 3% [1]","status":"passed"}
+{"file":"around-the-clock.feature","title":"Over a closed minute of Wonderwall, the island's Energy Impact stays at or under 5 [2]","status":"passed"}
+{"file":"around-the-clock.feature","title":"When the share ends, the island works as before","status":"failed"}
+{"file":"around-the-clock.feature","title":"While recording the screen, the visionary still has the island and the capture shows none of it: the visionary clicks the notch [3]","status":"passed"}
+{"file":"around-the-clock.feature","title":"While sharing the screen in Meet, the visionary still has the island and the capture shows none of it: the visionary rests the pointer on the notch for 2 seconds [2]","status":"failed"}
+{"file":"around-the-clock.feature","title":"While sharing the screen in Zoom, the visionary still has the island and the capture shows none of it: \"Champagne Supernova\" starts in Apple Music [1]","status":"failed"}
+{"file":"around-the-clock.feature","title":"While sharing the screen in Zoom, the visionary still has the island and the capture shows none of it: the visionary drags \"tax-return.pdf\" onto the notch and lets go [4]","status":"failed"}
+{"file":"around-the-clock.feature","title":"With the music page over \"Wonderwall\" on screen while sharing the screen in Meet, what the Meet viewers see holds none of it [2]","status":"failed"}
+{"file":"around-the-clock.feature","title":"With the shelf page, holding the note \"✎ idea: notch app shows lyrics\" on screen while sharing the screen in Zoom, what the Zoom viewers see holds none of it [1]","status":"failed"}
+{"file":"around-the-clock.feature","title":"With the wing left of the notch for \"Champagne Supernova\" on screen while recording the screen, the played-back recording holds none of it [3]","status":"passed"}
 {"file":"music-panel.feature","title":"A pause Apple Music ignores leaves the pause button showing","status":"passed"}
 {"file":"music-panel.feature","title":"A seek Apple Music ignores leaves the progress dot where playback really is","status":"passed"}
 {"file":"music-panel.feature","title":"After Quit, the next login starts the island again","status":"passed"}
@@ -35,7 +35,7 @@
 {"file":"music-panel.feature","title":"Dragging the progress dot far from the island keeps it open until let go [1]","status":"passed"}
 {"file":"music-panel.feature","title":"In fullscreen, resting on the notch still opens the panel","status":"passed"}
 {"file":"music-panel.feature","title":"Moving the progress dot by clicking the bar to 1:45:00 jumps the concert file there [2]","status":"passed"}
-{"file":"music-panel.feature","title":"Moving the progress dot by clicking the bar's start to 0:00:00 jumps the concert file there [4]","status":"failed"}
+{"file":"music-panel.feature","title":"Moving the progress dot by clicking the bar's start to 0:00:00 jumps the concert file there [4]","status":"passed"}
 {"file":"music-panel.feature","title":"Moving the progress dot by dragging the dot back to 0:30:00 jumps the concert file there [3]","status":"passed"}
 {"file":"music-panel.feature","title":"Moving the progress dot by dragging the dot to 1:45:00 jumps the concert file there [1]","status":"passed"}
 {"file":"music-panel.feature","title":"Opening springs out of the notch and settles","status":"passed"}
@@ -76,7 +76,7 @@
 {"file":"music-sources.feature","title":"A song from a soundcloud.com tab in Chrome shows on the music page [3]","status":"passed"}
 {"file":"music-sources.feature","title":"A song from a youtube.com tab in Chrome shows on the music page [2]","status":"passed"}
 {"file":"music-sources.feature","title":"After the speaker drops, the source line names the app alone","status":"passed"}
-{"file":"music-sources.feature","title":"Flipping 1 times through three sources shows the IINA file as 2 of 3 [1]","status":"failed"}
+{"file":"music-sources.feature","title":"Flipping 1 times through three sources shows the IINA file as 2 of 3 [1]","status":"passed"}
 {"file":"music-sources.feature","title":"Flipping 1 times while IINA has no face shows the Apple Music song as 2 of 2 [1]","status":"passed"}
 {"file":"music-sources.feature","title":"Flipping 2 times through three sources shows the Apple Music song as 3 of 3 [2]","status":"passed"}
 {"file":"music-sources.feature","title":"Flipping 2 times while IINA has no face shows the YouTube video as 1 of 2 [2]","status":"passed"}
@@ -117,13 +117,13 @@
 {"file":"new-song-notice.feature","title":"20 songs starting about a second apart keep the wing out [3]","status":"passed"}
 {"file":"new-song-notice.feature","title":"5 songs starting about a second apart keep the wing out [2]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in Apple Music brings the wing out within a second [1]","status":"passed"}
-{"file":"new-song-notice.feature","title":"A new song in Apple Music out through \"JBL Flip 5\" brings the wing out within a second [2]","status":"passed"}
+{"file":"new-song-notice.feature","title":"A new song in Apple Music out through \"JBL Flip 5\" brings the wing out within a second [2]","status":"failed"}
 {"file":"new-song-notice.feature","title":"A new song in IINA brings the wing out within a second [5]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in Music brings the wing out within a second [7]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in QuickTime Player brings the wing out within a second [6]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in a soundcloud.com tab in Chrome brings the wing out within a second [4]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in a youtube.com playlist in Chrome brings the wing out within a second [3]","status":"passed"}
-{"file":"new-song-notice.feature","title":"A new song in fullscreen pops no wing","status":"passed"}
+{"file":"new-song-notice.feature","title":"A new song in fullscreen pops no wing","status":"failed"}
 {"file":"new-song-notice.feature","title":"A new song slides a small wing out left of the notch","status":"passed"}
 {"file":"new-song-notice.feature","title":"Moving onto the notch while the wing is out opens the full panel","status":"passed"}
 {"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, art too wide [4]","status":"passed"}

@@ -1,123 +1,61 @@
 'use strict';
-// MF2 / FU6: scratch disk image management:
-// - forced hdiutil failure fails with a plain message, never falls back to boot volume
-// - leftover attached NotchIslandScratchDocs images from killed runs are detached before attach
-// - detach cleanup (defer + onCleanup) is registered before attach
+// Screen-free hdiutil stand-in: exact image/device ownership, no mount calls.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const cp = require('node:child_process');
-process.env.NOTCH_ISLAND_POST_STAMP = process.env.NOTCH_ISLAND_POST_STAMP || '/tmp/screen-free-scratch-test';
-const cleanup = require('./support/cleanup');
-const { scratchDocuments } = require('./support/shelf');
-
-const originalExecFileSync = cp.execFileSync;
-const originalOnCleanup = cleanup.onCleanup;
-
-function withHdiutilRunner(runner, fn) {
-  const shelf = require('./support/shelf');
-  if (typeof shelf._setHdiutilRunner === 'function') {
-    shelf._setHdiutilRunner(runner);
-    try {
-      return fn(shelf);
-    } finally {
-      shelf._setHdiutilRunner(null);
-    }
-  }
-
-  delete require.cache[require.resolve('./support/shelf')];
-  cp.execFileSync = (bin, args, opts) => {
-    if (bin === '/usr/bin/hdiutil' || bin === 'hdiutil') {
-      return runner(args, opts);
-    }
-    return originalExecFileSync(bin, args, opts);
-  };
-  try {
-    const freshShelf = require('./support/shelf');
-    return fn(freshShelf);
-  } finally {
-    cp.execFileSync = originalExecFileSync;
-    delete require.cache[require.resolve('./support/shelf')];
-  }
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { load } = require('./support/load-isolated');
+function fixture(t) {
+  const base = path.join(os.tmpdir(), 'notch-island-tests');
+  fs.mkdirSync(base, { recursive: true });
+  const dir = fs.mkdtempSync(path.join(base, 'scenario-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const defers = [];
+  const hooks = [];
+  const shelf = load('shelf.js', {
+    './sandbox': { scratch: () => dir }, './island': {}, './procs': {}, './paths': {},
+    './cleanup': { onCleanup: (fn) => { hooks.push(fn); return () => {}; } },
+    './scratch-images': require('./support/scratch-images'),
+  });
+  return { shelf, dir, defers, hooks, world: { defer: (fn) => defers.push(fn) } };
 }
 
-test('forced hdiutil failure makes scratchDocuments fail with a plain message, never falls back to boot volume', () => {
-  const world = { defer: () => {} };
+test('forced image failure never falls back to the boot volume', (t) => {
+  const f = fixture(t);
+  f.shelf._setHdiutilRunner(() => '');
   process.env.NOTCH_ISLAND_FORCE_HDIUTIL_FAIL = '1';
-  try {
-    assert.throws(
-      () => scratchDocuments(world),
-      /scratch disk image creation or attach failed/
-    );
-  } finally {
-    delete process.env.NOTCH_ISLAND_FORCE_HDIUTIL_FAIL;
-  }
+  try { assert.throws(() => f.shelf.scratchDocuments(f.world), /forced failure/); }
+  finally { delete process.env.NOTCH_ISLAND_FORCE_HDIUTIL_FAIL; }
 });
 
-test('FU6: leftover attached NotchIslandScratchDocs image from an earlier run is detached before attaching', () => {
+test('detach cleanup is armed before attach and uses its recorded device', (t) => {
+  const f = fixture(t);
+  const image = path.join(f.dir, 'documents.dmg');
   const calls = [];
-  const fakeHdiutilInfo = `framework       : 683.160.3
-driver          : 683.160.3
-images          : 2
-================================================
-image-path      : /Users/someone/Downloads/Unrelated.dmg
-/dev/disk2\tGUID_partition_scheme\t
-/dev/disk2s1\t41504653-0000-11AA-AA11-00306543ECAC\t/Volumes/Unrelated
-================================================
-image-path      : /var/folders/8f/9sh8xvl57bxd4lyh200nfv2r0000gn/T/notch-island-tests/scenario-stale/documents.dmg
-/dev/disk4\tGUID_partition_scheme\t
-/dev/disk4s1\t7C3457EF-0000-11AA-AA11-00306543ECAC\t
-/dev/disk5\tEF57347C-0000-11AA-AA11-00306543ECAC\t
-/dev/disk5s1\t41504653-0000-11AA-AA11-00306543ECAC\t/Volumes/NotchIslandScratchDocs
-`;
-
-  withHdiutilRunner((args) => {
+  f.shelf._setHdiutilRunner((args) => {
     calls.push(args);
-    if (args[0] === 'info') return fakeHdiutilInfo;
+    if (args[0] === 'info') return fs.existsSync(image) ? `image-path : ${image}\n/dev/disk41\tGUID_partition_scheme\n` : '';
+    if (args[0] === 'create') fs.writeFileSync(image, 'disk');
+    if (args[0] === 'attach') {
+      assert.ok(f.defers.length && f.hooks.length, 'cleanup not armed before attach');
+      return '/dev/disk41\tGUID_partition_scheme\n';
+    }
     return '';
-  }, (shelf) => {
-    const world = { defer: () => {} };
-    shelf.scratchDocuments(world);
   });
-
-  const detachCalls = calls.filter((c) => c[0] === 'detach');
-  const attachIndex = calls.findIndex((c) => c[0] === 'attach');
-
-  const detachedStale = detachCalls.some((c) => c.includes('/dev/disk4'));
-  assert.ok(detachedStale, 'expected stale scratch disk image /dev/disk4 to be detached before attaching');
-
-  const detachStaleIndex = calls.findIndex((c) => c[0] === 'detach' && c.includes('/dev/disk4'));
-  assert.ok(detachStaleIndex >= 0 && detachStaleIndex < attachIndex, 'stale image detach must happen before attach');
-
-  const detachedUnrelated = detachCalls.some((c) => c.includes('/dev/disk2'));
-  assert.ok(!detachedUnrelated, 'must never detach an unrelated disk image');
+  f.shelf.scratchDocuments(f.world);
+  for (const fn of f.defers.reverse()) fn();
+  assert.deepEqual(Array.from(calls.find((a) => a[0] === 'detach')), ['detach', '/dev/disk41', '-force', '-quiet']);
 });
 
-test('FU6: detach cleanup (defer and onCleanup) is registered BEFORE calling attach', () => {
-  let detachDeferredBeforeAttach = false;
-  let detachOnCleanupBeforeAttach = false;
-  const defers = [];
-  const world = { defer: (fn) => defers.push(fn) };
-
-  let cleanupCount = 0;
-  cleanup.onCleanup = (fn) => {
-    cleanupCount++;
-    return originalOnCleanup(fn);
-  };
-
-  try {
-    withHdiutilRunner((args) => {
-      if (args[0] === 'attach') {
-        detachDeferredBeforeAttach = defers.length > 1;
-        detachOnCleanupBeforeAttach = cleanupCount > 0;
-      }
-      return '';
-    }, (shelf) => {
-      shelf.scratchDocuments(world);
-    });
-  } finally {
-    cleanup.onCleanup = originalOnCleanup;
-  }
-
-  assert.ok(detachDeferredBeforeAttach, 'expected detach cleanup to be registered with w.defer before attach');
-  assert.ok(detachOnCleanupBeforeAttach, 'expected detach cleanup to be registered with onCleanup before attach');
+test('failed attach never force-detaches a guessed mountpoint', (t) => {
+  const f = fixture(t);
+  const calls = [];
+  f.shelf._setHdiutilRunner((args) => {
+    calls.push(args);
+    if (args[0] === 'attach') throw new Error('failed attach');
+    return '';
+  });
+  assert.throws(() => f.shelf.scratchDocuments(f.world), /failed attach/);
+  assert.ok(!calls.some((a) => a[0] === 'detach'));
 });

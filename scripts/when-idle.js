@@ -132,7 +132,7 @@ async function read() {
 async function restore() {
   await w.recoverClipboardSnapshot({ snapshotPath: clipboardSnapshot, harness, log });
   const keeper = path.join(root, 'test', 'support', 'installed-island.js');
-  execFileSync(process.execPath, ['-e', `require(${JSON.stringify(keeper)})`], { stdio: 'inherit', timeout: 60000 });
+  execFileSync(process.execPath, ['-e', `require(${JSON.stringify(keeper)}).resumeInstalledRun()`], { stdio: 'inherit', timeout: 60000 });
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

@@ -33,3 +33,23 @@ test('head-1: a foreign window does not hide a passing capture', () => {
   const v = captureVerdict({ screencapture: { mean: 1 }, screenCaptureKit: { mean: 1 }, foreignWindows: [popover] });
   assert.equal(v.ok, true);
 });
+
+const screen = { x: 0, y: 0, w: 1710, h: 1107 };
+test('B7: ruled full-screen Dock/Notification Center layers cannot mask D110', () => {
+  const layers = [{ owner: 'Dock', layer: 20, frame: screen }, { owner: 'Notification Center', layer: 21, frame: screen }];
+  assert.equal(captureVerdict({ ...dark, screen, foreignWindows: layers }).kind, 'd110');
+  for (const foreign of [popover, { ...layers[0], frame: popover.frame }, { ...layers[0], layer: 21 }]) {
+    assert.equal(captureVerdict({ ...dark, screen, foreignWindows: [...layers, foreign] }).kind, 'environment');
+  }
+});
+
+test('B7: capture rectangle comes from the settled panel, never the first open frame', async () => {
+  const { settledPanel } = require('./support/capture');
+  let clock = 0;
+  const views = [-8, 11, 110, 154, 150].map((h) => ({ open: true, panel: { x: 600, y: 41, w: 470, h } }));
+  const view = await settledPanel(async () => views.length > 1 ? views.shift() : views[0], {
+    now: () => clock, sleep: async (ms) => { clock += ms; },
+  });
+  assert.equal(view.panel.h, 150);
+  assert.ok(clock >= 350);
+});

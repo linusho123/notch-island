@@ -73,4 +73,4 @@ onCleanup(() => {
   }
 });
 
-module.exports = { start, adopt, stop, alive, sleep };
+module.exports = { startTimeOf, start, adopt, stop, alive, sleep, ownsPid: (pid) => isOurs(spawned.get(pid) || {}) };

@@ -17,7 +17,9 @@ const run = promisify(execFile);
 
 async function h(...args) {
   try {
-    const { stdout } = await run(harness, args.map(String), { encoding: 'utf8', maxBuffer: 64 << 20 });
+    const capture = args[0] === 'capture-check';
+    const execute = capture ? require('./sandbox').runOwned : run;
+    const { stdout } = await execute(harness, args.map(String), { encoding: 'utf8', maxBuffer: 64 << 20 });
     return JSON.parse(stdout);
   } catch (e) {
     if (e.code === 3) {

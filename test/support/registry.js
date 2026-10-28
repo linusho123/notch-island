@@ -65,3 +65,18 @@ async function enabledApp(bundleID, opts) {
 }
 
 module.exports = { items, enabledApp };
+
+/** Read-only M02 guard. Repair of the installed item belongs to main. */
+function verifyInstalled(records) {
+  const assert = require('node:assert/strict');
+  const { fileURLToPath } = require('node:url');
+  const live = records.filter((i) => i.bundleID === 'local.notch-island'
+    && /^app\b/.test(i.type || '') && /\[\s*enabled\b/.test(i.disposition || ''));
+  assert.ok(live.length, 'installed login item has no enabled app record');
+  for (const item of live) {
+    assert.equal(fileURLToPath(item.url).replace(/\/$/, ''), '/Applications/NotchIsland.app',
+      'installed login item does not name its canonical /Applications bundle; repair belongs to main');
+  }
+  return live;
+}
+module.exports.verifyInstalled = verifyInstalled;
