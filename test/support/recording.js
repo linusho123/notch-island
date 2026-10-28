@@ -36,7 +36,13 @@ async function stop(w) {
   // screencapture finalizes the movie on SIGINT. Never signal the toolbar,
   // another recorder, or any system process.
   process.kill(r.handle.pid, 'SIGINT');
-  const end = await Promise.race([r.handle.finished, procs.sleep(10000).then(() => { throw new Error('native recording did not finalize'); })]);
+  let timer;
+  let end;
+  try {
+    end = await Promise.race([r.handle.finished, new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('native recording did not finalize')), 10000);
+    })]);
+  } finally { clearTimeout(timer); }
   assert.equal(end.code, 0, `native recorder failed (${end.code ?? end.signal})`);
   assert.ok(fs.existsSync(r.file) && fs.statSync(r.file).size > 0, 'native recording was not saved');
   r.stopped = true;
