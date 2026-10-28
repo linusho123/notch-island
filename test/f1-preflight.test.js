@@ -70,3 +70,17 @@ test('B5: a persistent foreign island or reused PID never gets the test grace', 
     isTest: () => false, sleep: () => waits++ }), /unowned island/);
   assert.equal(waits, 0);
 });
+
+test('B5: a retiring owned scratch fixture gets the same grace as the standard test binary', () => {
+  for (const location of ['p6-login-owned', 'p6-cost-owned']) {
+    let clock = 0;
+    const { assertFixtureSession } = load('fixture-preflight.js', {
+      './island-procs': {}, './paths': { root: '/repo', testBinary: '/repo/build/apps.noindex/test/NotchIsland.app/Contents/MacOS/NotchIsland' },
+      'node:fs': { realpathSync: (p) => p },
+      'node:child_process': { execFileSync: () => `/repo/build/apps.noindex/${location}/NotchIsland.app/Contents/MacOS/NotchIsland` },
+    });
+    assert.doesNotThrow(() => assertFixtureSession({ exists: () => false,
+      islands: () => clock < 200 ? [41] : [], now: () => clock,
+      sleep: (ms) => { clock += ms; }, graceMs: 300 }));
+  }
+});

@@ -21,7 +21,15 @@ function installed(pid) {
   catch { return false; }
 }
 function testBinary(pid) {
-  try { return execFileSync('ps', ['-o', 'comm=', '-p', String(pid)], { encoding: 'utf8' }).trim() === require('./paths').testBinary; }
+  try {
+    const binary = execFileSync('ps', ['-o', 'comm=', '-p', String(pid)], { encoding: 'utf8' }).trim();
+    const paths = require('./paths');
+    if (binary === paths.testBinary) return true;
+    const parent = path.join(paths.root, 'build', 'apps.noindex');
+    const relative = path.relative(parent, binary);
+    return /^p6-(login|cost)-[A-Za-z0-9]+\/NotchIsland\.app\/Contents\/MacOS\/NotchIsland$/.test(relative)
+      && fs.realpathSync(binary) === binary;
+  }
   catch { return false; }
 }
 function assertFixtureSession({ islands = listIslands, exists = fs.existsSync,
