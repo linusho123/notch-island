@@ -137,6 +137,56 @@ struct HoverMachineTests {
     #expect(m.state == .open)
   }
 
+  @Test func typingANoteHoldsTheIslandOpenUntilItEnds() {
+    var m = HoverMachine(timing: timing)
+    m.click(at: 0)
+    m.editingBegan()
+    m.pointer(x: 855, y: 100, inside: false, at: 1)  // the pointer drifts off mid-note
+    #expect(m.nextDeadline == nil)
+    m.tick(at: 30)
+    #expect(m.state == .open)
+    m.editingEnded(inside: false, at: 30)
+    #expect(m.nextDeadline == 30.5)
+    m.tick(at: 30.5)
+    #expect(m.state == .closed)
+  }
+
+  @Test func typingThatEndsOnTheIslandKeepsItOpen() {
+    var m = HoverMachine(timing: timing)
+    m.click(at: 0)
+    m.editingBegan()
+    m.editingEnded(inside: true, at: 2)
+    #expect(m.nextDeadline == nil)
+    m.tick(at: 10)
+    #expect(m.state == .open)
+  }
+
+  @Test func aGraceAlreadyRunningStopsWhenTypingBegins() {
+    var m = HoverMachine(timing: timing)
+    m.click(at: 0)
+    m.pointer(x: 855, y: 800, inside: false, at: 1.0)
+    m.editingBegan()
+    #expect(m.nextDeadline == nil)
+    m.tick(at: 5)
+    #expect(m.state == .open)
+  }
+
+  @Test func aDragLetGoOffTheIslandWhileTypingKeepsItOpen() {
+    var m = HoverMachine(timing: timing)
+    m.click(at: 0)
+    m.editingBegan()
+    m.dragBegan()
+    m.dragEnded(inside: false, at: 3)
+    #expect(m.nextDeadline == nil)
+    #expect(m.isEditing)
+  }
+
+  @Test func typingCannotBeginOnTheClosedNotch() {
+    var m = HoverMachine(timing: timing)
+    m.editingBegan()
+    #expect(!m.isEditing)
+  }
+
   @Test func aDragCannotBeginOnTheClosedNotch() {
     var m = HoverMachine(timing: timing)
     m.dragBegan()
