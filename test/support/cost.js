@@ -89,6 +89,10 @@ async function prepare(w) {
   // compiler flags must still match, and test-input markers remain absent.
   const build = { ...check.assertRelease(binary), originalSha256: originalBuild.sha256, identifier,
     isolation: 'scratch home, BTM IPC denied, Music Apple Events entitlement' };
+  // Keep the exact signed release bytes: a fresh CMS signature can differ
+  // even for identical code. The test preflight temporarily replaces them.
+  const signedRelease = path.join(home, 'signed-release');
+  fs.copyFileSync(binary, signedRelease);
   fs.mkdirSync(path.join(home, 'Desktop'));
   fs.mkdirSync(path.join(home, 'Library', 'Application Support'), { recursive: true });
   const profile = `(version 1)(allow default)
@@ -115,8 +119,8 @@ async function prepare(w) {
   await procs.sleep(500);
   await procs.stop(preflight);
   await require('./login-service').assertUnregistered(app, identifier, { ...env, NOTCH_ISLAND_TEST_INPUT: input });
-  fs.copyFileSync(releaseBinary, binary);
-  sign();
+  fs.copyFileSync(signedRelease, binary);
+  execFileSync('/usr/bin/codesign', ['--verify', '--strict', app], { stdio: 'pipe' });
   assert.equal(check.hash(binary), build.sha256, 'release bytes changed after registration preflight');
   console.log('D79 registration denial proved with the test build; release input remains compiled out');
   const logFile = path.join(home, 'island.log');

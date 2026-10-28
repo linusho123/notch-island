@@ -218,3 +218,22 @@ test('B3: live status width and label changes keep the same identified item', ()
     assert.equal(driver.opened(target, bare(wrong), { ...after, elements: [wrong, menu] }), false);
   }
 });
+
+test('B3: identifier-free Meter labels can update while its own anchored pane opens', () => {
+  const { driver } = fixture();
+  // FU live row: Meter exposes no AXIdentifier, a numeric title, and an
+  // anchored AXSystemDialog named Meter. Its title is not the item's label.
+  const item = { role: 'AXMenuBarItem', subrole: 'AXMenuExtra', owner: 'Meter', pid: 40,
+    title: 'CPU  12%  GPU   2%  RAM  57%', frame: { x: 982, y: 5, w: 286, h: 24 } };
+  const target = { kind: 'status', item, point: { x: 1125, y: 17 } };
+  const top = { ...item, title: 'CPU  27%  GPU   2%  RAM  57%', frame: { ...item.frame, w: 296 } };
+  const menu = { title: 'Meter', frame: { x: 983, y: 32, w: 384, h: 444 }, elements: [
+    { role: 'AXWindow', subrole: 'AXSystemDialog', title: 'Meter' },
+  ] };
+  assert.equal(driver.opened(target, bare(item), { ...bare(top), windows: [menu] }), true);
+  for (const wrong of [{ ...menu, title: 'Print', elements: [] }, { ...menu, frame: { ...menu.frame, x: -400 } }]) {
+    assert.equal(driver.opened(target, bare(item), { ...bare(top), windows: [wrong] }), false);
+  }
+  const different = { ...top, frame: { ...top.frame, x: 1300 } };
+  assert.equal(driver.opened(target, bare(item), { ...bare(different), windows: [menu] }), false);
+});

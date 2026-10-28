@@ -100,12 +100,20 @@ for (const state of ['notFound', 'enabled', 'requiresApproval']) test(`B1: ${sta
     'node:child_process': { execFileSync: () => identifier,
       spawnSync: () => ({ status: 0, stdout: JSON.stringify({ bundleID: identifier, status: state }) }) },
   });
+  const binary = `${dir}/NotchIsland.app/Contents/MacOS/NotchIsland`;
+  const bytes = new Map([['/release', 'release'], ['/test', 'test']]);
+  let signing = 0;
   const cost = load('cost.js', { ...f.stubs,
     'node:fs': { ...f.stubs['node:fs'], mkdtempSync: (p) => p.includes('home') ? home : dir,
-      cpSync: () => {}, openSync: () => 123, closeSync: () => {}, mkdirSync: () => {} },
-    'node:child_process': { ...f.stubs['node:child_process'], spawn: () => guardian, execFile: () => {} },
+      cpSync: () => bytes.set(binary, bytes.get('/release')),
+      copyFileSync: (from, to) => bytes.set(to, bytes.get(from)), openSync: () => 123, closeSync: () => {}, mkdirSync: () => {} },
+    'node:child_process': { ...f.stubs['node:child_process'], spawn: () => guardian, execFile: () => {},
+      execFileSync: (cmd, args) => {
+        if (cmd.includes('codesign') && args.includes('--force')) bytes.set(binary, `${bytes.get(binary)}-signature-${++signing}`);
+        return identifier;
+      } },
     './fixture-preflight': { assertFixtureSession() {} }, './installed-island': { pauseInstalled() {} },
-    './cost-check': { assertRelease: () => ({ sha256: 'same' }), hash: () => 'same' },
+    './cost-check': { assertRelease: (p = '/release') => ({ sha256: bytes.get(p) }), hash: (p) => bytes.get(p) },
     './paths': { root, testBinary: '/test', releaseBinary: '/release', releaseApp: '/release.app' },
     './harness': { windows: async () => [{}] },
     './island': { until: async (fn) => fn() }, './music': {}, './scenes': {},

@@ -134,7 +134,8 @@ const windowKey = (w) => JSON.stringify([w.title, w.frame]);
 // left edge remain stable; never infer identity from a matching width.
 const sameItem = (a, b) => a && b && a.role === b.role
   && (a.identifier ? a.identifier === b.identifier
-    : ['title', 'description'].every((k) => a[k] === b[k]))
+    : !b.identifier && (a.subrole === 'AXMenuExtra' && b.subrole === 'AXMenuExtra'
+      || ['title', 'description'].every((k) => a[k] === b[k])))
   && finiteFrame(a.frame) && finiteFrame(b.frame)
   && ['x', 'y', 'h'].every((k) => a.frame[k] === b.frame[k]);
 const normalized = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -159,6 +160,10 @@ function ownPane(target, window) {
   if (f.y < bottom - 2 || f.y > bottom + 16) return false;
   const names = [item.title, item.description, item.identifier?.split('.').at(-1)].map(normalized).filter(Boolean);
   if (target.kind === 'wifi') names.push('wifi');
+  // Some status apps expose only a changing numeric label, but name their
+  // own anchored pane. The state request is already scoped to that app's PID.
+  if (target.kind === 'status' && !item.identifier && item.subrole === 'AXMenuExtra'
+    && item.owner !== 'Control Center') names.push(normalized(item.owner));
   // Only the pane's own identity or its heading qualifies. A generic Control
   // Center window containing a Wi-Fi button/tile cannot prove Wi-Fi opened.
   const headings = (window.elements || []).filter((e) => e.role === 'AXWindow' || e.role === 'AXHeading');
