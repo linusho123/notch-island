@@ -99,31 +99,56 @@ async function locate(w, target) {
 }
 
 const state = (target) => harness.h('menu-state', target.item.pid, target.point.x, target.point.y);
-const label = (e) => [e.title, e.description, e.identifier, e.value].filter(Boolean).join(' ');
-const visibleMenu = (s) => s.elements.filter((e) => e.role === 'AXMenu' && e.frame?.h > 0
+const visibleMenu = (s) => s.elements.filter((e) => e.role === 'AXMenu' && e.depth > (s.elements[0]?.depth || 0)
+  && e.frame?.w > 0 && e.frame?.h > 0
   && e.AXHidden !== true && e.AXVisible !== false);
 const windowKey = (w) => JSON.stringify([w.title, w.frame]);
+const sameItem = (a, b) => a && b && ['role', 'title', 'description', 'identifier'].every((k) => a[k] === b[k])
+  && ['x', 'y', 'w', 'h'].every((k) => a.frame?.[k] === b.frame?.[k]);
+const normalized = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+function ownPane(target, window) {
+  const f = window.frame;
+  const item = target.item;
+  const bottom = item.frame.y + item.frame.h;
+  // Status popovers attach just below their own icon. An owner dialog on
+  // another screen, or elsewhere on this screen, is not menu evidence.
+  if (!f || f.h <= item.frame.h || target.point.x < f.x || target.point.x >= f.x + f.w
+    || f.y < bottom - 2 || f.y > bottom + 16) return false;
+  const names = [item.title, item.description, item.identifier?.split('.').at(-1)].map(normalized).filter(Boolean);
+  if (target.kind === 'wifi') names.push('wifi');
+  // Only the pane's own identity or its heading qualifies. A generic Control
+  // Center window containing a Wi-Fi button/tile cannot prove Wi-Fi opened.
+  const headings = (window.elements || []).filter((e) => e.role === 'AXWindow'
+    || e.role === 'AXHeading' || (e.role === 'AXStaticText' && e.frame?.y < f.y + 48));
+  const titles = [window.title, ...headings.flatMap((e) => [e.title, e.description, e.identifier, e.value])];
+  return titles.some((title) => title && names.includes(normalized(title)));
+}
 
 function opened(target, before, after) {
   const top = after.elements[0];
+  if (!sameItem(target.item, before.elements[0]) || !sameItem(target.item, top)) return false;
   const selected = top?.AXSelected === true || top?.AXExpanded === true;
   const menus = visibleMenu(after);
   // A selected menu-bar item and an actual menu below it, or a menu subtree
   // that appeared only after this click. A closed command list is insufficient.
   const newMenu = menus.some((m) => !visibleMenu(before).some((b) => JSON.stringify(b) === JSON.stringify(m)));
   if (target.kind !== 'wifi' && menus.length && (selected || newMenu)) return true;
-  // Control Center uses a popover window rather than AXMenu. It must be new,
-  // belong to this exact status item's PID, and (for Wi-Fi) show Wi-Fi itself.
-  return after.windows.some((w) => w.frame?.h > target.item.frame.h
+  // Some status apps use a named, anchored pane instead of an AXMenu child.
+  // Help has no such fallback. All evidence comes from the clicked item's PID.
+  return target.kind !== 'help' && after.windows.some((w) => ownPane(target, w)
     && !before.windows.some((b) => windowKey(b) === windowKey(w))
-    && (target.kind !== 'wifi' || (w.elements || []).some((e) => /wi.?fi/i.test(label(e)))));
+  );
 }
 
 async function click(w, name) {
   const target = await locate(w, name);
   const before = await state(target);
   const top = before.elements[0];
-  assert.ok(top && top.AXSelected !== true && top.AXExpanded !== true, 'the target menu is already open before the click');
+  assert.ok(sameItem(target.item, top), 'the clicked menu-bar item changed before the click');
+  assert.ok(top.AXSelected !== true && top.AXExpanded !== true
+    && visibleMenu(before).length === 0 && !before.windows.some((win) => ownPane(target, win)),
+  'the target menu is already open before the click');
   const n = (await harness.builtIn()).notch;
   assertClosed(await closedSample(w), n, 'before the menu click');
   // Arm Escape before the click, for assertion failures and signal exits too.

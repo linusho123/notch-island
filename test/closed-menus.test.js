@@ -68,3 +68,53 @@ test('M13: the same owned live notch survives click, watch and final assertion',
   finish();
   await driver.assertOpen(w, result);
 });
+
+const targetHelp = { kind: 'help', item: { ...help, pid: 20 }, point: { x: 604, y: 17 } };
+const statusItem = { role: 'AXMenuBarItem', description: 'Wi-Fi', identifier: 'com.apple.menuextra.wifi',
+  owner: 'Control Center', pid: 30, frame: { x: 1400, y: 6, w: 22, h: 22 } };
+const wifi = { kind: 'wifi', item: statusItem, point: { x: 1411, y: 17 } };
+const bare = (item) => ({ elements: [item], windows: [] });
+const pane = (title, identifier) => ({ title, frame: { x: 1250, y: 34, w: 300, h: 400 }, elements: [
+  { role: 'AXWindow', title, identifier, depth: 0 },
+  { role: 'AXHeading', value: title, depth: 1 },
+] });
+
+test('M12: unrelated new and resized owner windows cannot prove Help opened', () => {
+  const { driver } = fixture();
+  for (const old of [[], [pane('Print')]]) {
+    const before = { ...bare(help), windows: old };
+    const dialog = { ...pane('Print'), frame: { x: 500, y: 50, w: 350, h: 250 } };
+    assert.equal(driver.opened(targetHelp, before, { ...bare(help), windows: [dialog] }), false);
+  }
+});
+
+test('M12: only the clicked Help item and its visible descendant menu qualify', () => {
+  const { driver } = fixture();
+  const menu = { role: 'AXMenu', depth: 1, AXVisible: true, frame: { x: 580, y: 34, w: 200, h: 200 } };
+  const before = bare(help);
+  assert.equal(driver.opened(targetHelp, before, { elements: [{ ...help, AXSelected: true }, menu], windows: [] }), true);
+  for (const wrong of [
+    { elements: [{ ...help, title: 'File', AXSelected: true }, menu], windows: [] },
+    { elements: [{ ...help, AXSelected: true }, { ...menu, depth: 0 }], windows: [] },
+    { elements: [{ ...help, AXSelected: true }, { ...menu, AXVisible: false }], windows: [] },
+  ]) assert.equal(driver.opened(targetHelp, before, wrong), false);
+});
+
+test('M12: generic Control Center with a Wi-Fi tile is not the Wi-Fi pane', () => {
+  const { driver } = fixture();
+  const generic = pane('Control Center', 'ControlCenter');
+  generic.elements.push({ role: 'AXButton', description: 'Wi-Fi', depth: 2 });
+  for (const kind of ['wifi', 'status']) {
+    const target = { ...wifi, kind };
+    assert.equal(driver.opened(target, bare(statusItem), { ...bare(statusItem), windows: [generic] }), false);
+    assert.equal(driver.opened(target, bare(statusItem), { ...bare(statusItem), windows: [pane('Wi-Fi', 'WiFi')] }), true);
+  }
+});
+
+test('M12: another icon or unanchored same-name pane cannot satisfy the clicked status item', () => {
+  const { driver } = fixture();
+  const sound = { ...statusItem, description: 'Sound', identifier: 'com.apple.menuextra.sound' };
+  assert.equal(driver.opened(wifi, bare(statusItem), { ...bare(sound), windows: [pane('Wi-Fi', 'WiFi')] }), false);
+  const elsewhere = { ...pane('Wi-Fi', 'WiFi'), frame: { x: -400, y: 400, w: 300, h: 400 } };
+  assert.equal(driver.opened(wifi, bare(statusItem), { ...bare(statusItem), windows: [elsewhere] }), false);
+});
