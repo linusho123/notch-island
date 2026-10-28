@@ -10,7 +10,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const harness = require('./support/harness');
 const island = require('./support/island');
-const { captureVerdict } = require('./support/capture');
+const { captureVerdict, settledPanel } = require('./support/capture');
 
 test('D110: the open island is kept out of screen captures on this Mac', async (t) => {
   const defers = [];
@@ -21,7 +21,7 @@ test('D110: the open island is kept out of screen captures on this Mac', async (
   const c = await harness.notchCenter();
   await harness.move(c.x, 400);
   await harness.glide(c.x, c.y, 10, 10);
-  const view = await island.waitFor(pid, (v) => v.open, 2000, 'the island did not open');
+  const view = await settledPanel(() => island.look(pid));
   const p = view.panel;
   const rect = { x: p.x + 30, y: p.y + 50, w: p.w - 60, h: p.h - 70 };
 
@@ -32,6 +32,7 @@ test('D110: the open island is kept out of screen captures on this Mac', async (
   assert.ok(listed.some((w) => w.frame.h > 100), 'the window server does not list the open island on screen');
 
   // A foreign window over the rect is an environment problem, not D110 false.
-  const verdict = captureVerdict(shots);
+  console.log(`D110 settled rect=${JSON.stringify(rect)} shots=${JSON.stringify(shots)}`);
+  const verdict = captureVerdict({ ...shots, screen: (await harness.builtIn()).frame });
   assert.ok(verdict.ok, verdict.message);
 });

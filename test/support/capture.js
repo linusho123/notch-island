@@ -17,7 +17,7 @@ function captureVerdict(shots) {
   }
   const bright = shots.screencapture.mean > 0.9 && shots.screenCaptureKit.mean > 0.9;
   if (bright) return { ok: true, kind: 'ok', message: '' };
-  const foreign = shots.foreignWindows || [];
+  const foreign = (shots.foreignWindows || []).filter((w) => !require('./capture-preflight').ruledSystemLayer(w, shots.screen));
   if (foreign.length) {
     return {
       ok: false,
@@ -88,3 +88,24 @@ function intervalVerdict(t) {
   return { ok: true, kind: 'ok', message: '' };
 }
 module.exports.intervalVerdict = intervalVerdict;
+
+// Opening AX windows exist before the spring has settled. Require a useful
+// panel rect unchanged across 200 ms before choosing a capture crop.
+async function settledPanel(look, { now = Date.now, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+  const end = now() + 3000;
+  let previous;
+  let stableSince;
+  do {
+    const view = await look();
+    const p = view.panel;
+    const usable = view.open && p && p.w > 60 && p.h > 100
+      && ['x', 'y', 'w', 'h'].every((k) => Number.isFinite(p[k]));
+    if (usable && previous && ['x', 'y', 'w', 'h'].every((k) => Math.abs(p[k] - previous[k]) < 0.5)) {
+      if (now() - stableSince >= 200) return view;
+    } else stableSince = now();
+    previous = usable ? p : null;
+    await sleep(50);
+  } while (now() < end);
+  throw new Error('the open panel did not settle before capture');
+}
+module.exports.settledPanel = settledPanel;

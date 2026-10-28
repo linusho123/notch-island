@@ -6,13 +6,16 @@ const { harness } = require('./paths');
 const overlaps = (a, b) => a && b && a.x < b.x + b.w && b.x < a.x + a.w
   && a.y < b.y + b.h && b.y < a.y + a.h;
 
-function foreignOverNotch(windows, notch, screen) {
-  const systemLayer = (w) => screen && ['x', 'y', 'w', 'h'].every((k) => w.frame?.[k] === screen[k])
+function ruledSystemLayer(w, screen) {
+  return screen && ['x', 'y', 'w', 'h'].every((k) => w.frame?.[k] === screen[k])
     && ((w.owner === 'Dock' && w.layer === 20) || (w.owner === 'Notification Center' && w.layer === 21));
+}
+
+function foreignOverNotch(windows, notch, screen) {
   // Normal menu-bar windows are the reference itself. Layers above that are
   // foreign; so are floating system popovers below the menu-bar layer. The
   // camera housing's own island is reported separately as a launch blocker.
-  return windows.filter((w) => !systemLayer(w) && w.layer > 0 && w.owner !== 'Window Server'
+  return windows.filter((w) => !ruledSystemLayer(w, screen) && w.layer > 0 && w.owner !== 'Window Server'
     && w.owner !== 'notch-island' && overlaps(w.frame, notch));
 }
 
@@ -34,4 +37,4 @@ function preflight() {
   return builtIn;
 }
 
-module.exports = { preflight, foreignOverNotch };
+module.exports = { preflight, foreignOverNotch, ruledSystemLayer };
