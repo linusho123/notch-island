@@ -17,7 +17,7 @@ test('D79 requires optimized release provenance and test-marker positive control
 });
 
 test('D79 parses all 61 top snapshots, refusing missing samples or POWER', () => {
-  const raw = rows().map((rs) => `Processes: 4 total\nPID PPID %CPU POWER COMMAND\n${rs.map((r) =>
+  const raw = rows().map((rs) => `Processes: 4 total\n2026/10/27 18:15:17\nLoad Avg: 1.69, 2.11, 2.30\nPID PPID %CPU POWER COMMAND\n${rs.map((r) =>
     `${r.pid} ${r.ppid} ${r.cpu} ${r.power} ${r.command}`).join('\n')}\n`).join('');
   assert.deepEqual(check.parseTop(raw), rows());
   assert.throws(() => check.parseTop(raw.replace('Processes:', 'Missing:')), /baseline plus 60/);

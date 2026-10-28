@@ -37,8 +37,9 @@ function parseTop(raw) {
   const blocks = raw.split(/^Processes:/m).slice(1);
   assert.equal(blocks.length, 61, 'top must provide a baseline plus 60 one-second intervals');
   return blocks.map((block) => {
-    assert.match(block, /^PID\s+PPID\s+%CPU\s+POWER\s+COMMAND\s*$/m, 'top lacks CPU/POWER columns');
-    const rows = block.split('\n').flatMap((line) => {
+    const header = /^PID\s+PPID\s+%CPU\s+POWER\s+COMMAND[ \t]*$/m.exec(block);
+    assert.ok(header, 'top lacks CPU/POWER columns');
+    const rows = block.slice(header.index + header[0].length).split('\n').flatMap((line) => {
       const m = /^(\d+)\s+(\d+)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(.+?)\s*$/.exec(line);
       assert.ok(m || !/^\d/.test(line), `unreadable top process row: ${line}`);
       return m ? [{ pid: Number(m[1]), ppid: Number(m[2]), cpu: Number(m[3]), power: Number(m[4]), command: m[5] }] : [];
