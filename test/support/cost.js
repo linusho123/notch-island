@@ -5,11 +5,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { execFile, execFileSync } = require('node:child_process');
+const { execFile, execFileSync, spawn } = require('node:child_process');
 const { promisify } = require('node:util');
 const check = require('./cost-check');
-const { root, releaseBinary, releaseApp } = require('./paths');
-const { onCleanup } = require('./cleanup');
+const { root, releaseBinary, releaseApp, testBinary } = require('./paths');
 const procs = require('./procs');
 const registry = require('./registry');
 const harness = require('./harness');
@@ -33,19 +32,13 @@ async function prepare(w) {
   // SwiftPM's release compiler output. Both marker checks have a test-build
   // positive control, so an empty/wrong binary cannot silently pass.
   const originalBuild = check.assertRelease();
-  const before = await islandItems();
+  const before = (await islandItems()).filter((i) => !i.bundleID?.startsWith('local.notch-island.cost.'));
   const fixture = fs.mkdtempSync(path.join(root, 'build', 'apps.noindex', 'p6-cost-'));
   const home = fs.mkdtempSync('/tmp/ni-cost-home-');
-  const remove = () => {
-    fs.rmSync(fixture, { recursive: true, force: true });
-    fs.rmSync(home, { recursive: true, force: true });
-  };
-  const disarm = onCleanup(remove);
-  w.defer(() => { remove(); disarm(); });
   // Normal Foundation home resolution, not an app test switch. Keep the
   // release code intact and give the fixture its own Apple Events identity.
-  // BTM IPC is denied before launch: this release copy cannot register or
-  // alter the installed login item. The registry is also checked after exit.
+  // Service Management IPC/job creation are denied before launch and proved
+  // using the test build first; this release copy must never register.
   const app = path.join(fixture, 'NotchIsland.app');
   fs.cpSync(releaseApp, app, { recursive: true });
   const binary = path.join(app, 'Contents', 'MacOS', 'NotchIsland');
@@ -60,7 +53,29 @@ async function prepare(w) {
     <key>com.apple.security.automation.apple-events</key><true/>
     <key>com.apple.security.temporary-exception.apple-events</key><array><string>com.apple.Music</string></array>
     </dict></plist>`);
-  execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', '--entitlements', entitlements, app], { stdio: 'pipe' });
+  const sign = () => execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', '--entitlements', entitlements, app], { stdio: 'pipe' });
+  sign();
+  const guardianLog = fs.openSync(path.join(home, 'guardian.log'), 'a');
+  const guardian = spawn(process.execPath, [path.join(__dirname, 'cost-guardian.js'), fixture, home], {
+    detached: true, stdio: ['ignore', guardianLog, guardianLog, 'ipc'],
+  });
+  fs.closeSync(guardianLog);
+  const finished = new Promise((resolve, reject) => {
+    guardian.once('error', reject);
+    guardian.once('exit', (code) => code === 0 ? resolve() : reject(new Error(`cost guardian exited ${code}: ${home}/guardian.log`)));
+  });
+  finished.catch(() => {});
+  w.defer(async () => {
+    if (guardian.connected) guardian.send('cleanup');
+    await finished;
+    assert.deepEqual((await islandItems()).filter((i) => !i.bundleID?.startsWith('local.notch-island.cost.')), before,
+      'D79 changed an existing login item');
+  });
+  await new Promise((resolve, reject) => {
+    guardian.once('message', resolve);
+    guardian.once('error', reject);
+    guardian.once('exit', (code) => reject(new Error(`cost guardian not ready: ${code}`)));
+  });
   // Only identity/signature changed: the Mach-O linker UUID and release
   // compiler flags must still match, and test-input markers remain absent.
   const build = { ...check.assertRelease(binary), originalSha256: originalBuild.sha256, identifier,
@@ -69,10 +84,31 @@ async function prepare(w) {
   fs.mkdirSync(path.join(home, 'Library', 'Application Support'), { recursive: true });
   const profile = `(version 1)(allow default)
     (allow appleevent-send (appleevent-destination "com.apple.Music"))
+    (deny job-creation)
+    (deny mach-lookup (global-name "com.apple.xpc.smd"))
     (deny mach-lookup (global-name-regex #"com\\.apple\\.backgroundtaskmanagement.*"))
     (deny file-write* (subpath ${JSON.stringify(os.homedir())}))`;
   const env = { ...process.env, HOME: home, CFFIXED_USER_HOME: home };
   delete env.NOTCH_ISLAND_TEST_INPUT;
+  // A real test build attempts its normal registration under exactly the
+  // same profile/identity. If macOS lets it through, fail and let the guardian
+  // unregister it; never launch the release executable on that path.
+  fs.copyFileSync(testBinary, binary);
+  sign();
+  const input = path.join(home, 'preflight.json');
+  fs.writeFileSync(input, JSON.stringify({ dataDirectory: home, screenshotDirectory: path.join(home, 'Desktop'), chromeSocket: path.join(home, 'chrome.sock') }));
+  const preflight = procs.start('D79 test-build registration preflight', '/usr/bin/sandbox-exec', ['-p', profile, binary], {
+    env: { ...env, NOTCH_ISLAND_TEST_INPUT: input },
+  });
+  w.defer(() => procs.stop(preflight));
+  await island.until(async () => (await harness.windows(preflight.pid)).length > 0, 10000, 'registration preflight did not start');
+  await procs.sleep(500);
+  await procs.stop(preflight);
+  assert.equal(await registry.enabledApp(identifier), null, 'sandbox allowed test registration: release will not be launched');
+  fs.copyFileSync(releaseBinary, binary);
+  sign();
+  assert.equal(check.hash(binary), build.sha256, 'release bytes changed after registration preflight');
+  console.log('D79 registration denial proved with the test build; release input remains compiled out');
   const logFile = path.join(home, 'island.log');
   const log = fs.openSync(logFile, 'a');
   let handle;
@@ -84,7 +120,7 @@ async function prepare(w) {
   w.island = handle;
   w.defer(async () => {
     await procs.stop(handle);
-    assert.deepEqual(await islandItems(), before, 'D79 changed a login-item registration');
+    assert.equal(await registry.enabledApp(identifier), null, 'release fixture became enabled');
   });
   w.cost = { build, binary, adapter, home, logFile };
   w.defer(() => {
@@ -119,7 +155,7 @@ async function prepare(w) {
   assert.ok(fs.existsSync(path.join(home, 'Library', 'Application Support', 'notch-island')),
     'Foundation did not isolate the release home');
   assert.ok(!/the now-playing adapter is missing/.test(fs.readFileSync(logFile, 'utf8')));
-  assert.deepEqual(await islandItems(), before, 'release startup changed a login item');
+  assert.equal(await registry.enabledApp(identifier), null, 'release startup registered a login item');
   console.log(`D79 release ${build.sha256}; -O, whole-module optimization; both test markers absent. pid=${handle.pid}`);
 }
 
