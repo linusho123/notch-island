@@ -8,6 +8,7 @@ const { spawnSync } = require('node:child_process');
 const { parseFeature, StepRegistry, runFeature } = require('gherkin-node-test');
 require('../test/support/require-idle').assertInIdleRun();
 const dir = '/tmp/ni-p6';
+const tag = process.env.P6_FU_FOLLOWUP ? 'followup-' : '';
 const selections = {
   'around-the-clock': '*',
   'music-panel': [11, 18, 29, 35, 41, 203, 209, 216],
@@ -17,7 +18,10 @@ const selections = {
   'shelf-notes-and-reminders': [11, 37, 62, 74, 98],
 };
 function selected() {
-  return Object.entries(selections).map(([name, lines]) => {
+  const chosen = process.env.P6_FU_FOLLOWUP ? {
+    'around-the-clock': '*', 'music-sources': [118], 'new-song-notice': [35, 96],
+  } : selections;
+  return Object.entries(chosen).map(([name, lines]) => {
     const file = path.resolve('features', `${name}.feature`);
     const feature = parseFeature(fs.readFileSync(file, 'utf8'), file);
     feature.scenarios = feature.scenarios.filter((s) => lines === '*' || lines.includes(s.line));
@@ -54,7 +58,7 @@ if (process.env.P6_FU_CHILD) {
   fs.mkdirSync(dir, { recursive: true });
   const results = [];
   function run(label, files, extra = {}) {
-    const output = `${dir}/fu-ui-${label}.txt`;
+    const output = `${dir}/fu-ui-${tag}${label}.txt`;
     console.log(`RUN ${label}: ${output}`);
     const fd = fs.openSync(output, 'w');
     const r = spawnSync(process.execPath, ['--test', '--test-concurrency=1', '--test-reporter=tap', ...files], {
@@ -62,11 +66,11 @@ if (process.env.P6_FU_CHILD) {
     });
     fs.closeSync(fd);
     const code = r.status ?? r.signal;
-    fs.writeFileSync(`${dir}/fu-ui-${label}.exit`, `${code}\n`);
+    fs.writeFileSync(`${dir}/fu-ui-${tag}${label}.exit`, `${code}\n`);
     console.log(`${label}: exit=${code}`);
     const text = fs.readFileSync(output, 'utf8');
     results.push({ label, output, code });
-    fs.writeFileSync(`${dir}/fu-ui-results.json`, JSON.stringify(results, null, 2));
+    fs.writeFileSync(`${dir}/fu-ui-${tag}results.json`, JSON.stringify(results, null, 2));
     return { code, text, output };
   }
   const verified = spawnSync(process.execPath, ['scripts/verify-installed-login.js'], { stdio: 'inherit' });
@@ -91,13 +95,13 @@ if (process.env.P6_FU_CHILD) {
   const status = run('probe-status', [__filename], { P6_FU_PROBE: 'status' });
   const green = run('rows', [__filename, 'test/hidden-from-capture.test.js', 'test/login-cleanup.test.js']);
   const rows = selected().flatMap(({ name, feature }) => feature.scenarios.map((s) => {
-    const result = green.text.split('\n').find((line) => /^(not )?ok \d+ - /.test(line) && line.includes(`${feature.name} :: ${s.name}`));
+    const result = green.text.split('\n').find((line) => /^(not )?ok \d+ - /.test(line) && line.includes(`${feature.feature} :: ${s.name}`));
     let state = result?.startsWith('ok ') ? 'ran green' : result ? 'ran red' : 'bound, not run';
     if (name === 'around-the-clock' && /sharing the screen in (Zoom|Meet)|When the share ends/.test(s.name)
       && !process.env.P6_SERVICE_EVIDENCE) state = 'bound, not run';
     return { feature: name, line: s.line, name: s.name, status: state, run: green.output };
   }));
-  fs.writeFileSync(`${dir}/fu-ui-rows.json`, JSON.stringify(rows, null, 2));
+  fs.writeFileSync(`${dir}/fu-ui-${tag}rows.json`, JSON.stringify(rows, null, 2));
   process.exitCode = green.code === 0 && wifi.code === 1 && /its own menu did not open/.test(wifi.text)
     && status.code === 1 && /item changed before the click/.test(status.text) ? 0 : 1;
 }
