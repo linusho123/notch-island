@@ -1246,3 +1246,12 @@ D140 2026-10-24 [I>V] reverses D135
 # P3.5 amendment before merge; the visionary picked, among offered shapes, the card below the menu bar strip (not from the screen's top, which would cover Meter) and a plain notch while open (no lip)
 # GPL note: vorssaint-utils is GPL-3.0; only its look is matched, none of its code is copied
 # roads not taken: the notch-wide neck with curved shoulders (D135, built and seen); a card from the screen's top over the menu bar strip; a small black lip left around the notch while open; scaling in place instead of growing out of the notch
+
+D141 2026-10-29 [V]
+  trig:  the visionary comes back to decide what an AI integration on the island should do [V]
+  resp:  some sort of AI integration is a future idea, not scoped now; the starting thought was quick access to the Gemini, Claude and ChatGPT web chatbots from the notch, with no behaviour, need or why yet ruled [V]
+  ->     fence-deferred ai-integration
+  serves: N8
+  touches: D1 D80 N8
+# the visionary opened a scoping interview for it, then stopped it before the vision was confirmed and asked for it to be noted as a future idea
+# D1 reads "only a quick-access shelf joins music"; deferring leaves D1 standing, and reopening this will put D1 to the visionary as its own decision point

@@ -17,6 +17,7 @@ docket ids that ruled it and the date it was ratified.
 ## Deferred
 
 - **install-and-update.** How the island is installed and updated, for me and for others, is not ruled now; any way of getting it onto my own Mac will do until then, since sharing is a maybe and no behaviour depends on it. Reopens when I decide to share the island with other people. (D82, 2026-10-18)
+- **ai-integration.** Some sort of AI integration is a future idea, not scoped now. The starting thought was quick access to the Gemini, Claude and ChatGPT web chatbots from the notch; what it should do and why is still open. Reopens when I come back to decide what it should do, and since "only a quick-access shelf joins music" (other-island-uses) still stands, that ruling comes up for a decision then too. (D141, 2026-10-29)
 
 ## Named assumptions
 
