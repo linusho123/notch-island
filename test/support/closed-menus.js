@@ -118,9 +118,11 @@ async function locate(w, target) {
   }
   const point = center(item.frame);
   if (target.startsWith('the right-hand edge')) {
-    // Half a logical point is inside the AX boundary, including on a Retina
-    // screen, and still exercises a dead zone confined to the final two points.
-    const inset = 0.5;
+    // One logical point is inside the AX boundary and still exercises a dead
+    // zone confined to the final two points. (On macOS 27 Chrome's own Help
+    // does not open from its last half point, with or without the island:
+    // probed 2026-10-30, so half a point would test Chrome, not the island.)
+    const inset = 1;
     assert.ok(item.frame.w > inset, 'Help is too narrow for the inside-edge click');
     point.x = item.frame.x + item.frame.w - inset;
   }
