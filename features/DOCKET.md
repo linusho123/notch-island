@@ -1290,3 +1290,11 @@ D145 2026-10-30 [V]
   serves: N5
   touches: D60 D86
 # ruled 2026-10-28 at the P6 close-out (Q1, "left as is"); recorded in the docket 2026-10-30 when the audit found it only in a binding's comment
+
+D146 2026-10-30 [V]
+  trig:  the external-monitor scenario runs while only the built-in display is connected, and refuses: it needs the monitor `PM161Q J` attached as an extended display [V]
+  resp:  it is left as it is until it can run with the monitor connected; the rest of D16 is carried by the built-in-notch scenarios [V]
+  ->     fence-deferred external-monitor-run
+  serves: N2 N5
+  touches: D16 D15
+# the visionary's answer of 2026-10-30: scenarios that need hardware not plugged in are recorded as deferred, like the share-viewer and real-logout checks

@@ -4,6 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const harness = require('../support/harness');
 const island = require('../support/island');
+const music = require('../support/music');
+const scenes = require('../support/scenes');
 const { scratch } = require('../support/sandbox');
 const { launchDropStandIn } = require('../support/shelf');
 const { helpers } = require('./music-panel.steps');
@@ -918,6 +920,27 @@ module.exports = function (reg) {
 
       w.weekSamples.push({ day, view, windows: currentWindows });
     }
+  });
+
+  reg.define(/^a new song then starts in Apple Music and does bring a wing out of the closed island, which folds back$/, async (w) => {
+    // In-world positive control: the same closed island, the same wing
+    // observation as the week's samples, must see a wing when a song starts,
+    // so the week's "no wing" could have failed.
+    await playing(w, 'Wonderwall', 30);
+    await sleep(1200);
+    await scenes.plainNotch(w);
+    await music.play('Champagne Supernova');
+    w.defer(() => music.pause().catch(() => {}));
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => !v.open && v.wing && v.wing.art,
+      3000,
+      'positive control: a new song popped no wing out of the closed island, so the quiet week proves nothing'
+    );
+    assert.ok(view.wing.art, 'wing has no cover art');
+    await music.pause().catch(() => {});
+    await sleep(1200);
+    await scenes.plainNotch(w);
   });
 
   reg.define(/^the visionary opens the shelf page$/, async (w) => {

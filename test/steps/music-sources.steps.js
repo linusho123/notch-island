@@ -19,6 +19,7 @@ const procs = require('../support/procs');
 const chrome = require('../support/chrome');
 const standIns = require('../support/stand-ins');
 const paths = require('../support/paths');
+const path = require('node:path');
 const { helpers } = require('./music-panel.steps');
 
 const {
@@ -238,7 +239,7 @@ module.exports = (reg) => {
     await sourceLineReads(w, 'Apple Music · JBL Flip 5');
   });
 
-  reg.define(/^the visionary (quit Apple Music|quit IINA) while it played ("Wonderwall"|the file "[^"]+") at ([\d:]+), and nothing else is playing$/, async (w, closed, title, spot) => {
+  reg.define(/^the visionary (quit Apple Music|quit IINA|quit QuickTime Player|quit Music) while it played ("Wonderwall"|the file "[^"]+") at ([\d:]+), and nothing else is playing$/, async (w, closed, title, spot) => {
     await ensureIsland(w);
     const at = players.seconds(spot);
     const name = titleOf(title);
@@ -253,6 +254,22 @@ module.exports = (reg) => {
       await musicSays((s) => s.state === 'playing' && s.position >= at, 3000, `Music does not play on from ${spot}`);
       await sleep(1200); // the island sees it play
       await quitMusic();
+    } else if (closed === 'quit QuickTime Player') {
+      await music.pause().catch(() => {});
+      await players.playInQuickTime(w, await players.movie(name, 600), at);
+      await sleep(1200); // the island sees it play
+      await players.quitQuickTime();
+    } else if (closed === 'quit Music') {
+      // A downloaded file, played by Music itself: moved to the spot while
+      // paused and played on from there, as for a song.
+      const file = name.endsWith('.mp3') ? players.mp3(name, 600) : players.wav(name, 600);
+      await players.playFileInMusic(w, file);
+      await music.pause();
+      await music.seek(at);
+      await music.osa('tell application "Music" to play');
+      await musicSays((s) => s.state === 'playing' && s.position >= at, 3000, `Music does not play on from ${spot}`);
+      await sleep(1200); // the island sees it play
+      await quitMusic();
     } else {
       await music.pause().catch(() => {});
       const file = await players.movie(name, 3600);
@@ -261,6 +278,7 @@ module.exports = (reg) => {
       await players.quitIINA(w);
       players.forgetIINAResume(file); // only the island may know where it was
     }
+    w.closedApp = closed.replace(/^quit /, '');
     w.spot = at;
     w.title = name;
     w.closedAt = Date.now();
@@ -401,7 +419,7 @@ module.exports = (reg) => {
     assert.equal(players.running('com.apple.Music'), false, 'Music is running again: the island started it');
   });
 
-  reg.define(/^the visionary sees (Apple Music|IINA|Chrome) open ("Wonderwall"|"Lecture 4: Fourier Series"|the file "[^"]+") again$/, async (w, app, title) => {
+  reg.define(/^the visionary sees (Apple Music|IINA|Chrome|QuickTime Player|Music) open ("Wonderwall"|"Lecture 4: Fourier Series"|the track "late night mix"|the file "[^"]+") again$/, async (w, app, title) => {
     const name = titleOf(title);
     if (app === 'Chrome') {
       // The test Chrome itself has a tab of that page playing again.
@@ -410,6 +428,14 @@ module.exports = (reg) => {
       await w.reopened.waitMedia((m) => !m.paused && !m.muted, 8000, `Chrome does not play "${name}" again`);
     } else if (app === 'Apple Music') {
       await musicSays((s) => s.state === 'playing' && s.name === name, 8000, `Music did not open "${name}" again`);
+    } else if (app === 'QuickTime Player') {
+      await players.until(async () => {
+        const s = await players.quickTimeState();
+        return s && s.name.startsWith(name.replace(/\.[^.]+$/, '')) && s.playing;
+      }, 15000, `QuickTime Player did not open "${name}" again`);
+    } else if (app === 'Music') {
+      await players.until(async () => path.basename(await players.musicFile()) === name, 15000,
+        `Music did not open "${name}" again`);
     } else {
       await players.until(async () => {
         const s = await players.iinaState();
@@ -418,17 +444,31 @@ module.exports = (reg) => {
     }
   });
 
-  reg.define(/^the visionary hears ("Wonderwall"|"Lecture 4: Fourier Series"|the file "[^"]+") playing from ([\d:]+), not from the start$/, async (w, title, spot) => {
+  reg.define(/^the visionary hears ("Wonderwall"|"Lecture 4: Fourier Series"|the track "late night mix"|the file "[^"]+") playing from ([\d:]+), not from the start$/, async (w, title, spot) => {
     const at = players.seconds(spot);
     const since = (Date.now() - w.closedAt) / 1000;
     const check = (pos) => pos >= at - 1 && pos <= at + since + 3;
-    if (titleOf(title) === 'Lecture 4: Fourier Series') {
+    if (titleOf(title) === 'Lecture 4: Fourier Series' || titleOf(title) === 'late night mix') {
       const m = await w.reopened.media();
       assert.ok(!m.paused && check(m.currentTime), `the lecture plays from ${m.currentTime.toFixed(1)} s, not from ${spot}`);
     } else if (titleOf(title) === 'Wonderwall') {
       const s = await musicSays((x) => x.state === 'playing' && check(x.position), 6000,
         `Music does not play Wonderwall from ${spot}`);
       assert.equal(s.name, 'Wonderwall');
+    } else if (w.closedApp === 'QuickTime Player') {
+      let last;
+      await players.until(async () => {
+        last = await players.quickTimeState();
+        return last && last.playing && check(last.time);
+      }, 10000, `QuickTime Player does not play from ${spot}`).catch((e) => {
+        e.message += ` (QuickTime Player is at ${last && last.time})`;
+        throw e;
+      });
+    } else if (w.closedApp === 'Music') {
+      const file = titleOf(title);
+      const s = await musicSays((x) => x.state === 'playing' && check(x.position), 6000,
+        `Music does not play ${file} from ${spot}`);
+      assert.equal(path.basename(await players.musicFile()), file, `Music plays ${s.name}, not ${file}`);
     } else {
       let last;
       await players.until(async () => {
@@ -654,10 +694,11 @@ module.exports = (reg) => {
     await players.quitIINA(w);
   });
 
-  reg.define(/^the visionary closed the youtube\.com tab while it played "(Lecture 4: Fourier Series)" at ([\d:]+), and nothing else is playing$/, async (w, title, spot) => {
+  reg.define(/^the visionary closed the (?:youtube|soundcloud)\.com tab while it played ("Lecture 4: Fourier Series"|the track "late night mix") at ([\d:]+), and nothing else is playing$/, async (w, titleText, spot) => {
     await ensureIsland(w);
     await music.pause().catch(() => {});
     const at = players.seconds(spot);
+    const title = titleOf(titleText);
     w.tab = await chrome.playInTab(w, title, at);
     await sleep(1200); // the island sees it play
     await w.tab.close();
@@ -709,6 +750,17 @@ module.exports = (reg) => {
     assert.ok(s.state === 'paused' && s.name === 'Wonderwall', `Music is ${s.state} on ${s.name}`);
     const m = await w.clip.media();
     assert.ok(!m.paused, 'the clip is not playing');
+    // The control, in this world: with the clip still playing, a youtube.com
+    // stand-in tab with sound, started in the same test Chrome, does reach
+    // the island, which shows it on the card. So the Chrome, extension and
+    // island pipeline was live while the clip stayed off, and the clip
+    // alone, still playing, adds no second face.
+    w.control = await chrome.playInTab(w, 'Lecture 4: Fourier Series', 30);
+    const after = await island.waitFor(w.island.pid, (v) => v.title?.value === 'Lecture 4: Fourier Series', 5000,
+      'the control tab, a youtube.com video with sound, never reached the card: the pipeline was not live');
+    assert.ok(!after.buttons.some((b) => b.label === 'Flip'), 'the card has a flip control: the clip counts beside the control');
+    assert.equal(after.count, null, 'the card shows a count: the clip counts beside the control');
+    assert.ok(!(await w.clip.media()).paused, 'the clip stopped playing');
   });
 
   reg.define(/^the visionary sees a small flip control on the card$/, async (w) => {

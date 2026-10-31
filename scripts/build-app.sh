@@ -9,6 +9,7 @@
 #   build/island-harness            the harness's helper (never bundled)
 set -eu
 cd "$(dirname "$0")/.."
+. scripts/lib/sdk.sh
 VERSION=$(node -p "require('./package.json').version")
 
 # The apps are signed with one identity kept across builds, so macOS

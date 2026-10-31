@@ -11,6 +11,10 @@ public final class CaptureWatcher: @unchecked Sendable {
   public let store: ShelfStore
   public var onCaptureParked: (@Sendable (ShelfItem) -> Void)?
   public var locationProvider: (@Sendable () -> URL)?
+  /// Files whose change may move the screenshot location (the screenshot
+  /// preferences; a test build's input): the location is checked on their
+  /// events, and on the watched folder appearing, never on a timer (D79).
+  public let locationSignals: [URL]
 
   /// Number of retries when detecting captures (5.0s total at 50ms interval) (SF9, m1).
   public static let captureDetectionRetryCount = 100
@@ -18,7 +22,7 @@ public final class CaptureWatcher: @unchecked Sendable {
 
   private let queue = DispatchQueue(label: "notch-island.capture-watcher")
   private var source: DispatchSourceFileSystemObject?
-  private var locationTimer: DispatchSourceTimer?
+  private var locationWatch: PathWatch?
   private var seenPaths: Set<String> = []
   private var isRunning = false
   private let lock = NSLock()
@@ -26,16 +30,24 @@ public final class CaptureWatcher: @unchecked Sendable {
   public init(
     directory: URL,
     store: ShelfStore,
-    locationProvider: (@Sendable () -> URL)? = nil
+    locationProvider: (@Sendable () -> URL)? = nil,
+    locationSignals: [URL] = []
   ) {
     self.directory = directory
     self.store = store
     self.locationProvider = locationProvider
+    self.locationSignals = locationSignals
   }
 
   deinit {
     stop()
   }
+
+  /// The screenshot preferences file, whose change may move the location.
+  public static let screenshotPreferences: [URL] = [
+    FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+      .appendingPathComponent("Preferences/com.apple.screencapture.plist")
+  ]
 
   /// Default screenshot location: reads `com.apple.screencapture location`
   /// or falls back to `~/Desktop`.
@@ -85,14 +97,19 @@ public final class CaptureWatcher: @unchecked Sendable {
 
     snapshotExistingFiles()
     armSource()
+    watchLocation()
+  }
 
-    let timer = DispatchSource.makeTimerSource(queue: queue)
-    timer.schedule(deadline: .now() + 1.0, repeating: 1.0)
-    timer.setEventHandler { [weak self] in
+  /// Watches the location's signals and the watched folder itself (on
+  /// `lock`): a moved location, or a folder made after the start, is
+  /// followed on the event.
+  private func watchLocation() {
+    locationWatch?.stop()
+    let watch = PathWatch(locationSignals + [directory]) { [weak self] in
       self?.checkLocation()
     }
-    timer.resume()
-    self.locationTimer = timer
+    watch.start()
+    locationWatch = watch
   }
 
   /// Stops watching.
@@ -101,8 +118,8 @@ public final class CaptureWatcher: @unchecked Sendable {
     defer { lock.unlock() }
     guard isRunning else { return }
     isRunning = false
-    locationTimer?.cancel()
-    locationTimer = nil
+    locationWatch?.stop()
+    locationWatch = nil
     source?.cancel()
     source = nil
   }
@@ -117,6 +134,7 @@ public final class CaptureWatcher: @unchecked Sendable {
       source = nil
       snapshotExistingFiles()
       armSource()
+      watchLocation()
     }
     lock.unlock()
   }

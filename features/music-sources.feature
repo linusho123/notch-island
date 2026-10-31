@@ -192,6 +192,9 @@ Feature: Music sources
       | quit Apple Music           | "Wonderwall"                | 2:10    | Apple Music |
       | closed the youtube.com tab | "Lecture 4: Fourier Series" | 12:34   | Chrome      |
       | quit IINA                  | the file "rehearsal.mkv"    | 0:42:10 | IINA        |
+      | closed the soundcloud.com tab | the track "late night mix" | 8:20    | Chrome      |
+      | quit QuickTime Player      | the file "holiday.mov"      | 1:05    | QuickTime Player |
+      | quit Music                 | the file "demo-take-3.mp3"  | 1:20    | Music       |
 
   @D46 @D47
   Scenario Outline: With nothing <where> it, <button> on the island goes to <app>

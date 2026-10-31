@@ -22,6 +22,8 @@ docket ids that ruled it and the date it was ratified.
 - **share-viewer-evidence.** The Zoom and Meet screen-sharing scenarios assert what Zoom and Meet viewers see, and no real viewer's evidence is at hand, so they stay red and are left as they are; the hidden-from-capture guarantee stands on the screen recording and system capture scenarios. Reopens when a real Zoom or Meet viewer's capture is available to check against, or when the system capture scenarios turn red. (D144, ruled 2026-10-28, recorded 2026-10-30)
 - **real-logout-check.** The start-at-login scenarios relaunch the registered app after a quit, a crash or a stop, standing in for a real logout and login; the one real logout and login check is left as it is. Reopens when I log out and back in and the island is not running, or when macOS changes how login items start. (D145, ruled 2026-10-28, recorded 2026-10-30)
 
+- **external-monitor-run.** The scenario "With an external monitor connected, the wing still pops at the built-in notch" needs the monitor `PM161Q J` attached as an extended display, and refuses to run without it; it is left as it is until it can run with the monitor connected. Reopens when the monitor is connected for a run. (D146, 2026-10-30)
+
 ## Named assumptions
 
 - **external-monitor-extended.** When I add an external monitor it is an extended display, never mirrored, and it has no notch; the scope treats it as an extra screen without a notch beside the built-in one. Reopens if I start mirroring onto an external display, or use one that has a notch — the reopening condition confirmed at the scope-fence readback. (D15, 2026-10-18)

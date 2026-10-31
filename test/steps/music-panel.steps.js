@@ -77,7 +77,9 @@ async function rest(w, ms) {
   const c = await harness.notchCenter();
   await harness.move(c.x, n.y + n.h + 150);
   await sleep(80);
-  await harness.glide(c.x, c.y, 10, 10);
+  // A mouse jumps in a few coarse hops; a trackpad glides finely.
+  if (w.mouse) await harness.glide(c.x, c.y, 2, 40);
+  else await harness.glide(c.x, c.y, 10, 10);
   w.arrivedAt = Date.now();
   if (ms) await sleep(ms);
   return pid;
@@ -256,6 +258,9 @@ async function pickQuit(w) {
   const menus = await harness.menus(w.island.pid);
   const quit = menus.flatMap((m) => m.items).find((i) => i.title === 'Quit');
   assert.ok(quit, 'the menu has no Quit');
+  // In-world control: the island is seen alive before the Quit takes effect,
+  // so its later absence is a change this world can show.
+  w.beforeQuit = { alive: procs.alive(w.island), running: island.runningIslands() };
   const c = center(quit.frame);
   await harness.glide(c.x, c.y, 5, 10);
   await harness.click(c.x, c.y);
@@ -407,6 +412,8 @@ module.exports = (reg) => {
   reg.define(/^an external mouse is connected and Apple Music is playing "Wonderwall"$/, async (w) => {
     // The harness posts mouse events: plain clicks and a wheel that turns in
     // notches, as an external mouse sends them (never a continuous scroll).
+    // The steps read w.mouse: the pointer moves in a few coarse hops (no
+    // fine glide) and the click is a plain down/up at the spot.
     w.mouse = true;
     await ensureIsland(w);
     await playing(w, 'Wonderwall', 30);
@@ -602,7 +609,10 @@ module.exports = (reg) => {
     const n = await notch();
     await harness.move(c.x, n.y + n.h + 150);
     await sleep(80);
-    const r = await harness.arriveAndClick(pid, c.x, c.y, 400);
+    // A mouse arrives in two coarse hops and clicks plainly at the spot.
+    const r = w.mouse
+      ? await harness.arriveAndClick(pid, c.x, c.y, 400, 2, 40)
+      : await harness.arriveAndClick(pid, c.x, c.y, 400);
     w.clickedAt = r.clickedAt;
     w.afterClick = r.samples.map((s) => ({ t: s.t, view: island.parse(s.windows, n) }));
   });
@@ -612,7 +622,8 @@ module.exports = (reg) => {
     assert.ok(view.panel, 'the island is not open');
     w.beforeScroll = view;
     const c = center(view.panel);
-    await harness.glide(c.x, c.y, 4, 8);
+    if (w.mouse) await harness.move(c.x, c.y); // one jump, no glide
+    else await harness.glide(c.x, c.y, 4, 8);
     await sleep(60);
     if (how.startsWith('turns')) await harness.scroll(-1, 'wheel');
     else await harness.scroll(-80, 'trackpad');
@@ -673,11 +684,19 @@ module.exports = (reg) => {
     assert.ok(shown.every((b) => b.enabled), 'a button is greyed out');
   });
 
-  reg.define(/^the visionary sees the notch stay plain the whole way across, with nothing opening$/, (w) => {
+  reg.define(/^the visionary sees the notch stay plain the whole way across, with nothing opening$/, async (w) => {
     assert.ok(w.sweep.length > 20, 'the sweep was not watched');
     const opened = w.sweep.filter((s) => !island.isPlainNotch(s.view, w.sweepNotch));
     assert.equal(opened.length, 0,
       `the island drew something during the sweep, first with the pointer at x ${opened[0]?.pointer.x}: ${JSON.stringify(opened[0]?.view.frames)}`);
+    // In-world positive: after the sweep, a real rest on this notch opens the
+    // island, so the plain notch above was a sweep that did not open it, not
+    // an island that cannot open here.
+    await rest(w, RULED_REST_MS);
+    await island.until(async () => {
+      const v = await island.look(w.island.pid);
+      return v.panel ? v : null;
+    }, 3000, 'a rest on the notch after the sweep did not open the island: the sweep proved nothing');
   });
 
   reg.define(/^the visionary sees the island start opening at once, without waiting for a rest, then settle on the music page$/, async (w) => {
@@ -885,6 +904,8 @@ module.exports = (reg) => {
   });
 
   reg.define(/^the visionary sees the plain notch, with nothing opening$/, (w) => {
+    assert.ok(w.beforeQuit && w.beforeQuit.alive && w.beforeQuit.running.includes(w.island.pid),
+      'the island was not seen running before the Quit, so its absence proves nothing');
     assert.ok(w.afterQuit.length > 5, 'the notch was not watched');
     for (const s of w.afterQuit) {
       assert.deepEqual(s.running, [], 'the island is running again');
@@ -1088,6 +1109,17 @@ module.exports = (reg) => {
     assert.ok(safePtr.y < dockTop,
       `the pointer is at y ${safePtr.y}, inside the Dock area (top ${dockTop}): releasing here would drop the file on a Dock icon`);
     await harness.release();
+    // In-world control: the drag is over, so with the pointer far from the
+    // island it must now close. The same sampler must see 'closed', proving
+    // it can, and that the open samples above were held by the drag.
+    await harness.move(frame.x + frame.w / 2, frame.y + frame.h / 2);
+    let sawClosed = false;
+    for (let i = 0; i < 12 && !sawClosed; i++) {
+      const samples = await harness.watch(w.island.pid, 300, 40);
+      const nn = await notch();
+      sawClosed = samples.map((x) => island.parse(x.windows, nn)).some((v) => !v.open);
+    }
+    assert.ok(sawClosed, 'after the release and the pointer moving away, the sampler never saw the island close');
   });
   // The island's shape and motion (P3.5, D136-D140) --------------------------
   // Every Then reads the island's window frames as Accessibility and the
