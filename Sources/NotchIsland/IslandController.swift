@@ -662,8 +662,27 @@ final class IslandController: NSObject, NSMenuDelegate {
   }
 
   func shelfItemDragEnded(item: ShelfItem, operation: NSDragOperation, screenPoint: NSPoint) {
+    #if ISLAND_TEST_INPUT
+      NSLog(
+        "notch-island: shelf drag ended, operation %lu at %@, Dock Trash %@", operation.rawValue,
+        "\(screenPoint)", "\(DockTrashReader.frame().map { "\($0)" } ?? "unread")")
+    #endif
     if operation == [] {
       model.shelfStore?.itemRefused(id: item.id)
+    } else if operation.contains(.delete)
+      || DockTrash.contains(
+        screenPoint, trash: DockTrashReader.frame(),
+        mainScreenHeight: NSScreen.screens.first?.frame.height ?? 0)
+    {
+      // The Trash in the Dock (D142): its files go there, as from Finder. The
+      // Dock reports the drop as generic, so where it ended tells. A drop on
+      // the island's own remove area already took the item off and moves
+      // nothing; a file the Dock moved itself is no longer there.
+      for url in model.shelfStore?.droppedOnTrash(id: item.id) ?? []
+      where FileManager.default.fileExists(atPath: url.path) {
+        try? FileManager.default.trashItem(at: url, resultingItemURL: nil)
+      }
+      model.refreshShelf()
     } else {
       model.shelfStore?.itemAccepted(id: item.id)
       model.refreshShelf()

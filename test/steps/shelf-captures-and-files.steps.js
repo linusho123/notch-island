@@ -987,6 +987,52 @@ function countFinderTrashTaxReturn() {
     await sleep(300);
   });
 
+  // D142: the real Dock's Trash, found through Accessibility. The file sits on
+  // the scratch volume, so it lands in that volume's Trash, which goes when
+  // the volume is detached: the visionary's own Trash is left as it was.
+  reg.define(/^the visionary drags it out of the shelf and drops it on the Trash in the Dock$/, async (w) => {
+    w.trashBefore = countFinderTrashTaxReturn();
+    w.defer(() => {
+      detachScratchDocuments(w);
+      const after = countFinderTrashTaxReturn();
+      assert.equal(
+        after,
+        w.trashBefore,
+        `Finder's Trash count changed from ${w.trashBefore} to ${after}: a test deleted into the visionary's real Trash`
+      );
+    });
+    const dock = Number(execSync('/usr/bin/pgrep -x Dock', { encoding: 'utf8' }).trim().split('\n')[0]);
+    const trash = (await harness.h('tree', dock)).elements.find((e) => e.subrole === 'AXTrashDockItem');
+    assert.ok(trash && trash.frame, 'no Trash in the Dock');
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item'),
+      2000,
+      'no item on shelf'
+    );
+    const from = center(view.elements.find((e) => e.identifier === 'shelf-item').frame);
+    const to = center(trash.frame);
+    // Rest on the Trash before letting go, as a hand does: the Dock takes
+    // the drop only once the drag has settled on it.
+    w.defer(() => harness.releaseIfHeld());
+    await harness.drag(from.x, from.y, to.x, to.y, 40, 20, true);
+    await sleep(800);
+    await harness.release();
+    // The island closes after its grace once the drag ends away from it.
+    await island.waitFor(w.island.pid, (v) => !v.open, 3000, 'the island did not close after the drop');
+  });
+
+  reg.define(/^the visionary sees "tax-return\.pdf" in the Trash, no longer in Documents$/, async (w) => {
+    const docs = scratchDocuments(w);
+    // The volume's own Trash, where macOS puts a file trashed on it; Finder's
+    // Trash leaves out a volume mounted out of sight, as the scratch one is.
+    const trash = path.join(path.dirname(docs), '.Trashes', String(process.getuid()));
+    const inTrash = () => fs.existsSync(trash) && fs.readdirSync(trash).some((n) => n.startsWith('tax-return'));
+    await island.until(inTrash, 3000, `tax-return.pdf is not in the volume's Trash (${trash})`);
+    assert.ok(!fs.existsSync(path.join(docs, 'tax-return.pdf')), 'tax-return.pdf still in Documents');
+  });
+
   reg.define(/^the visionary drags it out of the shelf onto the Desktop and Finder moves it there$/, async (w) => {
     const desktop = scratchDesktop(w);
     w.standIn = await launchDropStandIn(w, { title: 'Desktop', moveTo: desktop });
@@ -1166,7 +1212,8 @@ function countFinderTrashTaxReturn() {
     );
     const itemEl = view.elements.find((e) => e.identifier === 'shelf-item');
     const from = center(itemEl.frame);
-    const to = { x: view.panel.x + view.panel.w / 2, y: view.panel.y + view.panel.h - 18 };
+    // The remove area lies along the shelf page's bottom edge, inside it.
+    const to = { x: view.shelfFrame.x + view.shelfFrame.w / 2, y: view.shelfFrame.y + view.shelfFrame.h - 18 };
     await harness.drag(from.x, from.y, to.x, to.y, 20, 15, false);
     await sleep(300);
   });
@@ -1198,7 +1245,8 @@ function countFinderTrashTaxReturn() {
     );
     const itemEl = view.elements.find((e) => e.identifier === 'shelf-item');
     const from = center(itemEl.frame);
-    const to = { x: view.panel.x + view.panel.w / 2, y: view.panel.y + view.panel.h - 18 };
+    // The remove area lies along the shelf page's bottom edge, inside it.
+    const to = { x: view.shelfFrame.x + view.shelfFrame.w / 2, y: view.shelfFrame.y + view.shelfFrame.h - 18 };
     await harness.drag(from.x, from.y, to.x, to.y, 20, 15, false);
     await sleep(300);
   });
@@ -1236,6 +1284,13 @@ function countFinderTrashTaxReturn() {
     );
     const rem = view.elements.find((e) => e.identifier === 'remove-area');
     assert.ok(rem, 'remove area not found');
+    // Seen whole: the shelf page clips what lies past its edge.
+    const page = view.shelfFrame;
+    assert.ok(page, 'shelf page not found');
+    const f = rem.frame;
+    assert.ok(f.x >= page.x - 1 && f.y >= page.y - 1 && f.x + f.w <= page.x + page.w + 1
+      && f.y + f.h <= page.y + page.h + 1,
+      `remove area ${JSON.stringify(f)} is cut off by the shelf page ${JSON.stringify(page)}`);
   });
 
   reg.define(/^the visionary drags it out of the shelf and drops it on (the Desktop|a Chrome window)$/, async (w, where) => {

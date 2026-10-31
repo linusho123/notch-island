@@ -182,3 +182,98 @@ test('a tab event reconnects a disconnected extension, at most once every 5 s', 
   w.listeners.updated(7, { audible: true });
   assert.equal(w.ports.length, 2, 'reconnected within 5 s of the last try');
 });
+
+// Bug 2026-10-30: with no YouTube tab open, the card kept showing a video, and
+// covered paused music with it. The island hands a reconnecting Chrome's tabs
+// to the new connection and closes the old one; the old port's disconnect
+// then cleared the live port and started another reconnect, so the host was
+// replaced every 1-3 s and the tab left and came back each time.
+test('a reconnect timer that fires while connected opens no second connection', () => {
+  const ports = [];
+  const disconnects = [];
+  const timers = [];
+  let updated = null;
+  const evt = () => ({ addListener() {} });
+  const chrome = {
+    runtime: {
+      connectNative: () => {
+        const p = { onMessage: { addListener() {} }, onDisconnect: { addListener: (f) => disconnects.push(f) }, postMessage() {} };
+        ports.push(p);
+        return p;
+      },
+      onMessage: evt(),
+    },
+    tabs: { get: async () => ({}), onUpdated: { addListener: (f) => { updated = f; } }, onRemoved: evt(), query: async () => [] },
+    windows: {},
+  };
+  let now = 1000000;
+  const sandbox = { chrome, console, URL, Date: { now: () => now }, setTimeout: (fn) => { timers.push(fn); return timers.length; } };
+  sandbox.self = sandbox;
+  sandbox.importScripts = (f) => vm.runInContext(fs.readFileSync(path.join(DIR, f), 'utf8'), sandbox);
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(DIR, 'background.js'), 'utf8'), sandbox);
+  disconnects[0](); // the island restarted: a reconnect is pending
+  now += 6000;
+  updated(7, { audible: true }); // a tab event reconnects first
+  assert.equal(ports.length, 2);
+  // The pending timer fires, and the old port's handler runs late: still one.
+  for (const t of timers.splice(0)) t();
+  disconnects[0]();
+  for (const t of timers.splice(0)) t();
+  assert.equal(ports.length, 2, 'a stale disconnect or timer opened another connection');
+});
+
+function loadTabs({ live }) {
+  const sent = [];
+  const listeners = {};
+  const evt = (name) => ({ addListener: (f) => { listeners[name] = f; } });
+  const port = { onMessage: { addListener() {} }, onDisconnect: { addListener() {} }, postMessage: (m) => sent.push(m) };
+  const tabOf = (id) => ({ id, url: `https://www.youtube.com/watch?v=t${id}`, windowId: 1, mutedInfo: { muted: false } });
+  const chrome = {
+    runtime: { connectNative: () => port, onMessage: evt('runtimeMessage') },
+    tabs: {
+      get: async (id) => { if (!live.has(id)) throw new Error(`No tab with id: ${id}.`); return tabOf(id); },
+      query: async () => [...live].map(tabOf),
+      sendMessage: async () => {},
+      onUpdated: evt('updated'), onRemoved: evt('removed'), onReplaced: evt('replaced'),
+    },
+    alarms: { create() {}, onAlarm: evt('alarm') },
+    windows: {},
+  };
+  const sandbox = { chrome, setTimeout, console, URL, Date };
+  sandbox.self = sandbox;
+  sandbox.importScripts = (f) => vm.runInContext(fs.readFileSync(path.join(DIR, f), 'utf8'), sandbox);
+  vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(DIR, 'background.js'), 'utf8'), sandbox);
+  const media = { title: 'Destiny', artist: null, paused: false, muted: false, volume: 1, position: 3, duration: 1700, at: Date.now() };
+  const lastTabs = () => Array.from(sent.filter((m) => m.type === 'tabs').pop().tabs, (t) => t.tab);
+  return { listeners, media, lastTabs };
+}
+const settle = () => new Promise((r) => setTimeout(r, 30));
+
+test('a tab Chrome swapped for another (prerender, discard) stops counting', async () => {
+  const live = new Set([1450318445]);
+  const w = loadTabs({ live });
+  w.listeners.runtimeMessage({ type: 'media', media: w.media }, { tab: { id: 1450318445 } });
+  await settle();
+  assert.deepEqual(w.lastTabs(), [1450318445]);
+  live.delete(1450318445);
+  live.add(12);
+  w.listeners.replaced(12, 1450318445);
+  await settle();
+  assert.deepEqual(w.lastTabs(), [], 'the replaced tab is still reported');
+});
+
+test('a tab that is gone without a removed event is dropped on the next alarm', async () => {
+  const live = new Set([9]);
+  const w = loadTabs({ live });
+  w.listeners.runtimeMessage({ type: 'media', media: { ...w.media, paused: true } }, { tab: { id: 9 } });
+  w.listeners.runtimeMessage({ type: 'media', media: w.media }, { tab: { id: 9 } });
+  await settle();
+  assert.deepEqual(w.lastTabs(), [9]);
+  live.delete(9); // closed while Chrome sent no onRemoved
+  w.listeners.alarm({ name: 'reconnect' });
+  await settle();
+  assert.deepEqual(w.lastTabs(), [], 'a tab that no longer exists is still reported');
+});
+

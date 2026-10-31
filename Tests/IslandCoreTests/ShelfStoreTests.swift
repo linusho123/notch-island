@@ -1025,4 +1025,38 @@ struct ShelfStoreTests {
     #expect(item?.noteText?.count == 140)
     #expect(item?.noteText == String(repeating: "y", count: 140))
   }
+
+  @Test("A parked file dropped on the Trash in the Dock goes there and leaves the shelf (D142)")
+  func droppedOnTrashGivesTheFilesAndLeavesD142() throws {
+    let dir = try makeScratchDirectory()
+    let store = ShelfStore(file: dir.appendingPathComponent("shelf.json"))
+    let pdf = try createTempFile(in: dir, named: "tax-return.pdf")
+    let a = try createTempFile(in: dir, named: "a.png")
+    let b = try createTempFile(in: dir, named: "b.png")
+    let file = try store.parkFile(at: pdf)
+    let stack = try #require(try store.parkFiles(at: [a, b]))
+    let link = store.parkLink(URL(string: "https://gov.uk/renew-adult-passport")!)
+    let note = store.addNote(text: "renew passport", isReminder: true)
+
+    let paths = { (urls: [URL]) in urls.map { $0.resolvingSymlinksInPath().path }.sorted() }
+    #expect(paths(store.droppedOnTrash(id: file.id)) == paths([pdf]))
+    #expect(paths(store.droppedOnTrash(id: stack.id)) == paths([a, b]))
+    // A link has no file to move; it leaves the shelf as any accepted drop.
+    #expect(store.droppedOnTrash(id: link.id).isEmpty)
+    // A note stays, as on any drop out (D93).
+    #expect(store.droppedOnTrash(id: note.id).isEmpty)
+    #expect(store.items().map(\.id) == [note.id])
+    // The store itself never moves a file (D36): the app does.
+    #expect(FileManager.default.fileExists(atPath: pdf.path))
+  }
+
+  @Test("An item the remove area already took off moves nothing to the Trash (D66, D142)")
+  func droppedOnTrashAfterRemoveAreaMovesNothingD142() throws {
+    let dir = try makeScratchDirectory()
+    let store = ShelfStore(file: dir.appendingPathComponent("shelf.json"))
+    let pdf = try createTempFile(in: dir, named: "tax-return.pdf")
+    let file = try store.parkFile(at: pdf)
+    #expect(store.remove(id: file.id))
+    #expect(store.droppedOnTrash(id: file.id).isEmpty)
+  }
 }

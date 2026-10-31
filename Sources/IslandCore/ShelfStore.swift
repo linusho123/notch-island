@@ -3,7 +3,8 @@ import Foundation
 /// The shelf's persistent store (D59). Holds bookmarks to files and folders,
 /// captures and their stacks (D118), links (D65), and notes (D37).
 ///
-/// It never copies, moves or deletes the files it points at (D36).
+/// It never copies, moves or deletes the files it points at (D36); a drop
+/// on the Trash in the Dock names the files for the app to move (D142).
 /// It survives restarts with original landing times (D59) and ages out
 /// file items and captures after 24 hours (D57).
 public final class ShelfStore: @unchecked Sendable {
@@ -321,6 +322,30 @@ public final class ShelfStore: @unchecked Sendable {
     storedItems.remove(at: index)
     try? saveLocked()
     return true
+  }
+
+  /// A shelf item dropped on the Trash in the Dock (D142): it leaves the
+  /// shelf as on any accepted drop, and its files are returned for the app to
+  /// move to the Trash, as a drop from Finder would. Notes stay (D93); an
+  /// item the remove area already took off returns nothing (D66).
+  public func droppedOnTrash(id: UUID) -> [URL] {
+    lock.lock()
+    defer { lock.unlock() }
+
+    guard let index = storedItems.firstIndex(where: { $0.id == id }) else { return [] }
+    let item = storedItems[index]
+    switch item.kind {
+    case .note:
+      return []
+    case .link:
+      storedItems.remove(at: index)
+      try? saveLocked()
+      return []
+    case .file, .folder, .capture, .captureStack, .fileStack:
+      storedItems.remove(at: index)
+      try? saveLocked()
+      return item.urls
+    }
   }
 
   /// A refused drop leaves the item on the shelf unchanged (D92, D103).

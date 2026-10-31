@@ -1255,3 +1255,13 @@ D141 2026-10-29 [V]
   touches: D1 D80 N8
 # the visionary opened a scoping interview for it, then stopped it before the vision was confirmed and asked for it to be noted as a future idea
 # D1 reads "only a quick-access shelf joins music"; deferring leaves D1 standing, and reopening this will put D1 to the visionary as its own decision point
+
+D142 2026-10-30 [V]
+  pre:   `tax-return.pdf` is parked on the shelf from the Documents folder [V]
+  trig:  the visionary drags it out of the shelf and drops it on the Trash in the Dock [V]
+  resp:  the file itself moves to the Trash, as a drop from Finder would, and leaves the shelf [V]
+  serves: N6
+  sib:   none -- a file the Trash cannot take is not ruled
+  touches: D58 D66 D116 D36 D93
+# the visionary asked for it as a bug: the item left the shelf but the file stayed where it was
+# the builder's reading, to confirm: a parked folder, screenshot or stack goes the same way; a link only leaves the shelf; a note stays (D93)

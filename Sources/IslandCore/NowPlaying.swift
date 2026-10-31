@@ -38,10 +38,13 @@ public struct Song: Codable, Equatable, Sendable {
   public var sourceID: SourceID?
   /// The file or page it came from, when the source can say (to reopen it).
   public var location: String?
+  /// The playlist it played in, when the source can say: a streamed Apple
+  /// Music song is in no library, only there (D117).
+  public var collectionID: String?
 
   public init(
     title: String, artist: String?, source: String, trackID: String?, duration: TimeInterval?,
-    sourceID: SourceID? = nil, location: String? = nil
+    sourceID: SourceID? = nil, location: String? = nil, collectionID: String? = nil
   ) {
     self.title = title
     self.artist = artist
@@ -50,6 +53,7 @@ public struct Song: Codable, Equatable, Sendable {
     self.duration = duration
     self.sourceID = sourceID
     self.location = location
+    self.collectionID = collectionID
   }
 }
 

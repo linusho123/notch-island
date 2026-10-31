@@ -127,47 +127,51 @@ final class AppleMusicSource: SourcePart {
   }
 
   /// Play the last song again when nothing plays (D31): this may open Music.
-  /// After Music quit mid-song, it resumes where it was (D117).
+  /// After Music quit mid-song, it resumes where it was (D117). A streamed
+  /// song is found in its playlist, being in no library.
   func reopen(_ song: Song, at position: TimeInterval?) {
-    guard let id = song.trackID, id.allSatisfy({ $0.isHexDigit }) else {
+    guard
+      let attempt = MusicReopen.attemptScript(
+        trackID: song.trackID, collectionID: song.collectionID)
+    else {
       command("play", "play")
       return
     }
-    // A Music that was quit is started by the first command, and while it
-    // loads it takes a play without playing: the play is sent again until
-    // Music itself says it plays, for ten seconds at most.
-    let play = """
-      repeat 40 times
-        try
-          play (first track of library playlist 1 whose persistent ID is "\(id)")
-        end try
-        delay 0.25
-        if player state is playing then exit repeat
-      end repeat
-      """
-    guard let position, position > 0 else {
-      command("play", play)
-      return
+    queue.async { [weak self] in
+      guard let self else { return }
+      // A newer play takes over: an older one stops at its next try.
+      self.reopens += 1
+      self.tryReopen(
+        attempt, song: song, position: position, run: self.reopens, triesLeft: MusicReopen.tries)
     }
-    let seek = String(format: "%.3f", position)
-    command(
-      "play",
-      """
-      \(play)
-      -- A play still on its way may start the song over: the position is
-      -- set until it holds on two reads in a row.
-      set held to 0
-      repeat 12 times
-        if player position < \(seek) - 1 then
-          set player position to \(seek)
-          set held to 0
-        else
-          set held to held + 1
-          if held is 2 then exit repeat
-        end if
-        delay 0.3
-      end repeat
-      """)
+  }
+
+  /// Reopens begun, the latest the one that may go on (read on `queue` only).
+  private var reopens = 0
+
+  /// One short try on `queue`, the next a moment later: Music's own reports
+  /// are read between tries, so music started in Music meanwhile shows at once.
+  private func tryReopen(
+    _ attempt: String, song: Song, position: TimeInterval?, run: Int, triesLeft: Int
+  ) {
+    guard run == reopens, !TestInput.musicIgnores("play") else { return }
+    let result = self.run("tell application \"Music\"\n\(attempt)\nend tell")
+      .flatMap { $0.stringValue }.flatMap(MusicReopen.Try.init(rawValue:))
+    switch MusicReopen.next(after: result, triesLeft: triesLeft, position: position) {
+    case .tryAgain:
+      queue.asyncAfter(deadline: .now() + MusicReopen.tryGap) { [weak self] in
+        self?.tryReopen(attempt, song: song, position: position, run: run, triesLeft: triesLeft - 1)
+      }
+      return
+    case .holdPosition:
+      if let position, let hold = MusicReopen.holdScript(trackID: song.trackID, position: position)
+      {
+        _ = self.run("tell application \"Music\"\n\(hold)\nend tell")
+      }
+    case .done:
+      break
+    }
+    refresh(after: 0.15)
   }
 
   /// Bring Music's window to the front (the source line or art, D26).
@@ -203,7 +207,11 @@ final class AppleMusicSource: SourcePart {
           set l to location of t
           set loc to POSIX path of l
         end try
-        return {ps, name of t, artist of t, duration of t, player position, persistent ID of t, album of t, loc}
+        set pl to ""
+        try
+          set pl to persistent ID of current playlist
+        end try
+        return {ps, name of t, artist of t, duration of t, player position, persistent ID of t, album of t, loc, pl}
       end tell
       """
     guard let list = run(script), list.numberOfItems >= 1 else { return nil }
@@ -222,6 +230,7 @@ final class AppleMusicSource: SourcePart {
     let artist = list.atIndex(3)?.stringValue ?? ""
     let album = list.numberOfItems >= 7 ? (list.atIndex(7)?.stringValue ?? "") : ""
     let location = list.numberOfItems >= 8 ? (list.atIndex(8)?.stringValue ?? "") : ""
+    let playlist = list.numberOfItems >= 9 ? (list.atIndex(9)?.stringValue ?? "") : ""
     // A downloaded file Music plays (D5): an untagged file, no artist and no
     // album. The source line reads "Music" and the title is the file's name.
     let isFile = artist.isEmpty && album.isEmpty && !location.isEmpty
@@ -230,7 +239,8 @@ final class AppleMusicSource: SourcePart {
       title: title, artist: artist.isEmpty ? nil : artist,
       source: isFile ? Self.fileSourceName : Self.sourceName,
       trackID: list.atIndex(6)?.stringValue, duration: list.atIndex(4)?.doubleValue,
-      sourceID: id, location: location.isEmpty ? nil : location)
+      sourceID: id, location: location.isEmpty ? nil : location,
+      collectionID: playlist.isEmpty ? nil : playlist)
     return SourceReport(
       song: song, state: state, position: list.atIndex(5)?.doubleValue, readAt: now)
   }
