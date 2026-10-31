@@ -48,12 +48,14 @@ function assertClosed(sample, n, when) {
 }
 
 async function watchClosed(w) {
-  const end = Date.now() + 900;
+  // At least 900 ms and more than ten looks: one look can take ~60 ms on
+  // macOS 27, so the looks, not the clock, set the end (within 4 s).
+  const start = Date.now();
   const samples = [];
   do {
     samples.push(await closedSample(w));
     await new Promise((resolve) => setTimeout(resolve, 25));
-  } while (Date.now() < end);
+  } while ((Date.now() - start < 900 || samples.length <= 10) && Date.now() - start < 4000);
   return samples;
 }
 
@@ -98,10 +100,13 @@ async function locate(w, target) {
     item = { ...item, pid: w.chrome.pid, owner: 'test Chrome' };
     kind = 'help';
   } else {
-    const extras = (await harness.extras()).filter((i) => inStrip(i.frame, strip));
+    const extras = (await harness.labelledExtras()).filter((i) => inStrip(i.frame, strip));
     if (target === 'the Wi-Fi icon') {
-      item = extras.find((i) => i.owner === 'Control Center'
-        && /wi.?fi/i.test([i.identifier, i.description, i.title].join(' ')));
+      // macOS 26: Control Center's own item; macOS 27: MenuBarAgent's host
+      // view around the labelled com.apple.menuextra.wifi item.
+      item = extras.find((i) => (i.owner === 'Control Center'
+        && /wi.?fi/i.test([i.identifier, i.description, i.title].join(' ')))
+        || (i.owner === 'MenuBarAgent' && i.label?.identifier === 'com.apple.menuextra.wifi'));
       kind = 'wifi';
     } else {
       item = extras.filter((i) => i.frame.x >= n.x + n.w)
@@ -126,7 +131,16 @@ async function locate(w, target) {
   return { item, point, kind, target };
 }
 
-const state = (target) => harness.h('menu-state', target.item.pid, target.point.x, target.point.y);
+const state = async (target) => {
+  const s = await harness.h('menu-state', target.item.pid, target.point.x, target.point.y);
+  // macOS 27 draws Wi-Fi's icon in MenuBarAgent but opens its pane in
+  // Control Center, so that pane's windows count as the item's own.
+  if (target.kind === 'wifi' && target.item.owner === 'MenuBarAgent') {
+    const cc = execFileSync('pgrep', ['-x', 'ControlCenter'], { encoding: 'utf8' }).trim().split('\n')[0];
+    s.windows = [...(s.windows || []), ...(await harness.windows(Number(cc)))];
+  }
+  return s;
+};
 const visibleMenu = (s) => s.elements.filter((e) => e.role === 'AXMenu' && e.depth > (s.elements[0]?.depth || 0)
   && e.frame?.w > 0 && e.frame?.h > 0
   && e.AXHidden !== true && e.AXVisible !== false);
@@ -152,9 +166,10 @@ function ownPane(target, window) {
   // Its dedicated static-text header identifies the expanded pane, unlike
   // the Wi-Fi tile inside the generic Control Center window.
   const elements = window.elements || [];
-  if (target.kind === 'wifi' && item.owner === 'Control Center'
+  // On macOS 27 the same pane starts just below the menu bar.
+  if (target.kind === 'wifi' && ['Control Center', 'MenuBarAgent'].includes(item.owner)
     && elements.some((e) => e.role === 'AXWindow' && e.subrole === 'AXSystemDialog')
-    && f.y <= item.frame.y && f.y + f.h > bottom
+    && f.y <= bottom && f.y + f.h > bottom
     && elements.some((e) => e.role === 'AXStaticText' && e.identifier === 'wifi-header'
       && normalized(e.value) === 'wifi' && contained(e.frame, f)
       && e.frame.y >= bottom && e.frame.y <= bottom + 40)) return true;

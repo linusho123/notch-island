@@ -66,6 +66,24 @@ module.exports = {
   menus: async (pid) => (await h('menus', pid)).menus,
   menubar: async (pid) => (await h('menubar', pid)).items,
   extras: async () => (await h('extras')).items,
+  // macOS 27 lists its own status icons as unlabelled hosting views; the
+  // labelled AXMenuExtra (identifier com.apple.menuextra.wifi and so on) sits
+  // inside, in that process's windows. Each such item gets it as `label`.
+  labelledExtras: async () => {
+    const items = (await h('extras')).items;
+    const hosts = [...new Set(items.filter((i) => i.subrole === 'AXHostingView').map((i) => i.pid))];
+    const inner = [];
+    for (const pid of hosts) {
+      for (const win of (await h('windows', pid)).windows) {
+        inner.push(...(win.elements || []).filter((e) => e.subrole === 'AXMenuExtra' && e.frame));
+      }
+    }
+    return items.map((i) => {
+      if (i.subrole !== 'AXHostingView' || !i.frame) return i;
+      const e = inner.find((x) => x.frame.x >= i.frame.x - 1 && x.frame.x + x.frame.w <= i.frame.x + i.frame.w + 1);
+      return e ? { ...i, label: { identifier: e.identifier, description: e.description } } : i;
+    });
+  },
   frontmost: () => h('frontmost'),
   keyboardFocus: () => h('keyboardfocus'),
   // A just-launched app is not yet registered with macOS for a moment.
