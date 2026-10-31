@@ -454,9 +454,10 @@ module.exports = function (reg) {
     w.defer(async () => {
       await restore();
       const current = await harness.pasteboardSave();
+      // The order of types is the pasteboard's own, not part of the content.
       assert.deepEqual(
-        current.types,
-        beforeSave.types,
+        [...current.types].sort(),
+        [...beforeSave.types].sort(),
         `general pasteboard types were not restored after screencapture -c (was ${beforeSave.types.join(', ')}, now ${current.types.join(', ')})`
       );
     });
@@ -889,6 +890,10 @@ module.exports = function (reg) {
     const docs = scratchDocuments(w);
     const control = path.join(docs, 'boarding-pass.pdf');
     fs.writeFileSync(control, '%PDF-1.4 boarding pass content');
+    // Closed again first, as for the text: a drag that starts inside the open
+    // panel would begin on the island itself, not on the file.
+    await pointerAway();
+    await island.waitFor(w.island.pid, (v) => !v.open, 3000, 'island did not close before the control drop');
     const { notch } = await harness.builtIn();
     const nx = notch.x + notch.w / 2;
     await harness.dragObject('file', control, nx, notch.y + 200, nx, notch.y + 10, false);
@@ -1170,7 +1175,8 @@ function volumeTrashNames(w) {
     await openOnShelfPage(w);
     const view = await island.waitFor(
       w.island.pid,
-      (v) => v.elements.some((e) => e.identifier === 'shelf-item-title' && e.value === text),
+      // A note's title is shown with a ✎ in front (display only).
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item-title' && (e.value === text || e.value === `✎ ${text}`)),
       3000,
       `the note "${text}" is not on the shelf page`
     );

@@ -7,7 +7,6 @@ const { assertFixtureSession } = require('./fixture-preflight');
 const fs = require('node:fs');
 const path = require('node:path');
 const signing = require('./signing');
-const { fileURLToPath } = require('node:url');
 const { spawn, execFileSync } = require('node:child_process');
 const registry = require('./registry');
 const procs = require('./procs');
@@ -36,7 +35,7 @@ function stamp(app, number, identifier) {
 async function registered(w) {
   const found = await registry.enabledApp(w.login.identifier);
   assert.ok(found, 'macOS does not list the test island as an enabled login item');
-  const app = fileURLToPath(found.url).replace(/\/$/, '');
+  const app = registry.itemPath(found.url);
   assert.equal(app, w.login.app, 'the enabled login item points at a different app');
   assert.ok(fs.existsSync(path.join(app, 'Contents', 'MacOS', 'NotchIsland')));
   return app;

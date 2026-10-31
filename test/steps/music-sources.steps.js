@@ -755,11 +755,19 @@ module.exports = (reg) => {
     // the island, which shows it on the card. So the Chrome, extension and
     // island pipeline was live while the clip stayed off, and the clip
     // alone, still playing, adds no second face.
-    w.control = await chrome.playInTab(w, 'Lecture 4: Fourier Series', 30);
+    // The clip and the control side by side, each in its own window: Chrome
+    // pauses a muted video whose tab is hidden and will not start one in a
+    // hidden tab, so neither may cover the other.
+    const browser = await chrome.companion(w);
+    await browser.place(w.clip, { left: 0, top: 60, width: 840, height: 640 });
+    assert.ok(!(await w.clip.media()).paused, 'the clip stopped playing when its window moved');
+    w.control = await chrome.playInTab(w, 'Lecture 4: Fourier Series', 30,
+      { bounds: { left: 860, top: 60, width: 840, height: 640 } });
     const after = await island.waitFor(w.island.pid, (v) => v.title?.value === 'Lecture 4: Fourier Series', 5000,
       'the control tab, a youtube.com video with sound, never reached the card: the pipeline was not live');
-    assert.ok(!after.buttons.some((b) => b.label === 'Flip'), 'the card has a flip control: the clip counts beside the control');
-    assert.equal(after.count, null, 'the card shows a count: the clip counts beside the control');
+    // Paused Music and the control are two sources; the clip would make three.
+    assert.ok(after.count === null || after.count.value === '1 of 2',
+      `the card's count reads ${after.count?.value}: the clip counts beside Music and the control`);
     assert.ok(!(await w.clip.media()).paused, 'the clip stopped playing');
   });
 

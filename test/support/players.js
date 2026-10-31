@@ -224,32 +224,44 @@ async function musicFile() {
 /**
  * Remove the library tracks that came from the stand-in file `base`, and the
  * copy Music made of it in its media folder (only a file of the stand-in's
- * own name and size).
+ * own name and size). The copy goes first: deleting a track whose file is
+ * still in the media folder makes Music ask, in a hidden modal alert, whether
+ * to trash it, and every later AppleScript to Music waits on that alert.
  */
 async function removeFileTracks(base, size) {
+  const name = JSON.stringify(base.replace(/\.[^.]+$/, ''));
   const out = await music.osa(`tell application "Music"
     try
       stop
     end try
-    set gone to ""
-    repeat with t in (every file track of library playlist 1 whose name is ${JSON.stringify(base.replace(/\.[^.]+$/, ''))})
+    set found to ""
+    repeat with t in (every file track of library playlist 1 whose name is ${name})
       try
         set l to location of t
-        set loc to POSIX path of l
-        if loc ends with ${JSON.stringify(`/${base}`)} then
-          delete t
-          set gone to gone & loc & linefeed
-        end if
+        set found to found & (POSIX path of l) & linefeed
       end try
     end repeat
-    return gone
+    return found
   end tell`).catch(() => '');
   const media = path.join(os.homedir(), 'Music', 'Music', 'Media.localized');
-  for (const loc of out.split('\n').filter(Boolean)) {
+  const ours = out.split('\n').filter((loc) => loc.endsWith(`/${base}`));
+  for (const loc of ours) {
     if (loc.startsWith(media + path.sep) && path.basename(loc) === base && fs.existsSync(loc) && fs.statSync(loc).size === size) {
       fs.rmSync(loc);
     }
   }
+  if (!ours.length) return;
+  await music.osa(`tell application "Music"
+    repeat with t in (every file track of library playlist 1 whose name is ${name})
+      try
+        set l to location of t
+        if (POSIX path of l) ends with ${JSON.stringify(`/${base}`)} then delete t
+      on error
+        -- its file is gone (removed above): a dead entry of that name
+        if location of t is missing value then delete t
+      end try
+    end repeat
+  end tell`).catch(() => '');
 }
 
 module.exports = {

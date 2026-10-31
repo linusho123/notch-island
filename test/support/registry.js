@@ -58,23 +58,34 @@ async function items(opts) {
   });
 }
 
+/**
+ * The path a login item's URL names. Older macOS lists a file:// URL; macOS 27
+ * lists a plain path with the home folder written by uid (/Users/501/...).
+ */
+function itemPath(url) {
+  const { fileURLToPath } = require('node:url');
+  let p = /^file:/.test(url || '') ? fileURLToPath(url) : String(url || '');
+  const byUid = `/Users/${os.userInfo().uid}/`;
+  if (p.startsWith(byUid)) p = os.homedir() + '/' + p.slice(byUid.length);
+  return p.replace(/\/$/, '');
+}
+
 /** The app login item for this bundle id, if macOS lists it as enabled. */
 async function enabledApp(bundleID, opts) {
   return (await items(opts)).find((i) => i.bundleID === bundleID && /^app\b/.test(i.type || '')
     && /\[\s*enabled\b/.test(i.disposition || '')) || null;
 }
 
-module.exports = { items, enabledApp };
+module.exports = { items, enabledApp, itemPath };
 
 /** Read-only M02 guard. Repair of the installed item belongs to main. */
 function verifyInstalled(records) {
   const assert = require('node:assert/strict');
-  const { fileURLToPath } = require('node:url');
   const live = records.filter((i) => i.bundleID === 'local.notch-island'
     && /^app\b/.test(i.type || '') && /\[\s*enabled\b/.test(i.disposition || ''));
   assert.ok(live.length, 'installed login item has no enabled app record');
   for (const item of live) {
-    assert.equal(fileURLToPath(item.url).replace(/\/$/, ''), '/Applications/NotchIsland.app',
+    assert.equal(itemPath(item.url), '/Applications/NotchIsland.app',
       'installed login item does not name its canonical /Applications bundle; repair belongs to main');
   }
   return live;

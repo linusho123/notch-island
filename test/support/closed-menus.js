@@ -69,9 +69,10 @@ async function prepare(w) {
   assert.ok(tab, 'the test Chrome has no page to place on the built-in display');
   const { windowId } = await browser.cdp.send('Browser.getWindowForTarget', { targetId: tab.targetId });
   await browser.cdp.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'normal' } });
+  // Whole points: Chrome refuses fractions, and the notch can be 33.5 pt tall.
   await browser.cdp.send('Browser.setWindowBounds', { windowId, bounds: {
-    left: s.frame.x + 40, top: s.frame.y + s.notch.h + 60,
-    width: Math.min(900, s.frame.w - 80), height: Math.min(650, s.frame.h - s.notch.h - 120),
+    left: Math.round(s.frame.x + 40), top: Math.round(s.frame.y + s.notch.h + 60),
+    width: Math.round(Math.min(900, s.frame.w - 80)), height: Math.round(Math.min(650, s.frame.h - s.notch.h - 120)),
   } });
   await harness.activate(w.chrome.pid);
   await island.until(async () => (await harness.frontmost()).pid === w.chrome.pid, 5000,

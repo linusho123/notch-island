@@ -495,7 +495,14 @@ module.exports = (reg) => {
   reg.define(/^the visionary sweeps the pointer from Chrome's Help menu across the notch to the Wi-Fi icon without resting$/, async (w) => {
     const help = (await harness.menubar(w.chrome.pid)).find((i) => i.title === 'Help');
     assert.ok(help, "Chrome's menu bar shows no Help menu");
-    const wifi = (await harness.extras()).find((i) => /^Wi.?Fi/i.test(i.description || i.title || ''));
+    const extras = await harness.extras();
+    const n0 = await notch();
+    // macOS 27 hosts its own status icons in unlabelled MenuBarAgent views, so
+    // Wi-Fi may not be found by name; then the sweep ends on the system status
+    // icon nearest the notch on its right, where Wi-Fi sits.
+    const wifi = extras.find((i) => /^Wi.?Fi/i.test(i.description || i.title || ''))
+      || extras.filter((i) => i.owner === 'MenuBarAgent' && i.frame && i.frame.w > 0 && i.frame.x > n0.x + n0.w)
+        .sort((p, q) => p.frame.x - q.frame.x)[0];
     assert.ok(wifi, 'the menu bar shows no Wi-Fi icon');
     const a = center(help.frame);
     const b = center(wifi.frame);
