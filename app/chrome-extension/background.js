@@ -23,20 +23,26 @@ function ensureConnected(minGap) {
 }
 
 function connect() {
+  // A reconnect timer may fire after another way in has connected: one
+  // connection only, or the island takes the newer one and closes this.
+  if (port) return;
   triedAt = Date.now();
+  let p;
   try {
-    port = chrome.runtime.connectNative(HOST);
+    p = chrome.runtime.connectNative(HOST);
   } catch {
-    port = null;
     return;
   }
-  port.onMessage.addListener(onCommand);
+  port = p;
+  p.onMessage.addListener(onCommand);
   connectedAt = Date.now();
-  port.onDisconnect.addListener(() => {
+  p.onDisconnect.addListener(() => {
     // Chrome sets lastError ("Native host has exited.") while this runs; read
     // it, so Chrome does not log it as an unchecked error. The island being
     // quit is expected; the back-off below handles it.
     void chrome.runtime.lastError;
+    // An older connection ending says nothing of the live one.
+    if (port !== p) return;
     port = null;
     // The host ends at once while the island is quit: wait longer each time
     // (5 s, 10 s, ... up to 5 minutes) rather than start a host every 5 s.
@@ -72,8 +78,22 @@ async function update(tabId, patch) {
   t.windowId = tab && tab.windowId;
   t.counted = counts({ url: t.url || '', tab, media: t.media, wasCounted: t.counted });
   t.silentTitle = silentSong({ counted: t.counted, media: t.media, silentTitle: t.silentTitle });
-  if (!t.site) tabs.delete(tabId); else tabs.set(tabId, t);
+  // A tab Chrome no longer has never counts, whatever it last said.
+  if (!tab || !t.site) tabs.delete(tabId); else tabs.set(tabId, t);
   send();
+}
+
+// Drop the tabs Chrome no longer has. A tab can go without onRemoved: Chrome
+// swaps a prerendered or discarded tab for a new one (onReplaced), and a
+// kept tab would show on the card for good.
+async function prune() {
+  let open;
+  try { open = new Set((await chrome.tabs.query({})).map((t) => t.id)); } catch { return; }
+  let changed = false;
+  for (const id of tabs.keys()) {
+    if (!open.has(id)) { tabs.delete(id); changed = true; }
+  }
+  if (changed) send();
 }
 
 chrome.runtime.onMessage.addListener((msg, sender) => {
@@ -96,6 +116,14 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   }
   send();
 });
+
+if (chrome.tabs.onReplaced) {
+  chrome.tabs.onReplaced.addListener((added, removed) => {
+    tabs.delete(removed);
+    send();
+    chrome.tabs.sendMessage(added, { type: 'command', command: 'report' }).catch(() => {});
+  });
+}
 
 async function onCommand(msg) {
   if (!msg || typeof msg !== 'object') return;
@@ -126,7 +154,9 @@ async function requery() {
 if (chrome.alarms) {
   chrome.alarms.create('reconnect', { periodInMinutes: 0.5 });
   chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === 'reconnect') ensureConnected(0);
+    if (alarm.name !== 'reconnect') return;
+    ensureConnected(0);
+    prune();
   });
 }
 
