@@ -150,6 +150,13 @@ Feature: Shelf captures and files
     When the visionary moves "tax-return.pdf" to the Trash in Finder
     Then the visionary sees "tax-return.pdf" gone from the shelf page
 
+  @D142
+  Scenario: A parked file dropped on the Trash in the Dock moves to the Trash
+    Given "tax-return.pdf" is parked on the shelf from the Documents folder
+    When the visionary drags it out of the shelf and drops it on the Trash in the Dock
+    Then the visionary sees "tax-return.pdf" in the Trash, no longer in Documents
+    And the visionary sees "tax-return.pdf" gone from the shelf page
+
   @D116
   Scenario: A parked file dropped on the Desktop leaves the shelf
     Given "tax-return.pdf" is parked on the shelf from the Documents folder

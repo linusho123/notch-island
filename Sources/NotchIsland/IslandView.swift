@@ -927,13 +927,6 @@ private struct ShelfPageView: View {
           }
 
           Spacer()
-
-          if model.isDraggingShelfItem {
-            RemoveAreaDropHost(model: model)
-              .frame(height: 36)
-              .padding(.horizontal, 16)
-              .transition(.opacity)
-          }
         }
       }
       .frame(
@@ -941,6 +934,17 @@ private struct ShelfPageView: View {
         height: OpenPanel.pageSize.height,
         alignment: .topLeading
       )
+      // Over the bottom of the page, wholly inside it: below the items it
+      // was pushed past the page's edge and cut off.
+      .overlay(alignment: .bottom) {
+        if model.isDraggingShelfItem {
+          RemoveAreaDropHost(model: model)
+            .frame(height: 32)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 2)
+            .transition(.opacity)
+        }
+      }
       .clipped()
     }
     .frame(width: OpenPanel.pageSize.width, height: OpenPanel.pageSize.height)
@@ -1245,6 +1249,9 @@ private final class RemoveAreaNSView: NSView {
   override func draw(_ dirtyRect: NSRect) {
     super.draw(dirtyRect)
     let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 2, dy: 2), xRadius: 6, yRadius: 6)
+    // It lies over the shelf's items: opaque first, so none show through.
+    NSColor.black.setFill()
+    path.fill()
     NSColor.systemRed.withAlphaComponent(0.2).setFill()
     path.fill()
     NSColor.systemRed.withAlphaComponent(0.6).setStroke()

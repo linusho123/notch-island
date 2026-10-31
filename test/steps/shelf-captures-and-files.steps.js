@@ -1236,6 +1236,13 @@ function countFinderTrashTaxReturn() {
     );
     const rem = view.elements.find((e) => e.identifier === 'remove-area');
     assert.ok(rem, 'remove area not found');
+    // Seen whole: the shelf page clips what lies past its edge.
+    const page = view.shelfFrame;
+    assert.ok(page, 'shelf page not found');
+    const f = rem.frame;
+    assert.ok(f.x >= page.x - 1 && f.y >= page.y - 1 && f.x + f.w <= page.x + page.w + 1
+      && f.y + f.h <= page.y + page.h + 1,
+      `remove area ${JSON.stringify(f)} is cut off by the shelf page ${JSON.stringify(page)}`);
   });
 
   reg.define(/^the visionary drags it out of the shelf and drops it on (the Desktop|a Chrome window)$/, async (w, where) => {
