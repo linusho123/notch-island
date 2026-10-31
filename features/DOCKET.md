@@ -1265,3 +1265,45 @@ D142 2026-10-30 [V]
   touches: D58 D66 D116 D36 D93
 # the visionary asked for it as a bug: the item left the shelf but the file stayed where it was
 # the builder's reading, to confirm: a parked folder, screenshot or stack goes the same way; a link only leaves the shelf; a note stays (D93)
+
+D143 2026-10-30 [V] amends D142
+  pre:   a parked folder, screenshot, screen recording, stack, link, note or reminder is on the shelf [V]
+  trig:  the visionary drags it out of the shelf and drops it on the Trash in the Dock [V]
+  resp:  a folder, screenshot, screen recording or stack moves to the Trash with everything in it, as a parked file does, and leaves the shelf; a link only leaves the shelf; a note or reminder stays on the shelf, as on any drag out [V]
+  serves: N6
+  sib:   none -- a file the Trash cannot take is not ruled
+  touches: D142 D93 D66 D36
+# the builder's reading of D142, put to the visionary as the recommended option and picked
+
+D144 2026-10-30 [V]
+  trig:  the Zoom and Meet screen-sharing scenarios stay red: they assert what Zoom and Meet viewers see, and no real viewer's evidence is at hand [V]
+  resp:  they are left as they are; the hidden-from-capture guarantee stands on the screen recording and system capture scenarios, which pass [V]
+  ->     fence-deferred share-viewer-evidence
+  serves: N9
+  touches: D108 D109 D110
+# ruled 2026-10-28 at the P6 close-out (R1, "left as is"); recorded in the docket 2026-10-30 when the audit found it only in the session journal
+
+D145 2026-10-30 [V]
+  trig:  the start-at-login scenarios relaunch the registered app after a quit, a crash or a stop, standing in for a real logout and login [V]
+  resp:  the one real logout and login check is left as it is; the login-item registration and relaunch scenarios carry D60 until then [V]
+  ->     fence-deferred real-logout-check
+  serves: N5
+  touches: D60 D86
+# ruled 2026-10-28 at the P6 close-out (Q1, "left as is"); recorded in the docket 2026-10-30 when the audit found it only in a binding's comment
+
+D146 2026-10-30 [V]
+  trig:  the external-monitor scenario runs while only the built-in display is connected, and refuses: it needs the monitor `PM161Q J` attached as an extended display [V]
+  resp:  it is left as it is until it can run with the monitor connected; the rest of D16 is carried by the built-in-notch scenarios [V]
+  ->     fence-deferred external-monitor-run
+  serves: N2 N5
+  touches: D16 D15
+# the visionary's answer of 2026-10-30: scenarios that need hardware not plugged in are recorded as deferred, like the share-viewer and real-logout checks
+
+D147 2026-10-31 [V]
+  pre:   Chrome is in front on the built-in screen, on macOS `27` [V]
+  trig:  the free gap between Chrome's Help menu and the notch is measured again [V]
+  resp:  the scenarios that put Chrome in front name the gap as macOS `27` leaves it, `139.5` points, in place of the `135` measured for D67; the wing's behaviour in that gap is unchanged [V]
+  serves: N1
+  sib:   none -- the right-hand gap of D67 is not named by any scenario
+  touches: D114 D67
+# measured 2026-10-30 on macOS 27.2: notch `185` wide from x `762.5`, Chrome's Help menu ends at x `623`, so `139.5` points free (Accessibility frames); the visionary picked "update to 139.5" over reading the gap live or allowing about 135; in that gap the shortened title reads "Champagne Sup…", one letter more than the "Champagne Su…" of D114, so the two scenarios that show it say so

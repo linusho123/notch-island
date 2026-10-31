@@ -38,10 +38,10 @@ async function assertUnregistered(app, identifier, env) {
   if (native === 'notFound') {
     // A never-registered sandboxed fixture has no service to find. Confirm
     // that against BTM's exact URL; disabled historical rows are tombstones.
-    const { fileURLToPath } = require('node:url');
-    const records = await require('./registry').items();
-    const live = records.some((item) => item.url?.startsWith('file:')
-      && fileURLToPath(item.url).replace(/\/$/, '') === fs.realpathSync(app)
+    const registry = require('./registry');
+    const records = await registry.items();
+    const live = records.some((item) => item.url
+      && registry.itemPath(item.url) === fs.realpathSync(app)
       && !/\[\s*disabled\b/.test(item.disposition || ''));
     assert.ok(!live, 'live registration: fixture URL is still registered');
     return;

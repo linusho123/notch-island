@@ -135,10 +135,22 @@ class Browser {
     this.cdp = cdp;
   }
 
-  /** Open `url` in a new tab in front, and attach to it. */
-  async open(url) {
-    const { targetId } = await this.cdp.send('Target.createTarget', { url });
-    return this.attach(targetId);
+  /**
+   * Open `url` in a new tab in front, and attach to it. With `bounds`
+   * ({left, top, width, height}) it opens in a window of its own there.
+   */
+  async open(url, { bounds } = {}) {
+    const { targetId } = await this.cdp.send('Target.createTarget', { url, ...(bounds ? { newWindow: true } : {}) });
+    const tab = await this.attach(targetId);
+    if (bounds) await this.place(tab, bounds);
+    return tab;
+  }
+
+  /** Put the window holding `tab` at `bounds`. */
+  async place(tab, bounds) {
+    const { windowId } = await this.cdp.send('Browser.getWindowForTarget', { targetId: tab.targetId });
+    await this.cdp.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'normal' } });
+    await this.cdp.send('Browser.setWindowBounds', { windowId, bounds });
   }
 
   async attach(targetId) {
@@ -238,13 +250,13 @@ async function companion(world) {
  * video or a soundcloud.com track, from `at` seconds); resolves to the tab
  * once its own media element plays with sound.
  */
-async function playInTab(world, title, at = 0) {
+async function playInTab(world, title, at = 0, { bounds } = {}) {
   const page = SITE_PAGES[title];
   if (!page) throw new Error(`no stand-in page plays ${title}`);
   const browser = await companion(world);
   let url = page();
   if (at > 0) url = url.includes('youtube') ? `${url}&t=${at}s` : `${url}#t=${Math.floor(at / 60)}:${String(at % 60).padStart(2, '0')}`;
-  const tab = await browser.open(url);
+  const tab = await browser.open(url, { bounds });
   await tab.waitMedia((m) => !m.paused && !m.muted && m.currentTime >= at && m.currentTime < at + 30, 20000,
     `the test Chrome does not play ${title}`);
   return tab;

@@ -157,6 +157,33 @@ Feature: Shelf captures and files
     Then the visionary sees "tax-return.pdf" in the Trash, no longer in Documents
     And the visionary sees "tax-return.pdf" gone from the shelf page
 
+  @D143
+  Scenario Outline: A parked <item> dropped on the Trash in the Dock moves to the Trash with everything in it
+    Given <item> is parked on the shelf, held in the Documents folder
+    When the visionary drags it out of the shelf and drops it on the Trash in the Dock
+    Then the visionary sees <trashed> in the Trash, no longer in Documents
+    And the visionary sees <gone> gone from the shelf page
+
+    Examples:
+      | item                                                   | trashed                                                | gone                                    |
+      | the folder "Taxes 2026", holding 4 files               | the folder "Taxes 2026" with all 4 files inside it     | the folder "Taxes 2026"                 |
+      | the screenshot "Screenshot 2026-10-18 at 10.15.02.png" | the screenshot "Screenshot 2026-10-18 at 10.15.02.png" | "Screenshot 2026-10-18 at 10.15.02.png" |
+      | a stack reading "3 screenshots"                        | all 3 screenshots of the stack                         | the stack                               |
+
+  @D143
+  Scenario: A parked link dropped on the Trash in the Dock only leaves the shelf
+    Given a link to "gov.uk/renew-adult-passport" is parked on the shelf
+    When the visionary drags it out of the shelf and drops it on the Trash in the Dock
+    Then the visionary sees the link gone from the shelf page
+    And the visionary sees nothing moved to the Trash
+
+  @D143
+  Scenario: A parked note dropped on the Trash in the Dock stays on the shelf
+    Given a note reading "renew passport before May" is parked on the shelf
+    When the visionary drags it out of the shelf and drops it on the Trash in the Dock
+    Then the visionary sees the note "renew passport before May" still on the shelf page, its text unchanged
+    And the visionary sees nothing moved to the Trash
+
   @D116
   Scenario: A parked file dropped on the Desktop leaves the shelf
     Given "tax-return.pdf" is parked on the shelf from the Documents folder

@@ -9,6 +9,7 @@
 #   build/island-harness            the harness's helper (never bundled)
 set -eu
 cd "$(dirname "$0")/.."
+. scripts/lib/sdk.sh
 VERSION=$(node -p "require('./package.json').version")
 
 # The apps are signed with one identity kept across builds, so macOS
@@ -42,7 +43,10 @@ clang -dynamiclib -fobjc-arc -O2 -framework Foundation \
   -o build/now-playing-adapter.dylib app/adapter/now-playing-adapter.m
 codesign --force --sign - build/now-playing-adapter.dylib >/dev/null
 
-swift build -c release --product NotchIsland --build-path .build/release-app
+# The native build system: it writes description.json, which the cost check
+# reads to prove the measured binary is an optimized release (the default
+# swiftbuild system, since the 2026-10-29 toolchain, writes none).
+swift build -c release --build-system native --product NotchIsland --build-path .build/release-app
 bundle .build/release-app build/apps.noindex/release local.notch-island "notch-island"
 
 swift build -c release --product NotchIsland --build-path .build/test-app -Xswiftc -DISLAND_TEST_INPUT

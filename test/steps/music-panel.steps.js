@@ -77,7 +77,9 @@ async function rest(w, ms) {
   const c = await harness.notchCenter();
   await harness.move(c.x, n.y + n.h + 150);
   await sleep(80);
-  await harness.glide(c.x, c.y, 10, 10);
+  // A mouse jumps in a few coarse hops; a trackpad glides finely.
+  if (w.mouse) await harness.glide(c.x, c.y, 2, 40);
+  else await harness.glide(c.x, c.y, 10, 10);
   w.arrivedAt = Date.now();
   if (ms) await sleep(ms);
   return pid;
@@ -256,6 +258,9 @@ async function pickQuit(w) {
   const menus = await harness.menus(w.island.pid);
   const quit = menus.flatMap((m) => m.items).find((i) => i.title === 'Quit');
   assert.ok(quit, 'the menu has no Quit');
+  // In-world control: the island is seen alive before the Quit takes effect,
+  // so its later absence is a change this world can show.
+  w.beforeQuit = { alive: procs.alive(w.island), running: island.runningIslands() };
   const c = center(quit.frame);
   await harness.glide(c.x, c.y, 5, 10);
   await harness.click(c.x, c.y);
@@ -407,6 +412,8 @@ module.exports = (reg) => {
   reg.define(/^an external mouse is connected and Apple Music is playing "Wonderwall"$/, async (w) => {
     // The harness posts mouse events: plain clicks and a wheel that turns in
     // notches, as an external mouse sends them (never a continuous scroll).
+    // The steps read w.mouse: the pointer moves in a few coarse hops (no
+    // fine glide) and the click is a plain down/up at the spot.
     w.mouse = true;
     await ensureIsland(w);
     await playing(w, 'Wonderwall', 30);
@@ -488,7 +495,9 @@ module.exports = (reg) => {
   reg.define(/^the visionary sweeps the pointer from Chrome's Help menu across the notch to the Wi-Fi icon without resting$/, async (w) => {
     const help = (await harness.menubar(w.chrome.pid)).find((i) => i.title === 'Help');
     assert.ok(help, "Chrome's menu bar shows no Help menu");
-    const wifi = (await harness.extras()).find((i) => /^Wi.?Fi/i.test(i.description || i.title || ''));
+    // On macOS 27 Wi-Fi is named by the labelled item inside its host view.
+    const wifi = (await harness.labelledExtras()).find((i) => /^Wi.?Fi/i.test(i.description || i.title || '')
+      || i.label?.identifier === 'com.apple.menuextra.wifi');
     assert.ok(wifi, 'the menu bar shows no Wi-Fi icon');
     const a = center(help.frame);
     const b = center(wifi.frame);
@@ -602,7 +611,10 @@ module.exports = (reg) => {
     const n = await notch();
     await harness.move(c.x, n.y + n.h + 150);
     await sleep(80);
-    const r = await harness.arriveAndClick(pid, c.x, c.y, 400);
+    // A mouse arrives in two coarse hops and clicks plainly at the spot.
+    const r = w.mouse
+      ? await harness.arriveAndClick(pid, c.x, c.y, 400, 2, 40)
+      : await harness.arriveAndClick(pid, c.x, c.y, 400);
     w.clickedAt = r.clickedAt;
     w.afterClick = r.samples.map((s) => ({ t: s.t, view: island.parse(s.windows, n) }));
   });
@@ -612,7 +624,8 @@ module.exports = (reg) => {
     assert.ok(view.panel, 'the island is not open');
     w.beforeScroll = view;
     const c = center(view.panel);
-    await harness.glide(c.x, c.y, 4, 8);
+    if (w.mouse) await harness.move(c.x, c.y); // one jump, no glide
+    else await harness.glide(c.x, c.y, 4, 8);
     await sleep(60);
     if (how.startsWith('turns')) await harness.scroll(-1, 'wheel');
     else await harness.scroll(-80, 'trackpad');
@@ -643,7 +656,7 @@ module.exports = (reg) => {
     // enabled; the registered app is then started as the login starts it.
     const item = await registry.enabledApp(testBundleID);
     assert.ok(item, 'macOS does not list the island as an enabled login item');
-    const app = decodeURIComponent(new URL(item.url).pathname);
+    const app = registry.itemPath(item.url);
     const binary = path.join(app, 'Contents', 'MacOS', 'NotchIsland');
     assert.ok(fs.existsSync(binary), `the registered login item points at ${app}, which holds no island`);
     await island.launch(w, binary);
@@ -673,11 +686,19 @@ module.exports = (reg) => {
     assert.ok(shown.every((b) => b.enabled), 'a button is greyed out');
   });
 
-  reg.define(/^the visionary sees the notch stay plain the whole way across, with nothing opening$/, (w) => {
+  reg.define(/^the visionary sees the notch stay plain the whole way across, with nothing opening$/, async (w) => {
     assert.ok(w.sweep.length > 20, 'the sweep was not watched');
     const opened = w.sweep.filter((s) => !island.isPlainNotch(s.view, w.sweepNotch));
     assert.equal(opened.length, 0,
       `the island drew something during the sweep, first with the pointer at x ${opened[0]?.pointer.x}: ${JSON.stringify(opened[0]?.view.frames)}`);
+    // In-world positive: after the sweep, a real rest on this notch opens the
+    // island, so the plain notch above was a sweep that did not open it, not
+    // an island that cannot open here.
+    await rest(w, RULED_REST_MS);
+    await island.until(async () => {
+      const v = await island.look(w.island.pid);
+      return v.panel ? v : null;
+    }, 3000, 'a rest on the notch after the sweep did not open the island: the sweep proved nothing');
   });
 
   reg.define(/^the visionary sees the island start opening at once, without waiting for a rest, then settle on the music page$/, async (w) => {
@@ -877,14 +898,18 @@ module.exports = (reg) => {
     const quit = titled[0];
     // Anything else the menu lists is no row of its own: untitled, greyed and
     // drawn in the Quit row's own place.
-    for (const other of menu.items.filter((i) => !i.title)) {
+    // A 0×0 item draws nothing (macOS 27 adds one above the first row).
+    for (const other of menu.items.filter((i) => !i.title && !(i.frame && (i.frame.w === 0 || i.frame.h === 0)))) {
       assert.equal(other.enabled, false, 'the menu has a second item that can be picked');
-      assert.ok(island.inside(other.frame, quit.frame), 'the menu has a second row');
+      assert.ok(island.inside(other.frame, quit.frame),
+        `the menu has a second row: ${JSON.stringify(other)} outside Quit at ${JSON.stringify(quit.frame)}`);
     }
     assert.ok(menu.frame.h < quit.frame.h * 2, 'the menu is taller than one item');
   });
 
   reg.define(/^the visionary sees the plain notch, with nothing opening$/, (w) => {
+    assert.ok(w.beforeQuit && w.beforeQuit.alive && w.beforeQuit.running.includes(w.island.pid),
+      'the island was not seen running before the Quit, so its absence proves nothing');
     assert.ok(w.afterQuit.length > 5, 'the notch was not watched');
     for (const s of w.afterQuit) {
       assert.deepEqual(s.running, [], 'the island is running again');
@@ -1088,6 +1113,17 @@ module.exports = (reg) => {
     assert.ok(safePtr.y < dockTop,
       `the pointer is at y ${safePtr.y}, inside the Dock area (top ${dockTop}): releasing here would drop the file on a Dock icon`);
     await harness.release();
+    // In-world control: the drag is over, so with the pointer far from the
+    // island it must now close. The same sampler must see 'closed', proving
+    // it can, and that the open samples above were held by the drag.
+    await harness.move(frame.x + frame.w / 2, frame.y + frame.h / 2);
+    let sawClosed = false;
+    for (let i = 0; i < 12 && !sawClosed; i++) {
+      const samples = await harness.watch(w.island.pid, 300, 40);
+      const nn = await notch();
+      sawClosed = samples.map((x) => island.parse(x.windows, nn)).some((v) => !v.open);
+    }
+    assert.ok(sawClosed, 'after the release and the pointer moving away, the sampler never saw the island close');
   });
   // The island's shape and motion (P3.5, D136-D140) --------------------------
   // Every Then reads the island's window frames as Accessibility and the
@@ -1267,7 +1303,10 @@ module.exports = (reg) => {
       `the island appeared at once: ${JSON.stringify(first.card)} at its first look, against ${JSON.stringify(final)} open`);
     // Out of the notch's own shape: the plain notch there, and the card's
     // first look starting right under it, not already down at its open place.
-    assert.ok(first.notchPart && first.notchPart.x === n.x && first.notchPart.w === n.w, 'the opening did not start from the notch itself');
+    // Within a point, as the closed-island checks: macOS 27 reports the notch
+    // at a half point (x 762.5) and the island's window reads back whole.
+    assert.ok(first.notchPart && Math.abs(first.notchPart.x - n.x) <= 1 && Math.abs(first.notchPart.w - n.w) <= 1,
+      `the opening did not start from the notch itself: ${JSON.stringify(first.notchPart)} against the notch ${JSON.stringify(n)}`);
     assert.ok(first.card.y < final.y - 0.5 || final.y - (n.y + n.h) < 1,
       `the card first appeared at y ${first.card.y}, already at its open place ${final.y}, not out of the notch`);
     const partway = seq.filter((s) => s.card && s.card.h < final.h - 2 && s.card.w < final.w - 2);

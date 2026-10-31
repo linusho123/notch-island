@@ -96,7 +96,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
           }
         #endif
         return CaptureWatcher.defaultScreenshotLocation()
-      }
+      },
+      locationSignals: CaptureWatcher.screenshotPreferences + TestInput.inputFiles
     )
     watcher.onCaptureParked = { [weak model] _ in
       DispatchQueue.main.async {

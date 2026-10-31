@@ -2,8 +2,9 @@
 import PackageDescription
 
 // notch-island builds with Swift Package Manager from the Command Line Tools;
-// there is no Xcode project. `scripts/build-app.sh` bundles and ad-hoc signs
-// the app (`npm run build:app`).
+// there is no Xcode project. `scripts/build-app.sh` bundles the app and signs
+// it with one local identity (`npm run build:app`); it builds against the SDK
+// `scripts/lib/sdk.sh` picks.
 //
 // ISLAND_TEST_INPUT: the test-only input the acceptance harness feeds (a
 // scratch data folder, an Apple Music that ignores a command) is compiled in

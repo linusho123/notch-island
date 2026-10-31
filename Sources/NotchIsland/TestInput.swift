@@ -116,6 +116,14 @@ enum TestInput {
       CommandLine.arguments.contains("--test-unregister-login-and-exit")
     }
 
+    /// The input file itself: a change to it may move the screenshot folder.
+    static var inputFiles: [URL] {
+      guard let path = ProcessInfo.processInfo.environment["NOTCH_ISLAND_TEST_INPUT"] else {
+        return []
+      }
+      return [URL(fileURLWithPath: path)]
+    }
+
     private static func read() -> [String: Any]? {
       guard let path = ProcessInfo.processInfo.environment["NOTCH_ISLAND_TEST_INPUT"],
         let data = try? Data(contentsOf: URL(fileURLWithPath: path))
@@ -133,6 +141,7 @@ enum TestInput {
     static let chromeSocket: String? = nil
     static var clockDate: Date? { nil }
     static var screenshotDirectory: URL? { nil }
+    static var inputFiles: [URL] { [] }
     static var seedShelf: [[String: Any]]? { nil }
     static var clearShelf: Bool { false }
     static func onChange(_ action: @escaping () -> Void) {}

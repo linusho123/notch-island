@@ -2,6 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { load } = require('./support/load-isolated');
+const { itemPath } = require('./support/registry');
 const root = '/repo';
 const dir = '/repo/build/apps.noindex/p6-cost-owned';
 const home = '/tmp/ni-cost-home-owned';
@@ -96,7 +97,7 @@ for (const state of ['notFound', 'enabled', 'requiresApproval']) test(`B1: ${sta
   const f = fixture({ status: state });
   f.stubs['./login-service'] = load('login-service.js', {
     './paths': { root }, 'node:fs': { realpathSync: (p) => p },
-    './registry': { items: async () => [] },
+    './registry': { itemPath, items: async () => [] },
     'node:child_process': { execFileSync: () => identifier,
       spawnSync: () => ({ status: 0, stdout: JSON.stringify({ bundleID: identifier, status: state }) }) },
   });
@@ -156,7 +157,7 @@ for (const state of ['requiresApproval', 'enabled', 'notFound', 'notRegistered']
     const calls = [];
     const service = load('login-service.js', {
       './paths': { root }, 'node:fs': { realpathSync: (p) => p },
-      './registry': { items: async () => [] },
+      './registry': { itemPath, items: async () => [] },
       'node:child_process': {
         execFileSync: () => identifier,
         spawnSync: (binary, args) => { calls.push([binary, ...args]); return {
@@ -174,7 +175,7 @@ for (const state of ['requiresApproval', 'enabled', 'notFound', 'notRegistered']
 test('M03: native unregister error cannot be hidden by an apparently absent status', async () => {
   const service = load('login-service.js', {
     './paths': { root }, 'node:fs': { realpathSync: (p) => p },
-      './registry': { items: async () => [] },
+      './registry': { itemPath, items: async () => [] },
     'node:child_process': { execFileSync: () => identifier,
       spawnSync: () => ({ status: 1, stderr: 'denied', stdout: JSON.stringify({ status: 'notRegistered', bundleID: identifier }) }) },
   });
@@ -190,7 +191,7 @@ for (const [record, allowed] of [
 ]) test(`B1: notFound cross-check ${JSON.stringify(record)}`, async () => {
   const service = load('login-service.js', {
     './paths': { root }, 'node:fs': { realpathSync: (p) => p },
-    './registry': { items: async () => record ? [record] : [] },
+    './registry': { itemPath, items: async () => record ? [record] : [] },
     'node:child_process': { execFileSync: () => identifier,
       spawnSync: () => ({ status: 0, stdout: JSON.stringify({ status: 'notFound', bundleID: identifier }) }) },
   });

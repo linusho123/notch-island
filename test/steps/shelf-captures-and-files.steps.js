@@ -454,9 +454,10 @@ module.exports = function (reg) {
     w.defer(async () => {
       await restore();
       const current = await harness.pasteboardSave();
+      // The order of types is the pasteboard's own, not part of the content.
       assert.deepEqual(
-        current.types,
-        beforeSave.types,
+        [...current.types].sort(),
+        [...beforeSave.types].sort(),
         `general pasteboard types were not restored after screencapture -c (was ${beforeSave.types.join(', ')}, now ${current.types.join(', ')})`
       );
     });
@@ -635,9 +636,25 @@ module.exports = function (reg) {
 
   reg.define(/^the visionary sees the shelf page still empty$/, async (w) => {
     await openOnShelfPage(w);
-    const view = await island.look(w.island.pid);
-    const items = view.elements.filter((e) => e.identifier === 'shelf-item');
-    assert.equal(items.length, 0, `the shelf is not empty, found ${items.length} items: ${view.texts.join(', ')}`);
+    // Hold the watch for longer than a real screenshot takes to land (the
+    // landing Then allows 2.5 s), so a slow landing would be seen here.
+    for (let i = 0; i < 6; i++) {
+      const view = await island.look(w.island.pid);
+      const items = view.elements.filter((e) => e.identifier === 'shelf-item');
+      assert.equal(items.length, 0, `the shelf is not empty, found ${items.length} items: ${view.texts.join(', ')}`);
+      await sleep(500);
+    }
+    // Control: a real saved screenshot, made as in "A new screenshot lands on
+    // the shelf by itself" into the same watched folder, does land. So the
+    // watcher was live, and the emptiness above was its refusal.
+    const control = 'Screenshot 2026-10-18 at 10.15.30.png';
+    execSync(`/usr/sbin/screencapture -x "${path.join(scratchDesktop(w), control)}"`);
+    await island.waitFor(
+      w.island.pid,
+      (v) => v.page === 'shelf' && v.texts.includes(control),
+      2500,
+      `the watcher never landed a real saved screenshot (${control}): it was not live, so the empty shelf proves nothing`
+    );
   });
 
   reg.define(/^the visionary sees (one stack reading "2 screenshots"|one stack reading "1 screenshot, 1 recording"|two separate screenshots|a screenshot and a separate recording)$/, async (w, shelf) => {
@@ -868,6 +885,26 @@ module.exports = function (reg) {
     assert.equal(items.length, 1, `expected 1 item on shelf, found ${items.length}: ${view.texts.join(', ')}`);
     assert.ok(view.texts.includes('tax-return.pdf'), 'tax-return.pdf missing from shelf');
     assert.ok(!view.texts.some((t) => t.includes('renew passport')), 'dropped text created a note');
+    // Control: a file dragged onto the notch the same way right after does
+    // land, so drops reach the island here and the text was refused by it.
+    const docs = scratchDocuments(w);
+    const control = path.join(docs, 'boarding-pass.pdf');
+    fs.writeFileSync(control, '%PDF-1.4 boarding pass content');
+    // Closed again first, as for the text: a drag that starts inside the open
+    // panel would begin on the island itself, not on the file.
+    await pointerAway();
+    await island.waitFor(w.island.pid, (v) => !v.open, 3000, 'island did not close before the control drop');
+    const { notch } = await harness.builtIn();
+    const nx = notch.x + notch.w / 2;
+    await harness.dragObject('file', control, nx, notch.y + 200, nx, notch.y + 10, false);
+    const after = await island.waitFor(
+      w.island.pid,
+      (v) => v.page === 'shelf' && v.texts.includes('boarding-pass.pdf'),
+      3000,
+      'a file dropped on the notch right after the text did not land: drops do not reach the island, so the refusal proves nothing'
+    );
+    assert.equal(after.elements.filter((e) => e.identifier === 'shelf-item').length, 2, `expected tax-return.pdf and the control file only: ${after.texts.join(', ')}`);
+    assert.ok(!after.texts.some((t) => t.includes('renew passport')), 'dropped text created a note');
   });
 
   reg.define(/^the visionary drags the stack into a Gmail draft in Chrome$/, async (w) => {
@@ -958,26 +995,54 @@ module.exports = function (reg) {
     assert.ok(!fs.existsSync(path.join(archive, name)), `${name} still in Archive`);
   });
 
-function countFinderTrashTaxReturn() {
-  const out = execSync("osascript -e 'tell application \"Finder\" to count (every item of trash whose name begins with \"tax-return\")'", {
-    encoding: 'utf8',
-    timeout: 5000,
-  }).trim();
-  const n = parseInt(out, 10);
-  if (Number.isNaN(n)) {
-    throw new Error(`countFinderTrashTaxReturn returned non-number: ${out}`);
+// Every name a scenario here parks and then trashes: the guard counts them all
+// in the visionary's real Trash, before and after.
+const TRASHED_NAME_PREFIXES = ['tax-return', 'Taxes 2026', 'Screenshot 2026-10-18', 'trash-control'];
+
+function countFinderTrash() {
+  let total = 0;
+  for (const prefix of TRASHED_NAME_PREFIXES) {
+    const out = execSync(`osascript -e 'tell application "Finder" to count (every item of trash whose name begins with "${prefix}")'`, {
+      encoding: 'utf8',
+      timeout: 5000,
+    }).trim();
+    const n = parseInt(out, 10);
+    if (Number.isNaN(n)) {
+      throw new Error(`countFinderTrash returned non-number for "${prefix}": ${out}`);
+    }
+    total += n;
   }
-  return n;
+  return total;
+}
+
+// The scratch volume's own Trash, where macOS puts what is trashed on it;
+// Finder's Trash leaves out a volume mounted out of sight.
+function volumeTrashDir(w) {
+  return path.join(path.dirname(scratchDocuments(w)), '.Trashes', String(process.getuid()));
+}
+
+function volumeTrashNames(w) {
+  const dir = volumeTrashDir(w);
+  return fs.existsSync(dir) ? fs.readdirSync(dir) : [];
 }
 
   reg.define(/^the visionary moves "tax-return\.pdf" to the Trash in Finder$/, async (w) => {
-    const beforeCount = countFinderTrashTaxReturn();
+    const beforeCount = countFinderTrash();
     const docs = scratchDocuments(w);
     const pdf = path.join(docs, 'tax-return.pdf');
+    // Control for the later absence: the shelf page shows the file now, so
+    // its going is the island's doing and not a page that never held it.
+    await openOnShelfPage(w);
+    await island.waitFor(
+      w.island.pid,
+      (v) => v.page === 'shelf' && v.texts.includes('tax-return.pdf'),
+      3000,
+      'the shelf page never showed tax-return.pdf before it was trashed'
+    );
     execSync(`osascript -e 'tell application "Finder" to delete POSIX file "${pdf}"'`);
     w.defer(() => {
       detachScratchDocuments(w);
-      const afterCount = countFinderTrashTaxReturn();
+      const afterCount = countFinderTrash();
       assert.equal(
         afterCount,
         beforeCount,
@@ -987,14 +1052,49 @@ function countFinderTrashTaxReturn() {
     await sleep(300);
   });
 
+  // D143: a folder, screenshot or stack parked from the scratch volume, so
+  // what the Trash takes lands in that volume's Trash and not the visionary's.
+  reg.define(/^(the folder "Taxes 2026", holding 4 files|the screenshot "Screenshot 2026-10-18 at 10\.15\.02\.png"|a stack reading "3 screenshots") is parked on the shelf, held in the Documents folder$/, async (w, item) => {
+    const docs = scratchDocuments(w);
+    let seed;
+    if (item.startsWith('the folder')) {
+      const folder = path.join(docs, 'Taxes 2026');
+      fs.mkdirSync(folder, { recursive: true });
+      for (let i = 1; i <= 4; i++) fs.writeFileSync(path.join(folder, `file${i}.pdf`), `%PDF tax doc ${i}`);
+      seed = [{ type: 'folder', path: folder, landedAt: new Date().toISOString() }];
+    } else if (item.startsWith('the screenshot')) {
+      const shot = path.join(docs, 'Screenshot 2026-10-18 at 10.15.02.png');
+      execSync(`/usr/sbin/screencapture -x "${shot}"`);
+      seed = [{ type: 'screenshot', path: shot, landedAt: new Date().toISOString() }];
+    } else {
+      const now = Date.now();
+      seed = [1, 2, 3].map((i) => {
+        const shot = path.join(docs, `Screenshot 2026-10-18 at 10.15.0${i}.png`);
+        execSync(`/usr/sbin/screencapture -x "${shot}"`);
+        return { type: 'screenshot', path: shot, landedAt: new Date(now - (3 - i) * 2000).toISOString() };
+      });
+    }
+    island.feed(w, { clearShelf: true, clockDate: null, seedShelf: seed });
+    await ensureIsland(w);
+  });
+
+  reg.define(/^a note reading "([^"]+)" is parked on the shelf$/, async (w, text) => {
+    island.feed(w, {
+      clearShelf: true,
+      clockDate: null,
+      seedShelf: [{ type: 'note', text, isReminder: false, landedAt: new Date().toISOString() }],
+    });
+    await ensureIsland(w);
+  });
+
   // D142: the real Dock's Trash, found through Accessibility. The file sits on
   // the scratch volume, so it lands in that volume's Trash, which goes when
   // the volume is detached: the visionary's own Trash is left as it was.
   reg.define(/^the visionary drags it out of the shelf and drops it on the Trash in the Dock$/, async (w) => {
-    w.trashBefore = countFinderTrashTaxReturn();
+    w.trashBefore = countFinderTrash();
     w.defer(() => {
       detachScratchDocuments(w);
-      const after = countFinderTrashTaxReturn();
+      const after = countFinderTrash();
       assert.equal(
         after,
         w.trashBefore,
@@ -1027,10 +1127,61 @@ function countFinderTrashTaxReturn() {
     const docs = scratchDocuments(w);
     // The volume's own Trash, where macOS puts a file trashed on it; Finder's
     // Trash leaves out a volume mounted out of sight, as the scratch one is.
-    const trash = path.join(path.dirname(docs), '.Trashes', String(process.getuid()));
-    const inTrash = () => fs.existsSync(trash) && fs.readdirSync(trash).some((n) => n.startsWith('tax-return'));
+    const trash = volumeTrashDir(w);
+    const inTrash = () => volumeTrashNames(w).some((n) => n.startsWith('tax-return'));
     await island.until(inTrash, 3000, `tax-return.pdf is not in the volume's Trash (${trash})`);
     assert.ok(!fs.existsSync(path.join(docs, 'tax-return.pdf')), 'tax-return.pdf still in Documents');
+  });
+
+  reg.define(/^the visionary sees (the folder "Taxes 2026" with all 4 files inside it|the screenshot "Screenshot 2026-10-18 at 10\.15\.02\.png"|all 3 screenshots of the stack) in the Trash, no longer in Documents$/, async (w, item) => {
+    const docs = scratchDocuments(w);
+    const trash = volumeTrashDir(w);
+    if (item.startsWith('the folder')) {
+      const inTrash = () => volumeTrashNames(w).includes('Taxes 2026');
+      await island.until(inTrash, 3000, `the folder is not in the volume's Trash (${trash})`);
+      const inside = fs.readdirSync(path.join(trash, 'Taxes 2026')).sort();
+      assert.deepEqual(inside, [1, 2, 3, 4].map((i) => `file${i}.pdf`), 'the folder did not move to the Trash with all 4 files inside it');
+      assert.ok(!fs.existsSync(path.join(docs, 'Taxes 2026')), 'Taxes 2026 still in Documents');
+    } else {
+      const names = item.startsWith('the screenshot')
+        ? ['Screenshot 2026-10-18 at 10.15.02.png']
+        : [1, 2, 3].map((i) => `Screenshot 2026-10-18 at 10.15.0${i}.png`);
+      await island.until(
+        () => names.every((n) => volumeTrashNames(w).some((t) => t.startsWith(n.replace(/\.png$/, '')))),
+        3000,
+        `${names.join(', ')} not all in the volume's Trash (${trash}): ${volumeTrashNames(w).join(', ')}`
+      );
+      for (const n of names) assert.ok(!fs.existsSync(path.join(docs, n)), `${n} still in Documents`);
+    }
+  });
+
+  reg.define(/^the visionary sees nothing moved to the Trash$/, async (w) => {
+    const trash = volumeTrashDir(w);
+    assert.deepEqual(volumeTrashNames(w), [], `the volume's Trash is not empty: ${volumeTrashNames(w).join(', ')}`);
+    assert.equal(countFinderTrash(), w.trashBefore, "the visionary's Trash changed");
+    // Control: Finder trashing a file on this same volume does show up where
+    // the checks above look, so an empty Trash there means nothing was moved.
+    const decoy = path.join(scratchDocuments(w), 'trash-control.txt');
+    fs.writeFileSync(decoy, 'control');
+    execSync(`osascript -e 'tell application "Finder" to delete POSIX file "${decoy}"'`);
+    await island.until(
+      () => volumeTrashNames(w).some((n) => n.startsWith('trash-control')),
+      3000,
+      `a file Finder trashed on the scratch volume never showed in ${trash}: the empty Trash proved nothing`
+    );
+  });
+
+  reg.define(/^the visionary sees the note "([^"]+)" still on the shelf page, its text unchanged$/, async (w, text) => {
+    await openOnShelfPage(w);
+    const view = await island.waitFor(
+      w.island.pid,
+      // A note's title is shown with a ✎ in front (display only).
+      (v) => v.elements.some((e) => e.identifier === 'shelf-item-title' && (e.value === text || e.value === `✎ ${text}`)),
+      3000,
+      `the note "${text}" is not on the shelf page`
+    );
+    assert.equal(view.elements.filter((e) => e.identifier === 'shelf-item').length, 1, `expected the one note: ${view.texts.join(', ')}`);
+    assert.ok(!view.elements.some((e) => e.identifier === 'edit-note-field'), 'the note was opened for editing');
   });
 
   reg.define(/^the visionary drags it out of the shelf onto the Desktop and Finder moves it there$/, async (w) => {

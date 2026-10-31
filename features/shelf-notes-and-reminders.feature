@@ -98,6 +98,7 @@ Feature: Shelf notes and reminders
   Scenario: A note and an open reminder stay on the shelf, quietly, for a week
     Given the note "idea: notch app shows lyrics" and the reminder "renew passport", its box empty, were put on the shelf 7 days ago
     And the island has stayed closed since
+    And a new song then starts in Apple Music and does bring a wing out of the closed island, which folds back
     When the visionary opens the shelf page
     Then the visionary sees the note and the reminder still on the shelf, the reminder's box still empty
     And the visionary saw no wings and no pop-out for the reminder in those 7 days

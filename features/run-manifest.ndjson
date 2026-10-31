@@ -55,7 +55,7 @@
 {"file":"music-panel.feature","title":"The island checked 0.1 seconds after it starts opening [1]","status":"passed"}
 {"file":"music-panel.feature","title":"The island checked 0.5 seconds after it starts closing [2]","status":"passed"}
 {"file":"music-panel.feature","title":"The island checked 0.6 seconds after it starts opening [2]","status":"passed"}
-{"file":"music-panel.feature","title":"The open island is a card below the menu bar, apart from the notch","status":"failed"}
+{"file":"music-panel.feature","title":"The open island is a card below the menu bar, apart from the notch","status":"passed"}
 {"file":"music-panel.feature","title":"The panel shows a downloaded file with no cover art and no artist","status":"passed"}
 {"file":"music-panel.feature","title":"The pointer leaving the open island for 0.2 seconds and back onto it [1]","status":"passed"}
 {"file":"music-panel.feature","title":"The pointer leaving the open island for 2 seconds [2]","status":"passed"}
@@ -88,9 +88,12 @@
 {"file":"music-sources.feature","title":"In Chrome, a muted hover preview on the YouTube home feed, left muted stays off the island [1]","status":"passed"}
 {"file":"music-sources.feature","title":"In Chrome, an autoplay clip with sound on a news site stays off the island [3]","status":"passed"}
 {"file":"music-sources.feature","title":"Music playing out through a Bluetooth speaker still counts","status":"passed"}
+{"file":"music-sources.feature","title":"Play after the visionary closed the soundcloud.com tab resumes the track \"late night mix\" at 8:20 [4]","status":"passed"}
 {"file":"music-sources.feature","title":"Play after the visionary closed the youtube.com tab resumes \"Lecture 4: Fourier Series\" at 12:34 [2]","status":"passed"}
 {"file":"music-sources.feature","title":"Play after the visionary quit Apple Music resumes \"Wonderwall\" at 2:10 [1]","status":"passed"}
 {"file":"music-sources.feature","title":"Play after the visionary quit IINA resumes the file \"rehearsal.mkv\" at 0:42:10 [3]","status":"passed"}
+{"file":"music-sources.feature","title":"Play after the visionary quit Music resumes the file \"demo-take-3.mp3\" at 1:20 [6]","status":"passed"}
+{"file":"music-sources.feature","title":"Play after the visionary quit QuickTime Player resumes the file \"holiday.mov\" at 1:05 [5]","status":"passed"}
 {"file":"music-sources.feature","title":"Quitting the only source leaves its last song paused and ready","status":"passed"}
 {"file":"music-sources.feature","title":"The flipped card's buttons control the other source","status":"passed"}
 {"file":"music-sources.feature","title":"The keyboard's play or pause key still works and the island follows [1]","status":"passed"}
@@ -117,13 +120,13 @@
 {"file":"new-song-notice.feature","title":"20 songs starting about a second apart keep the wing out [3]","status":"passed"}
 {"file":"new-song-notice.feature","title":"5 songs starting about a second apart keep the wing out [2]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in Apple Music brings the wing out within a second [1]","status":"passed"}
-{"file":"new-song-notice.feature","title":"A new song in Apple Music out through \"JBL Flip 5\" brings the wing out within a second [2]","status":"failed"}
+{"file":"new-song-notice.feature","title":"A new song in Apple Music out through \"JBL Flip 5\" brings the wing out within a second [2]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in IINA brings the wing out within a second [5]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in Music brings the wing out within a second [7]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in QuickTime Player brings the wing out within a second [6]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in a soundcloud.com tab in Chrome brings the wing out within a second [4]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in a youtube.com playlist in Chrome brings the wing out within a second [3]","status":"passed"}
-{"file":"new-song-notice.feature","title":"A new song in fullscreen pops no wing","status":"failed"}
+{"file":"new-song-notice.feature","title":"A new song in fullscreen pops no wing","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song slides a small wing out left of the notch","status":"passed"}
 {"file":"new-song-notice.feature","title":"Moving onto the notch while the wing is out opens the full panel","status":"passed"}
 {"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, art too wide [4]","status":"passed"}
@@ -145,11 +148,17 @@
 {"file":"shelf-captures-and-files.feature","title":"A capture 61 seconds after the previous one starts a new item [6]","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A new screen recording lands on the shelf by itself [2]","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A new screenshot lands on the shelf by itself [1]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked a stack reading \"3 screenshots\" dropped on the Trash in the Dock moves to the Trash with everything in it [3]","status":"failed"}
 {"file":"shelf-captures-and-files.feature","title":"A parked file dropped on the Desktop leaves the shelf","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked file dropped on the Trash in the Dock moves to the Trash","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A parked file moved to the Trash leaves the shelf","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A parked folder drags out whole","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked link dropped on the Trash in the Dock only leaves the shelf","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A parked link never ages off the shelf","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked note dropped on the Trash in the Dock stays on the shelf","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A parked stack of files drags out as a group","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked the folder \"Taxes 2026\", holding 4 files dropped on the Trash in the Dock moves to the Trash with everything in it [1]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked the screenshot \"Screenshot 2026-10-18 at 10.15.02.png\" dropped on the Trash in the Dock moves to the Trash with everything in it [2]","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A refused drop leaves the 2 GB screen recording \"bug-repro.mov\" on the shelf [1]","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A refused drop leaves the screenshot \"Screenshot 2026-10-18 at 10.15.02.png\" on the shelf [2]","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A screenshot copied only to the clipboard stays off the shelf [1]","status":"passed"}
@@ -200,7 +209,7 @@
 {"file":"shelf-notes-and-reminders.feature","title":"Dragging the note \"idea: notch app shows lyrics\" into a Messages chat drops its text and keeps it [1]","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"Dragging the reminder \"renew passport\" into a Messages chat drops its text and keeps it [2]","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"Editing a note's text saves the correction in place","status":"passed"}
-{"file":"shelf-notes-and-reminders.feature","title":"Emptying a note's text removes the note","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"Emptying a note's text removes the note","status":"failed"}
 {"file":"shelf-notes-and-reminders.feature","title":"Return on an empty note makes no note","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"The box beside a note makes it a reminder","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"The pencil beside a reminder turns it back into a plain note","status":"passed"}

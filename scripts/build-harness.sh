@@ -4,6 +4,7 @@
 # whose input guard runs from a private copy of it.
 set -eu
 cd "$(dirname "$0")/.."
+. scripts/lib/sdk.sh
 swift build -c release --product island-harness --build-path .build/harness
 mkdir -p build
 cp .build/harness/release/island-harness build/island-harness

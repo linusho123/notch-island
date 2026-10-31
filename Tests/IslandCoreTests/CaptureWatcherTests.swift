@@ -242,4 +242,31 @@ struct CaptureWatcherTests {
     #expect(items.count == 1)
     #expect(items.first?.title == "Screen Recording 2026-10-18 at 10.15.02.mov")
   }
+
+  @Test("A changed screenshot location is followed on the change, with no poll (D79)")
+  func locationFollowedOnItsSignal() throws {
+    let dir1 = makeTempDir()
+    let dir2 = makeTempDir()
+    let signals = makeTempDir()
+    defer {
+      for d in [dir1, dir2, signals] { try? FileManager.default.removeItem(at: d) }
+    }
+    let prefs = signals.appendingPathComponent("com.apple.screencapture.plist")
+    try Data("desktop".utf8).write(to: prefs)
+    final class Box: @unchecked Sendable {
+      var current: URL
+      init(_ u: URL) { current = u }
+    }
+    let box = Box(dir1)
+    let store = ShelfStore(directory: signals)
+    let watcher = CaptureWatcher(
+      directory: dir1, store: store, locationProvider: { box.current }, locationSignals: [prefs])
+    watcher.start()
+    defer { watcher.stop() }
+    box.current = dir2
+    try Data("moved".utf8).write(to: prefs, options: .atomic)
+    let deadline = Date().addingTimeInterval(2)
+    while watcher.directory != dir2 && Date() < deadline { Thread.sleep(forTimeInterval: 0.02) }
+    #expect(watcher.directory == dir2)
+  }
 }

@@ -19,13 +19,59 @@ function foreignOverNotch(windows, notch, screen) {
     && w.owner !== 'notch-island' && overlaps(w.frame, notch));
 }
 
+const CLOSE_LOGIN_BANNERS = `tell application "System Events" to tell process "NotificationCenter"
+  if (count windows) is 0 then return 0
+  set closed to 0
+  set lvl to {UI element 1 of window 1}
+  repeat 6 times
+    set nxt to {}
+    repeat with e in lvl
+      try
+        repeat with k in (UI elements of e)
+          if (subrole of k as text) is "AXNotificationCenterAlert" then
+            set t to (value of static texts of k) as text
+            if t contains "Login Item Added" and t contains "NotchIsland" then
+              repeat with act in (actions of k)
+                if name of act starts with "Name:Close" then
+                  perform act
+                  set closed to closed + 1
+                  exit repeat
+                end if
+              end repeat
+            end if
+          else
+            set end of nxt to k
+          end if
+        end repeat
+      end try
+    end repeat
+    set lvl to nxt
+  end repeat
+  return closed
+end tell`;
+
+function closeOwnLoginBanners() {
+  try {
+    execFileSync('osascript', ['-e', CLOSE_LOGIN_BANNERS], { encoding: 'utf8', timeout: 15000 });
+  } catch {}
+}
+
 function preflight() {
   require('./fixture-preflight').assertFixtureSession({ allowInstalled: true });
   const read = (...args) => JSON.parse(execFileSync(harness, args, { encoding: 'utf8' }));
   const { builtIn } = read('screen');
   if (!builtIn?.notch) throw new Error('BLOCKED: no built-in notch');
-  const windows = read('cgwindows').windows;
-  const foreign = foreignOverNotch(windows, builtIn.notch, builtIn.frame);
+  // A Notification Center banner lifts its full-screen host above the ruled
+  // layer. macOS's "Login Item Added" for NotchIsland stays until closed, and
+  // the suite itself causes it (each test island registers to start at
+  // login; cleanup unregisters it), so that one is closed; any other banner
+  // is waited out, up to 15 s, before it blocks.
+  let foreign = foreignOverNotch(read('cgwindows').windows, builtIn.notch, builtIn.frame);
+  if (foreign.length && foreign.every((w) => w.owner === 'Notification Center')) closeOwnLoginBanners();
+  for (let waited = 0; foreign.length && waited < 15000 && foreign.every((w) => w.owner === 'Notification Center'); waited += 500) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
+    foreign = foreignOverNotch(read('cgwindows').windows, builtIn.notch, builtIn.frame);
+  }
   if (foreign.length) {
     const details = foreign.map((w) => `${w.owner}, pid ${w.pid}, ${JSON.stringify(w.frame)}`).join('; ');
     throw new Error(`BLOCKED: foreign window over the notch (${details})`);

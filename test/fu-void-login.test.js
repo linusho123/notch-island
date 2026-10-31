@@ -24,7 +24,7 @@ if (process.argv.includes('--owner')) {
     await login.prepare(w);
     await procs.stop(w.island);
     const item = await require('./support/registry').enabledApp(w.login.identifier);
-    assert.equal(require('node:url').fileURLToPath(item.url).replace(/\/$/, ''), w.login.app);
+    assert.equal(require('./support/registry').itemPath(item.url), w.login.app);
     execFileSync('/usr/bin/open', ['-g', '-n', '--env', `NOTCH_ISLAND_TEST_INPUT=${w.login.input}`, w.login.app]);
     const end = Date.now() + 15000;
     while (!pids(w.login.binary).length && Date.now() < end) await procs.sleep(100);
