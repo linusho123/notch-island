@@ -19,7 +19,7 @@
 {"file":"around-the-clock.feature","title":"With the wing left of the notch for \"Champagne Supernova\" on screen while recording the screen, the played-back recording holds none of it [3]","status":"passed"}
 {"file":"music-panel.feature","title":"A pause Apple Music ignores leaves the pause button showing","status":"passed"}
 {"file":"music-panel.feature","title":"A seek Apple Music ignores leaves the progress dot where playback really is","status":"passed"}
-{"file":"music-panel.feature","title":"After Quit, the next login starts the island again","status":"passed"}
+{"file":"music-panel.feature","title":"After Quit, the next login starts the island again","status":"failed"}
 {"file":"music-panel.feature","title":"An island opened by a click closes as after a hover","status":"passed"}
 {"file":"music-panel.feature","title":"Back at 0:00 into Wonderwall plays \"Don't Look Back in Anger\" from the start [5]","status":"passed"}
 {"file":"music-panel.feature","title":"Back at 0:02 into Wonderwall plays \"Don't Look Back in Anger\" from the start [4]","status":"passed"}
@@ -38,15 +38,15 @@
 {"file":"music-panel.feature","title":"Moving the progress dot by clicking the bar's start to 0:00:00 jumps the concert file there [4]","status":"passed"}
 {"file":"music-panel.feature","title":"Moving the progress dot by dragging the dot back to 0:30:00 jumps the concert file there [3]","status":"passed"}
 {"file":"music-panel.feature","title":"Moving the progress dot by dragging the dot to 1:45:00 jumps the concert file there [1]","status":"passed"}
-{"file":"music-panel.feature","title":"Opening springs out of the notch and settles","status":"passed"}
+{"file":"music-panel.feature","title":"Opening springs out of the notch and settles","status":"failed"}
 {"file":"music-panel.feature","title":"Pause stops the music and becomes play","status":"passed"}
 {"file":"music-panel.feature","title":"Picking Quit stops the island","status":"passed"}
 {"file":"music-panel.feature","title":"Play on the last song starts it again","status":"passed"}
 {"file":"music-panel.feature","title":"Play resumes from the same spot","status":"passed"}
 {"file":"music-panel.feature","title":"Resting the pointer on the notch for 2 seconds opens the island [2]","status":"passed"}
-{"file":"music-panel.feature","title":"Resting the pointer on the notch for about 0.15 seconds opens the island [1]","status":"passed"}
+{"file":"music-panel.feature","title":"Resting the pointer on the notch for about 0.15 seconds opens the island [1]","status":"failed"}
 {"file":"music-panel.feature","title":"Resting the pointer on the notch opens the music panel","status":"passed"}
-{"file":"music-panel.feature","title":"Right-clicking the notch offers only Quit","status":"passed"}
+{"file":"music-panel.feature","title":"Right-clicking the notch offers only Quit","status":"failed"}
 {"file":"music-panel.feature","title":"Scrolling down reaches the shelf when no song has played since the island was installed [2]","status":"passed"}
 {"file":"music-panel.feature","title":"Scrolling down reaches the shelf when the last song played was \"Wonderwall\" [1]","status":"passed"}
 {"file":"music-panel.feature","title":"Skip plays the next song in the queue","status":"passed"}
@@ -55,7 +55,7 @@
 {"file":"music-panel.feature","title":"The island checked 0.1 seconds after it starts opening [1]","status":"passed"}
 {"file":"music-panel.feature","title":"The island checked 0.5 seconds after it starts closing [2]","status":"passed"}
 {"file":"music-panel.feature","title":"The island checked 0.6 seconds after it starts opening [2]","status":"passed"}
-{"file":"music-panel.feature","title":"The open island is a card below the menu bar, apart from the notch","status":"failed"}
+{"file":"music-panel.feature","title":"The open island is a card below the menu bar, apart from the notch","status":"passed"}
 {"file":"music-panel.feature","title":"The panel shows a downloaded file with no cover art and no artist","status":"passed"}
 {"file":"music-panel.feature","title":"The pointer leaving the open island for 0.2 seconds and back onto it [1]","status":"passed"}
 {"file":"music-panel.feature","title":"The pointer leaving the open island for 2 seconds [2]","status":"passed"}
@@ -88,9 +88,12 @@
 {"file":"music-sources.feature","title":"In Chrome, a muted hover preview on the YouTube home feed, left muted stays off the island [1]","status":"passed"}
 {"file":"music-sources.feature","title":"In Chrome, an autoplay clip with sound on a news site stays off the island [3]","status":"passed"}
 {"file":"music-sources.feature","title":"Music playing out through a Bluetooth speaker still counts","status":"passed"}
+{"file":"music-sources.feature","title":"Play after the visionary closed the soundcloud.com tab resumes the track \"late night mix\" at 8:20 [4]","status":"passed"}
 {"file":"music-sources.feature","title":"Play after the visionary closed the youtube.com tab resumes \"Lecture 4: Fourier Series\" at 12:34 [2]","status":"passed"}
 {"file":"music-sources.feature","title":"Play after the visionary quit Apple Music resumes \"Wonderwall\" at 2:10 [1]","status":"passed"}
 {"file":"music-sources.feature","title":"Play after the visionary quit IINA resumes the file \"rehearsal.mkv\" at 0:42:10 [3]","status":"passed"}
+{"file":"music-sources.feature","title":"Play after the visionary quit Music resumes the file \"demo-take-3.mp3\" at 1:20 [6]","status":"passed"}
+{"file":"music-sources.feature","title":"Play after the visionary quit QuickTime Player resumes the file \"holiday.mov\" at 1:05 [5]","status":"passed"}
 {"file":"music-sources.feature","title":"Quitting the only source leaves its last song paused and ready","status":"passed"}
 {"file":"music-sources.feature","title":"The flipped card's buttons control the other source","status":"passed"}
 {"file":"music-sources.feature","title":"The keyboard's play or pause key still works and the island follows [1]","status":"passed"}
@@ -103,8 +106,8 @@
 {"file":"music-sources.feature","title":"The source line reads SoundCloud [5]","status":"passed"}
 {"file":"music-sources.feature","title":"The source line reads YouTube [3]","status":"passed"}
 {"file":"music-sources.feature","title":"The source line reads YouTube · JBL Flip 5 [4]","status":"passed"}
-{"file":"music-sources.feature","title":"The visionary pauses from Control Center and the island follows [1]","status":"passed"}
-{"file":"music-sources.feature","title":"The visionary skips from Control Center and the island follows [2]","status":"passed"}
+{"file":"music-sources.feature","title":"The visionary pauses from Control Center and the island follows [1]","status":"failed"}
+{"file":"music-sources.feature","title":"The visionary skips from Control Center and the island follows [2]","status":"failed"}
 {"file":"music-sources.feature","title":"Unmuting a muted YouTube preview adds it to the card without popping the wing","status":"passed"}
 {"file":"music-sources.feature","title":"When the visionary closes the YouTube tab, the newest remaining source shows [2]","status":"passed"}
 {"file":"music-sources.feature","title":"When the visionary quits Apple Music, the newest remaining source shows [1]","status":"passed"}
@@ -113,25 +116,25 @@
 {"file":"music-sources.feature","title":"With Apple Music, QuickTime Player and a youtube.com tab in Chrome playing, the newest shows the count 1 of 3 [2]","status":"passed"}
 {"file":"music-sources.feature","title":"With nothing before it, back twice within the first 3 seconds on the island goes to Apple Music [2]","status":"passed"}
 {"file":"music-sources.feature","title":"With nothing next after it, skip on the island goes to QuickTime Player [1]","status":"passed"}
-{"file":"new-song-notice.feature","title":"2 songs starting about a second apart keep the wing out [1]","status":"passed"}
+{"file":"new-song-notice.feature","title":"2 songs starting about a second apart keep the wing out [1]","status":"failed"}
 {"file":"new-song-notice.feature","title":"20 songs starting about a second apart keep the wing out [3]","status":"passed"}
-{"file":"new-song-notice.feature","title":"5 songs starting about a second apart keep the wing out [2]","status":"passed"}
+{"file":"new-song-notice.feature","title":"5 songs starting about a second apart keep the wing out [2]","status":"failed"}
 {"file":"new-song-notice.feature","title":"A new song in Apple Music brings the wing out within a second [1]","status":"passed"}
-{"file":"new-song-notice.feature","title":"A new song in Apple Music out through \"JBL Flip 5\" brings the wing out within a second [2]","status":"failed"}
+{"file":"new-song-notice.feature","title":"A new song in Apple Music out through \"JBL Flip 5\" brings the wing out within a second [2]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in IINA brings the wing out within a second [5]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in Music brings the wing out within a second [7]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in QuickTime Player brings the wing out within a second [6]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in a soundcloud.com tab in Chrome brings the wing out within a second [4]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in a youtube.com playlist in Chrome brings the wing out within a second [3]","status":"passed"}
-{"file":"new-song-notice.feature","title":"A new song in fullscreen pops no wing","status":"failed"}
-{"file":"new-song-notice.feature","title":"A new song slides a small wing out left of the notch","status":"passed"}
+{"file":"new-song-notice.feature","title":"A new song in fullscreen pops no wing","status":"passed"}
+{"file":"new-song-notice.feature","title":"A new song slides a small wing out left of the notch","status":"failed"}
 {"file":"new-song-notice.feature","title":"Moving onto the notch while the wing is out opens the full panel","status":"passed"}
 {"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, art too wide [4]","status":"passed"}
-{"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, menus reach it [5]","status":"passed"}
+{"file":"new-song-notice.feature","title":"The new-song notice finds room: nothing, menus reach it [5]","status":"failed"}
 {"file":"new-song-notice.feature","title":"The new-song notice finds room: the art alone [3]","status":"passed"}
-{"file":"new-song-notice.feature","title":"The new-song notice finds room: the title shortened [2]","status":"passed"}
+{"file":"new-song-notice.feature","title":"The new-song notice finds room: the title shortened [2]","status":"failed"}
 {"file":"new-song-notice.feature","title":"The new-song notice finds room: the whole title [1]","status":"passed"}
-{"file":"new-song-notice.feature","title":"The wing slides out of the notch's left edge and back in","status":"passed"}
+{"file":"new-song-notice.feature","title":"The wing slides out of the notch's left edge and back in","status":"failed"}
 {"file":"new-song-notice.feature","title":"The wings checked 1 minute after a new song starts [4]","status":"passed"}
 {"file":"new-song-notice.feature","title":"The wings checked 1 second after a new song starts [1]","status":"passed"}
 {"file":"new-song-notice.feature","title":"The wings checked 3.5 seconds after a new song starts [2]","status":"passed"}
@@ -145,11 +148,17 @@
 {"file":"shelf-captures-and-files.feature","title":"A capture 61 seconds after the previous one starts a new item [6]","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A new screen recording lands on the shelf by itself [2]","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A new screenshot lands on the shelf by itself [1]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked a stack reading \"3 screenshots\" dropped on the Trash in the Dock moves to the Trash with everything in it [3]","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A parked file dropped on the Desktop leaves the shelf","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked file dropped on the Trash in the Dock moves to the Trash","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A parked file moved to the Trash leaves the shelf","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A parked folder drags out whole","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked link dropped on the Trash in the Dock only leaves the shelf","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A parked link never ages off the shelf","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked note dropped on the Trash in the Dock stays on the shelf","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A parked stack of files drags out as a group","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked the folder \"Taxes 2026\", holding 4 files dropped on the Trash in the Dock moves to the Trash with everything in it [1]","status":"passed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked the screenshot \"Screenshot 2026-10-18 at 10.15.02.png\" dropped on the Trash in the Dock moves to the Trash with everything in it [2]","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A refused drop leaves the 2 GB screen recording \"bug-repro.mov\" on the shelf [1]","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A refused drop leaves the screenshot \"Screenshot 2026-10-18 at 10.15.02.png\" on the shelf [2]","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A screenshot copied only to the clipboard stays off the shelf [1]","status":"passed"}
@@ -191,7 +200,7 @@
 {"file":"shelf-notes-and-reminders.feature","title":"+ note puts a short note on the shelf","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"A new note of 1 character keeps that 1 character [1]","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"A new note of 139 characters keeps all 139 characters [2]","status":"passed"}
-{"file":"shelf-notes-and-reminders.feature","title":"A new note of 140 characters keeps all 140 characters [3]","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"A new note of 140 characters keeps all 140 characters [3]","status":"failed"}
 {"file":"shelf-notes-and-reminders.feature","title":"A new note of 141 characters keeps only the first 140 characters [4]","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"A new note of 2000 characters keeps only the first 140 characters [5]","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"A note and an open reminder stay on the shelf, quietly, for a week","status":"passed"}
@@ -205,6 +214,6 @@
 {"file":"shelf-notes-and-reminders.feature","title":"The box beside a note makes it a reminder","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"The pencil beside a reminder turns it back into a plain note","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"Typing 1 more into a note of 130 characters leaves all 131 characters [1]","status":"passed"}
-{"file":"shelf-notes-and-reminders.feature","title":"Typing 10 more into a note of 130 characters leaves all 140 characters [2]","status":"passed"}
+{"file":"shelf-notes-and-reminders.feature","title":"Typing 10 more into a note of 130 characters leaves all 140 characters [2]","status":"failed"}
 {"file":"shelf-notes-and-reminders.feature","title":"Typing 11 more into a note of 130 characters leaves 140 characters, the typing stopped at the cap [3]","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"Typing 500 more into a note of 130 characters leaves 140 characters, the typing stopped at the cap [4]","status":"passed"}

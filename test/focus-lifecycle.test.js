@@ -159,7 +159,9 @@ test('M10 / R4: keyboard focus released when editing ends, page changes, or isla
   await island.waitFor(pid, (v) => !v.open, 2500, 'island did not close after the click outside');
   await assertFocusRestored();
   await harness.click(notch.x + notch.w / 2, notch.y + 10);
-  const reopened = await island.waitFor(pid, (v) => v.open, 2500, 'island did not reopen');
+  // Settled open, not a frame of the spring: the scroll aims at its middle.
+  const reopened = await island.waitFor(pid, (v) => v.open && v.panel && v.panel.w >= 455 && v.panel.h > 100, 2500,
+    'island did not reopen');
   await harness.glide(center(reopened.panel).x, center(reopened.panel).y, 4, 8);
   await sleep(60);
   await harness.scroll(-80, 'trackpad');

@@ -473,12 +473,12 @@ module.exports = (reg) => {
     await wonderwallClosed(w);
   });
 
-  reg.define(/^Chrome is in front, leaving 135 points free between its Help menu and the notch$/, async (w) => {
+  reg.define(/^Chrome is in front, leaving 139\.5 points free between its Help menu and the notch$/, async (w) => {
     await chromeInFront(w);
     const { gap, items } = await realGap();
     const help = items.length && (await harness.menubar(w.chrome.pid)).find((i) => i.title === 'Help');
     assert.ok(help, "Chrome's menu bar shows no Help menu");
-    assert.ok(Math.abs(gap - 135) <= 0.5, `Chrome in front leaves ${gap} points free left of the notch, not 135`);
+    assert.ok(Math.abs(gap - 139.5) <= 0.5, `Chrome in front leaves ${gap} points free left of the notch, not 139.5 (D147)`);
     await nearEnd(3);
   });
 
@@ -505,14 +505,14 @@ module.exports = (reg) => {
     await wingOutForChampagne(w);
   });
 
-  reg.define(/^the island is closed and the free gap left of the notch (is wider than the cover art and the whole title|is 135 points wide, as with Chrome in front|holds the cover art but no letters of the title|is too narrow for the cover art|is full of menus up to the notch)$/, async (w, left) => {
+  reg.define(/^the island is closed and the free gap left of the notch (is wider than the cover art and the whole title|is 139\.5 points wide, as with Chrome in front|holds the cover art but no letters of the title|is too narrow for the cover art|is full of menus up to the notch)$/, async (w, left) => {
     await ensureIsland(w);
     if (left.startsWith('is wider')) {
       await roomInFront(w);
-    } else if (left.startsWith('is 135')) {
+    } else if (left.startsWith('is 139.5')) {
       await chromeInFront(w);
       const { gap } = await realGap();
-      assert.ok(Math.abs(gap - 135) <= 0.5, `Chrome in front leaves ${gap} points free, not 135`);
+      assert.ok(Math.abs(gap - 139.5) <= 0.5, `Chrome in front leaves ${gap} points free, not 139.5 (D147)`);
     } else if (left.startsWith('holds')) {
       // An exact gap (test input): room for the art and less than one letter
       // and an ellipsis; the real menu bar in front leaves far more.
@@ -524,9 +524,12 @@ module.exports = (reg) => {
     } else {
       // A real menu bar full of menus up to the notch.
       await popControl(w, 'a menu bar full of menus');
-      await standInInFront(w, Array.from({ length: 40 }, (_, i) => `Menu ${i + 1}`));
+      // Short names: macOS 27 carries menus that do not fit on past the
+      // notch, so what is left beside it is less than one menu's width.
+      await standInInFront(w, Array.from({ length: 80 }, (_, i) => String.fromCharCode(65 + (i % 26)) + (i >= 26 ? String(Math.floor(i / 26)) : '')));
       const { gap } = await realGap();
-      assert.ok(gap < 20, `the stand-in's menus leave ${gap} points free left of the notch`);
+      const artRoom = 34; // the art alone: 2 margin + 6 + 20 + 6 (WingLayout)
+      assert.ok(gap < artRoom, `the stand-in's menus leave ${gap} points free left of the notch, room for the art`);
     }
     await wonderwallClosed(w);
   });
@@ -616,7 +619,7 @@ module.exports = (reg) => {
 
   // Thens ----------------------------------------------------------------
 
-  reg.define(/^the visionary sees the cover art and "(Champagne Su…|Champagne Supernova)" in a wing left of the notch$/, async (w, title) => {
+  reg.define(/^the visionary sees the cover art and "(Champagne Sup…|Champagne Su…|Champagne Supernova)" in a wing left of the notch$/, async (w, title) => {
     const view = await waitView(w, (v) => wingFullyOut(v) && v.wing.title === title, Math.max(500, w.started + 1500 - Date.now()),
       `no wing with "${title}" by 1.5 s after the song started`);
     assert.equal(view.wing.art.label, 'Cover art', `the wing shows ${view.wing.art.label}, not the cover art`);
@@ -720,8 +723,16 @@ module.exports = (reg) => {
     assert.ok(out.length && out.every((s) => wingOut(s.view)), 'the wing was not out through 3.8 s after the last song started');
     // The fold slides back into the notch in about 0.3 s after the 4 s are up (D139).
     const after = w.samples.filter((s) => s.t >= last + 4400);
-    assert.ok(after.length && after.every((s) => island.isPlainNotch(s.view, n)),
-      'the wing was still out 4.4 s after the last song started');
+    // The 4 s run from the island's own start of the last song, the first
+    // look with its title in the wing (this test's start is an estimate from
+    // Music's position, some hundreds of milliseconds off), plus the 0.3 s slide.
+    const name = w.songs[w.songs.length - 1].name;
+    const shown = w.samples.find((s) => s.t >= last && s.view.wing?.title && name.startsWith(s.view.wing.title.replace(/…$/, '')));
+    assert.ok(shown, `the wing never showed "${name}"`);
+    const folded = w.samples.filter((s) => s.t >= shown.t + 4400);
+    const lastOut = [...w.samples].reverse().find((s) => s.t >= shown.t && !island.isPlainNotch(s.view, n));
+    assert.ok(folded.length && folded.every((s) => island.isPlainNotch(s.view, n)),
+      `the wing was still out 4.4 s after it showed the last song (last seen out at ${lastOut ? ((lastOut.t - shown.t) / 1000).toFixed(2) : '?'} s)`);
   });
 
   reg.define(/^the visionary sees the island open downward into the full panel showing "Champagne Supernova"$/, async (w) => {
@@ -807,12 +818,12 @@ module.exports = (reg) => {
     assert.ok(ms >= 150 && ms <= 650, `the wing came to its full width ${Math.round(ms)} ms after it started out, not in about 0.4 s`);
   });
 
-  reg.define(/^the visionary sees the wing never reach past its 135-point gap, even mid-bounce$/, async (w) => {
+  reg.define(/^the visionary sees the wing never reach past its 139\.5-point gap, even mid-bounce$/, async (w) => {
     const { seq, out, g } = await wingMotion(w);
     const n = g.notch;
     // The gap as Chrome's own menu bar and the status items leave it.
     const { gap } = await realGap();
-    assert.ok(Math.abs(gap - 135) <= 0.5, `the free gap is ${gap} points, not 135`);
+    assert.ok(Math.abs(gap - 139.5) <= 0.5, `the free gap is ${gap} points, not 139.5`);
     const help = (await harness.menubar(w.chrome.pid)).find((i) => i.title === 'Help');
     for (const s of seq) {
       for (const f of s.all) {

@@ -132,7 +132,14 @@ async function controlCenterPid() {
 /** Use the Now Playing tile in Control Center, as the visionary would. */
 async function controlCenter(w, action) {
   const pid = await controlCenterPid();
-  await harness.h('press', pid, 'com.apple.menuextra.controlcenter');
+  // macOS 27 draws the Control Center icon in MenuBarAgent; the pane it
+  // opens is still Control Center's own.
+  await harness.h('press', pid, 'com.apple.menuextra.controlcenter').catch(async (e) => {
+    if (!/nothing named/.test(e.message)) throw e;
+    const agent = Number(require('node:child_process').execFileSync('pgrep', ['-x', 'MenuBarAgent'], { encoding: 'utf8' }).trim().split('\n')[0]);
+    assert.ok(agent, 'neither Control Center nor MenuBarAgent holds the Control Center icon');
+    await harness.h('press', agent, 'com.apple.menuextra.controlcenter');
+  });
   w.defer(() => harness.key(53).catch(() => {}));
   const label = action === 'pauses' ? 'pause' : 'next';
   // The tile shows Wonderwall playing (its pause button up), as the

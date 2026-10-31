@@ -28,7 +28,7 @@ function fixture({ bad = '', stage = 'before', menus = [help], extras = [], buil
     role: 'AXMenu', depth: 1, AXVisible: true, frame: { x: 580, y: 34, w: 200, h: 220 },
   }], windows: [] };
   const harness = {
-    builtIn: async () => builtIn, menubar: async () => menus, extras: async () => extras,
+    builtIn: async () => builtIn, menubar: async () => menus, extras: async () => extras, labelledExtras: async () => extras,
     windows: async () => ax(),
     h: async () => clicked ? opened : closed,
     watch: async () => Array.from({ length: 20 }, (_, t) => ({ t, windows: stage === 'watch' ?

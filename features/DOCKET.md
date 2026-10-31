@@ -1298,3 +1298,12 @@ D146 2026-10-30 [V]
   serves: N2 N5
   touches: D16 D15
 # the visionary's answer of 2026-10-30: scenarios that need hardware not plugged in are recorded as deferred, like the share-viewer and real-logout checks
+
+D147 2026-10-31 [V]
+  pre:   Chrome is in front on the built-in screen, on macOS `27` [V]
+  trig:  the free gap between Chrome's Help menu and the notch is measured again [V]
+  resp:  the scenarios that put Chrome in front name the gap as macOS `27` leaves it, `139.5` points, in place of the `135` measured for D67; the wing's behaviour in that gap is unchanged [V]
+  serves: N1
+  sib:   none -- the right-hand gap of D67 is not named by any scenario
+  touches: D114 D67
+# measured 2026-10-30 on macOS 27.2: notch `185` wide from x `762.5`, Chrome's Help menu ends at x `623`, so `139.5` points free (Accessibility frames); the visionary picked "update to 139.5" over reading the gap live or allowing about 135; in that gap the shortened title reads "Champagne Sup…", one letter more than the "Champagne Su…" of D114, so the two scenarios that show it say so

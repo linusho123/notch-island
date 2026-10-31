@@ -656,7 +656,7 @@ module.exports = (reg) => {
     // enabled; the registered app is then started as the login starts it.
     const item = await registry.enabledApp(testBundleID);
     assert.ok(item, 'macOS does not list the island as an enabled login item');
-    const app = decodeURIComponent(new URL(item.url).pathname);
+    const app = registry.itemPath(item.url);
     const binary = path.join(app, 'Contents', 'MacOS', 'NotchIsland');
     assert.ok(fs.existsSync(binary), `the registered login item points at ${app}, which holds no island`);
     await island.launch(w, binary);
@@ -898,9 +898,11 @@ module.exports = (reg) => {
     const quit = titled[0];
     // Anything else the menu lists is no row of its own: untitled, greyed and
     // drawn in the Quit row's own place.
-    for (const other of menu.items.filter((i) => !i.title)) {
+    // A 0×0 item draws nothing (macOS 27 adds one above the first row).
+    for (const other of menu.items.filter((i) => !i.title && !(i.frame && (i.frame.w === 0 || i.frame.h === 0)))) {
       assert.equal(other.enabled, false, 'the menu has a second item that can be picked');
-      assert.ok(island.inside(other.frame, quit.frame), 'the menu has a second row');
+      assert.ok(island.inside(other.frame, quit.frame),
+        `the menu has a second row: ${JSON.stringify(other)} outside Quit at ${JSON.stringify(quit.frame)}`);
     }
     assert.ok(menu.frame.h < quit.frame.h * 2, 'the menu is taller than one item');
   });
@@ -1301,7 +1303,10 @@ module.exports = (reg) => {
       `the island appeared at once: ${JSON.stringify(first.card)} at its first look, against ${JSON.stringify(final)} open`);
     // Out of the notch's own shape: the plain notch there, and the card's
     // first look starting right under it, not already down at its open place.
-    assert.ok(first.notchPart && first.notchPart.x === n.x && first.notchPart.w === n.w, 'the opening did not start from the notch itself');
+    // Within a point, as the closed-island checks: macOS 27 reports the notch
+    // at a half point (x 762.5) and the island's window reads back whole.
+    assert.ok(first.notchPart && Math.abs(first.notchPart.x - n.x) <= 1 && Math.abs(first.notchPart.w - n.w) <= 1,
+      `the opening did not start from the notch itself: ${JSON.stringify(first.notchPart)} against the notch ${JSON.stringify(n)}`);
     assert.ok(first.card.y < final.y - 0.5 || final.y - (n.y + n.h) < 1,
       `the card first appeared at y ${first.card.y}, already at its open place ${final.y}, not out of the notch`);
     const partway = seq.filter((s) => s.card && s.card.h < final.h - 2 && s.card.w < final.w - 2);

@@ -10,12 +10,12 @@ Feature: The new-song notice
   notch, even with an external monitor connected, and no wing pops while an
   app is fullscreen, so a fullscreen movie is never interrupted.
 
-  @D115 @D113
+  @D115 @D113 @D147
   Scenario: A new song slides a small wing out left of the notch
     Given the island is closed and Apple Music is near the end of "Wonderwall" with "Champagne Supernova" next
-    And Chrome is in front, leaving 135 points free between its Help menu and the notch
+    And Chrome is in front, leaving 139.5 points free between its Help menu and the notch
     When "Wonderwall" ends and "Champagne Supernova" starts
-    Then the visionary sees the cover art and "Champagne Su…" in a wing left of the notch
+    Then the visionary sees the cover art and "Champagne Sup…" in a wing left of the notch
     And the visionary sees nothing of the island right of the notch, and no playing indicator
 
   @D115
@@ -61,7 +61,7 @@ Feature: The new-song notice
       | 5     |
       | 20    |
 
-  @D114 @D113
+  @D114 @D113 @D147
   Scenario Outline: The new-song notice finds room: <where>
     Given the island is closed and the free gap left of the notch <left>
     When "Champagne Supernova" starts
@@ -72,7 +72,7 @@ Feature: The new-song notice
     Examples:
       | where                    | left                                                | shown                                                                          |
       | the whole title          | is wider than the cover art and the whole title     | the cover art and "Champagne Supernova" in a wing left of the notch           |
-      | the title shortened      | is 135 points wide, as with Chrome in front         | the cover art and "Champagne Su…" in a wing left of the notch                 |
+      | the title shortened      | is 139.5 points wide, as with Chrome in front       | the cover art and "Champagne Sup…" in a wing left of the notch                |
       | the art alone            | holds the cover art but no letters of the title     | the cover art alone in a wing left of the notch, with no title                |
       | nothing, art too wide    | is too narrow for the cover art                     | the plain notch, with no wing and no card below it                            |
       | nothing, menus reach it  | is full of menus up to the notch                    | the plain notch, with no wing and no card below it                            |
@@ -99,11 +99,11 @@ Feature: The new-song notice
     Then the visionary sees the notch area stay black, with no wing beside it
     And the visionary sees the movie play on, uninterrupted
 
-  @D139 @D138
+  @D139 @D138 @D147
   Scenario: The wing slides out of the notch's left edge and back in
     Given the island is closed and Apple Music is near the end of "Wonderwall" with "Champagne Supernova" next
-    And Chrome is in front, leaving 135 points free between its Help menu and the notch
+    And Chrome is in front, leaving 139.5 points free between its Help menu and the notch
     When "Wonderwall" ends and "Champagne Supernova" starts
     Then the visionary sees the wing grow leftward out of the notch's left edge over about 0.4 seconds rather than appear at once
-    And the visionary sees the wing never reach past its 135-point gap, even mid-bounce
+    And the visionary sees the wing never reach past its 139.5-point gap, even mid-bounce
     And the visionary sees the wing slide back into the notch's edge when it folds, rather than vanish
