@@ -101,6 +101,11 @@ Learned in the build (2026-10-30, macOS 27.2):
 - Chrome swaps a tab for a new one (a prerendered or discarded page) without reporting it closed, and suspends an extension's service worker after about 30 seconds idle; the extension drops tabs Chrome no longer has and wakes on an alarm.
 - Finder's Trash leaves out a volume mounted out of sight; the acceptance tests look in the scratch volume's own Trash.
 - The 27.2 SDK of the Command Line Tools lacks the SwiftUI macro plugin; the 26.5 SDK, installed beside it, builds.
+- macOS 27 draws its own status icons (Wi-Fi, Control Center, the clock) in a MenuBarAgent process as unlabelled host views, the labelled menu extra (`com.apple.menuextra.wifi` and so on) one level inside; their panes still open in Control Center, just below the menu bar.
+- macOS 27 carries an app's menus that do not fit left of the notch on past it, rather than hiding them; the notch's frame is at a half point (x `762.5`), and with Chrome in front `139.5` points are free left of it (D147).
+- macOS 27 lists a login item's location as a plain path with the home folder written by uid (`/Users/501/…`), not a `file://` URL.
+- Music asks, in a modal alert, whether to trash a track's file when a script deletes a library track whose file is in its media folder; the acceptance tests remove the file first.
+- The default SwiftPM build system of the 2026-10-29 toolchain writes no `description.json`; the release build uses the native one so the cost check can read its compiler flags.
 
 ## Changelog
 
@@ -127,3 +132,4 @@ Learned in the build (2026-10-30, macOS 27.2):
 - 2026-10-30 — D142, D143, D66: a shelf item dropped on the Trash in the Dock moves what it points at to the Trash (shelf constraint above, amended); the Dock reports that drop inconsistently, so where the drag ended decides. The remove area now lies inside the shelf page, where it had been pushed past its edge and cut off. [ruled: D142, D143]
 - 2026-10-30 — the cheap-at-rest principle, honoured again (D79): the capture watcher had checked the screenshot location once a second for as long as the island ran; it now follows the location on file-system events only. The principle's line above now names what runs on a clock while open or for a bounded moment. The rest line above records the ruled 0.15 s (D128, already logged at P1 tuning).
 - 2026-10-30 — toolchain: the Command Line Tools update of 2026-10-29 left a default SDK without the SwiftUI macro plugin; the build scripts pin the 26.5 SDK while it is the default. [chosen]
+- 2026-10-31 — D147 [V]: the Chrome gap measured again on macOS 27 (139.5 points, was 135); the three scenarios that name it say so. The acceptance tests caught up with macOS 27 and the new toolchain (platform facts above); the island's behaviour is unchanged. [ruled: D147]
