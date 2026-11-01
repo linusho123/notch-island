@@ -169,14 +169,17 @@ async function openOnMusicPage(w, deadline = null) {
 }
 
 /**
- * "At once" on a click (D74, D137): the opening starts within 200 ms of the
- * click, well before a rest would have, the part below the strip growing.
+ * "At once" on a click (D74, D137): the opening starts within 80 ms of the
+ * click. A rest opens it no sooner than about 120 ms after the pointer
+ * arrives (above), so a click the island ignored, opened by the hover alone,
+ * fails here; a click opens it in about 25 ms (measured 2026-11-01, six runs).
  */
 function assertOpeningStartedOnClick(w) {
   const first = w.afterClick.find((s) => s.view.open);
   assert.ok(first, 'the island did not start opening on the click');
   const ms = first.t - w.clickedAt;
-  assert.ok(ms < 200, `the island took ${Math.round(ms)} ms to start opening after the click, as long as a rest`);
+  console.log(`D74 click-to-open ${Math.round(ms)} ms`);
+  assert.ok(ms < 80, `the island took ${Math.round(ms)} ms to start opening after the click, as long as a rest`);
 }
 
 /** Rest on the notch and wait for the island to open, as a Given. */
@@ -721,6 +724,13 @@ module.exports = (reg) => {
       const closed = w.offSamples.filter((v) => !(v.open && v.page === 'music'));
       assert.equal(closed.length, 0, 'the island closed while the pointer was off it for a moment');
       await openOnMusicPage(w);
+      // In-world control: off for good this time, the same looks see the
+      // island close, so the open looks above were not looks that cannot
+      // see a close.
+      const p = (await island.look(w.island.pid)).panel;
+      await harness.glide(p.x + p.w / 2, p.y + p.h + 120, 4, 8);
+      await island.waitFor(w.island.pid, (v) => island.isPlainNotch(v, n), 2500,
+        'off the island for good, the looks never saw it close: the open looks proved nothing');
     } else {
       assert.ok(w.offSamples.some((v) => v.open), 'the island was never open while the pointer left it');
       const view = await island.look(w.island.pid);

@@ -1017,6 +1017,16 @@ function countFinderTrash() {
 
 // The scratch volume's own Trash, where macOS puts what is trashed on it;
 // Finder's Trash leaves out a volume mounted out of sight.
+/**
+ * Mid-drag, before letting go: the remove area shows only while a shelf item
+ * is being dragged (D66), so the drag really left the shelf and what follows
+ * the release speaks for a delivered drop.
+ */
+async function assertShelfDragInFlight(w) {
+  await island.waitFor(w.island.pid, (v) => v.elements.some((e) => e.identifier === 'remove-area'), 2000,
+    'mid-drag, no remove area showed: the drag never left the shelf, so what follows proves nothing');
+}
+
 function volumeTrashDir(w) {
   return path.join(path.dirname(scratchDocuments(w)), '.Trashes', String(process.getuid()));
 }
@@ -1091,6 +1101,9 @@ function volumeTrashNames(w) {
   // the scratch volume, so it lands in that volume's Trash, which goes when
   // the volume is detached: the visionary's own Trash is left as it was.
   reg.define(/^the visionary drags it out of the shelf and drops it on the Trash in the Dock$/, async (w) => {
+    // The scratch volume is there before the drop (a link or note has no file
+    // on it), so what its Trash holds afterwards speaks for the drop.
+    scratchDocuments(w);
     w.trashBefore = countFinderTrash();
     w.defer(() => {
       detachScratchDocuments(w);
@@ -1118,6 +1131,7 @@ function volumeTrashNames(w) {
     w.defer(() => harness.releaseIfHeld());
     await harness.drag(from.x, from.y, to.x, to.y, 40, 20, true);
     await sleep(800);
+    await assertShelfDragInFlight(w);
     await harness.release();
     // The island closes after its grace once the drag ends away from it.
     await island.waitFor(w.island.pid, (v) => !v.open, 3000, 'the island did not close after the drop');
@@ -1319,14 +1333,19 @@ function volumeTrashNames(w) {
     );
     const itemEl = view.elements.find((e) => e.identifier === 'shelf-item');
     const from = center(itemEl.frame);
+    let to;
     if (where.includes('Messages')) {
       w.standIn = await launchDropStandIn(w, { title: 'Messages', maxSize: 1073741824 });
-      const to = { x: w.standIn.window.x + w.standIn.window.w / 2, y: w.standIn.window.y + w.standIn.window.h / 2 };
-      await harness.drag(from.x, from.y, to.x, to.y, 20, 15, false);
+      to = { x: w.standIn.window.x + w.standIn.window.w / 2, y: w.standIn.window.y + w.standIn.window.h / 2 };
     } else {
       const { notch } = await harness.builtIn();
-      await harness.drag(from.x, from.y, notch.x - 50, 10, 20, 15, false);
+      to = { x: notch.x - 50, y: 10 };
     }
+    w.defer(() => harness.releaseIfHeld());
+    await harness.drag(from.x, from.y, to.x, to.y, 20, 15, true);
+    await sleep(300);
+    await assertShelfDragInFlight(w);
+    await harness.release();
     await sleep(300);
   });
 

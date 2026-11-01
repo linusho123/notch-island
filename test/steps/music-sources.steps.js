@@ -405,6 +405,15 @@ module.exports = (reg) => {
     await openIsland(w);
     await openOnMusicPage(w);
     await sourceLineReads(w, 'Apple Music');
+    // The wing control: in this same world a new song does bring the wing
+    // out where the looks above watched, so the plain notch there was no
+    // wing, not a wing the looks cannot see.
+    const n = (await harness.builtIn()).notch;
+    await pointerAway();
+    await island.waitFor(w.island.pid, (v) => island.isPlainNotch(v, n), 2500, 'the island did not close for the wing control');
+    await music.osa('tell application "Music" to next track');
+    await island.waitFor(w.island.pid, (v) => Boolean(v.wing && v.wing.art), 2500,
+      'a new song after the drop brought out no wing: the plain notch above proved nothing');
   });
 
   reg.define(/^the visionary sees the source line read "Apple Music", the speaker part gone$/, async (w) => {

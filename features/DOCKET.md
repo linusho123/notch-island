@@ -1307,3 +1307,8 @@ D147 2026-10-31 [V]
   sib:   none -- the right-hand gap of D67 is not named by any scenario
   touches: D114 D67
 # measured 2026-10-30 on macOS 27.2: notch `185` wide from x `762.5`, Chrome's Help menu ends at x `623`, so `139.5` points free (Accessibility frames); the visionary picked "update to 139.5" over reading the gap live or allowing about 135; in that gap the shortened title reads "Champagne Sup…", one letter more than the "Champagne Su…" of D114, so the two scenarios that show it say so
+
+D148 2026-11-01 [V] reaffirms D145
+  resp:  the real logout and login check stays deferred: macOS `27.2` changed how login items are listed (a plain path, the home folder written by uid), not how they start, so the reopening condition of D145 is not met [V]
+  touches: D145 D60 N5
+# the audit of 2026-10-31 sighted the resight condition "when macOS changes how login items start"; the visionary's answer of 2026-11-01: keep it deferred
