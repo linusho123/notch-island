@@ -177,7 +177,7 @@ test('M14: setup places the existing Chrome handle.browser on the built-in scree
   } };
   const driver = load('closed-menus.js', {
     './fixture-preflight': { assertFixtureSession() {} }, './procs': {},
-    './harness': { builtIn: async () => screen, activate: async (pid) => assert.equal(pid, handle.pid),
+    './harness': { builtIn: async () => screen, captureIndicatorGone: async () => true, activate: async (pid) => assert.equal(pid, handle.pid),
       frontmost: async () => handle, windows: async () => [{ frame }] },
     './island': { until: async (pred) => assert.ok(await pred()) }, './chrome': { launch: async () => handle },
     './login': { prepare: async () => {} }, './scenes': { plainNotch: async () => calls.push('plain') },

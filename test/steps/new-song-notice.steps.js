@@ -709,8 +709,11 @@ module.exports = (reg) => {
 
   reg.define(/^the visionary sees the title in the wing change with each new song$/, (w) => {
     w.songs.forEach((song, i) => {
-      const until = i + 1 < w.songs.length ? w.songs[i + 1].start + 250 : song.start + 1000;
-      const seen = w.samples.some((s) => s.t >= song.start && s.t <= until && s.view.wing?.title
+      // The starts are estimates from Music's position, some hundreds of
+      // milliseconds off the island's own (above); the title must match this
+      // song, so a wider window cannot take a neighbour's title for it.
+      const until = i + 1 < w.songs.length ? w.songs[i + 1].start + 750 : song.start + 1500;
+      const seen = w.samples.some((s) => s.t >= song.start - 500 && s.t <= until && s.view.wing?.title
         && song.name.startsWith(s.view.wing.title.replace(/…$/, '')));
       assert.ok(seen, `the wing never showed "${song.name}" (song ${i + 1} of ${w.songs.length})`);
     });

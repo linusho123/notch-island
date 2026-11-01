@@ -69,6 +69,18 @@ module.exports = {
   // macOS 27 lists its own status icons as unlabelled hosting views; the
   // labelled AXMenuExtra (identifier com.apple.menuextra.wifi and so on) sits
   // inside, in that process's windows. Each such item gets it as `label`.
+  // The suite's own screen captures leave macOS's capture indicator (the
+  // FaceTime menu extra) in the menu bar for a while after they end; a
+  // scenario about the menu bar as it is waits it out, up to 30 s.
+  captureIndicatorGone: async () => {
+    const end = Date.now() + 30000;
+    for (;;) {
+      const items = await module.exports.labelledExtras();
+      if (!items.some((i) => i.label?.identifier === 'com.apple.menuextra.faceTime')) return true;
+      if (Date.now() > end) return false;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  },
   labelledExtras: async () => {
     const items = (await h('extras')).items;
     const hosts = [...new Set(items.filter((i) => i.subrole === 'AXHostingView').map((i) => i.pid))];

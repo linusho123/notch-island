@@ -64,6 +64,7 @@ async function prepare(w) {
   // V1 owns a signed scratch fixture and a detached cleanup guardian.
   // Its explicit P5 pause keeps the installed observer out of fixture Music.
   await login.prepare(w);
+  await harness.captureIndicatorGone();
   w.chrome = await chrome.launch(w);
   const s = await harness.builtIn();
   const browser = w.chrome.browser;

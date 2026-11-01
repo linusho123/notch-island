@@ -68,6 +68,8 @@ function nearest(samples, t) {
  * new one: it counts its clicks. Returns its frame, from Accessibility.
  */
 async function statusStandIn(world, title = 'NI') {
+  // The suite's own capture indicator would take the room right of the notch.
+  await getHarness().captureIndicatorGone();
   // Asked for just right of the notch, where a panel wider than it would reach.
   const { notch: n, screen } = await geometry();
   const fromRight = screen.x + screen.w - (n.x + n.w + 6);
