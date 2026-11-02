@@ -79,7 +79,7 @@
 {"file":"music-sources.feature","title":"Flipping 1 times through three sources shows the IINA file as 2 of 3 [1]","status":"passed"}
 {"file":"music-sources.feature","title":"Flipping 1 times while IINA has no face shows the Apple Music song as 2 of 2 [1]","status":"passed"}
 {"file":"music-sources.feature","title":"Flipping 2 times through three sources shows the Apple Music song as 3 of 3 [2]","status":"passed"}
-{"file":"music-sources.feature","title":"Flipping 2 times while IINA has no face shows the YouTube video as 1 of 2 [2]","status":"passed"}
+{"file":"music-sources.feature","title":"Flipping 2 times while IINA has no face shows the YouTube video as 1 of 2 [2]","status":"failed"}
 {"file":"music-sources.feature","title":"Flipping 3 times through three sources shows the YouTube video as 1 of 3 [3]","status":"passed"}
 {"file":"music-sources.feature","title":"Flipping 3 times while IINA has no face shows the Apple Music song as 2 of 2 [3]","status":"passed"}
 {"file":"music-sources.feature","title":"Flipping 4 times through three sources shows the IINA file as 2 of 3 [4]","status":"passed"}
@@ -117,7 +117,7 @@
 {"file":"music-sources.feature","title":"With nothing before it, back twice within the first 3 seconds on the island goes to Apple Music [2]","status":"passed"}
 {"file":"music-sources.feature","title":"With nothing next after it, skip on the island goes to QuickTime Player [1]","status":"passed"}
 {"file":"new-song-notice.feature","title":"2 songs starting about a second apart keep the wing out [1]","status":"passed"}
-{"file":"new-song-notice.feature","title":"20 songs starting about a second apart keep the wing out [3]","status":"passed"}
+{"file":"new-song-notice.feature","title":"20 songs starting about a second apart keep the wing out [3]","status":"failed"}
 {"file":"new-song-notice.feature","title":"5 songs starting about a second apart keep the wing out [2]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in Apple Music brings the wing out within a second [1]","status":"passed"}
 {"file":"new-song-notice.feature","title":"A new song in Apple Music out through \"JBL Flip 5\" brings the wing out within a second [2]","status":"passed"}
@@ -148,7 +148,7 @@
 {"file":"shelf-captures-and-files.feature","title":"A capture 61 seconds after the previous one starts a new item [6]","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A new screen recording lands on the shelf by itself [2]","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A new screenshot lands on the shelf by itself [1]","status":"passed"}
-{"file":"shelf-captures-and-files.feature","title":"A parked a stack reading \"3 screenshots\" dropped on the Trash in the Dock moves to the Trash with everything in it [3]","status":"failed"}
+{"file":"shelf-captures-and-files.feature","title":"A parked a stack reading \"3 screenshots\" dropped on the Trash in the Dock moves to the Trash with everything in it [3]","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A parked file dropped on the Desktop leaves the shelf","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A parked file dropped on the Trash in the Dock moves to the Trash","status":"passed"}
 {"file":"shelf-captures-and-files.feature","title":"A parked file moved to the Trash leaves the shelf","status":"passed"}
@@ -209,7 +209,7 @@
 {"file":"shelf-notes-and-reminders.feature","title":"Dragging the note \"idea: notch app shows lyrics\" into a Messages chat drops its text and keeps it [1]","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"Dragging the reminder \"renew passport\" into a Messages chat drops its text and keeps it [2]","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"Editing a note's text saves the correction in place","status":"passed"}
-{"file":"shelf-notes-and-reminders.feature","title":"Emptying a note's text removes the note","status":"failed"}
+{"file":"shelf-notes-and-reminders.feature","title":"Emptying a note's text removes the note","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"Return on an empty note makes no note","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"The box beside a note makes it a reminder","status":"passed"}
 {"file":"shelf-notes-and-reminders.feature","title":"The pencil beside a reminder turns it back into a plain note","status":"passed"}
