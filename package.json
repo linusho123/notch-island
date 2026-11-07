@@ -12,7 +12,7 @@
     "scope": "node scripts/lint-features.js && node scripts/scope-check.js features/*.feature"
   },
   "devDependencies": {
-    "@bingh/docketry": "^0.1.0",
+    "@bingh/docketry": "^0.2.0",
     "gherkin-node-test": "^0.11.0"
   }
 }

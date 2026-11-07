@@ -16,7 +16,7 @@ if (!probe.some((f) => f.rule === "strict-tag")) {
 try {
   require.resolve("@bingh/docketry/package.json");
 } catch (e) {
-  console.error("docketry not installed — the docket is the fifth surface and its lint the fifth refusal: npm i -D @bingh/docketry@0.1.0");
+  console.error("docketry not installed — the docket is the fifth surface and its lint the fifth refusal: npm i -D @bingh/docketry@0.2.0");
   process.exit(1);
 }
 const files = process.argv.slice(2);
